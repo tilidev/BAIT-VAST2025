@@ -1,0 +1,5 @@
+fastapi==0.115.12
+uvicorn==0.34.0
+numpy==2.2.4
+pandas==2.2.3
+neo4j==5.28.1
