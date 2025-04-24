@@ -20,15 +20,17 @@ async def root():
     return HTMLResponse(content=html_content, status_code=200)
 
 # Just used for debugging
+
+
 @router.get("/clear-db", response_class=JSONResponse)
 async def clear_db():
-    
+
     with driver.session() as session:
         session.run("MATCH (n) DETACH DELETE n")
         print("Database cleared.")
-        
-    
+
     return {"success": True}
+
 
 @router.get("/populate-db")
 async def populate_db():
@@ -71,7 +73,8 @@ async def populate_db():
         print("Loaded Flight routes as relationships")
 
         return {"success": True}
-    
+
+
 @router.get("/airport-by-iata")
 async def retrieve_node_properties(iata: str, ft_to_meters: bool = True):
 
