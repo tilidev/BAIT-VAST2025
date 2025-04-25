@@ -29,12 +29,6 @@ export default function Home() {
 
     // Build graph
     const graph = Graph.from(data);
-    graph.updateEachNodeAttributes((node: string, attrs: any) => ({
-      ...attrs,
-      label: attrs.fullName,
-      x: attrs.longitude / 10,
-      y: attrs.latitude / 10,
-    }));
 
     // Cleanup old renderer
     rendererRef.current?.kill();
@@ -44,47 +38,30 @@ export default function Home() {
       defaultNodeColor: "#e22352",
       defaultEdgeColor: "#ffaeaf",
       minEdgeThickness: 1,
-      nodeReducer: (n, a) => ({ ...a, size: Math.sqrt(graph.degree(n)) + 2 }),
+      nodeReducer: (n, a) => ({ ...a, size: Math.sqrt(Math.sqrt(graph.degree(n))) + 1}),
     });
     renderer.getCamera().animatedReset();
 
     // Bind Leaflet background
     bindLeafletLayer(renderer, {
-      getNodeLatLng: (attrs: any) => ({ lat: attrs.latitude, lng: attrs.longitude }),
+      getNodeLatLng: (attrs: any) => ({ lat: attrs.lat, lng: attrs.lon }),
     });
 
     rendererRef.current = renderer;
   };
 
-  // Load default graph on mount
-  useEffect(() => {
-    const defaultData = {
-      attributes: { name: "Airport Graph" },
-      nodes: [
-        { key: "JFK", attributes: { fullName: "JFK Airport", latitude: 40.6413, longitude: -73.7781 } },
-        { key: "LAX", attributes: { fullName: "LAX Airport", latitude: 33.9416, longitude: -118.4085 } },
-        { key: "ORD", attributes: { fullName: "ORD Airport", latitude: 41.9742, longitude: -87.9073 } },
-      ],
-      edges: [
-        { source: "JFK", target: "LAX" },
-        { source: "LAX", target: "ORD" },
-        { source: "ORD", target: "JFK" },
-      ],
-      options: {},
-    };
-    initSigma(defaultData);
-    return () => rendererRef.current?.kill();
-  }, []);
-
   // Fetch and apply filters
   const handleApply = async () => {
     try {
-      const response = await fetch("/api/graph", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ region, country }),
+      const response = await fetch("/api/dummydata", {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
       });
       const newData = await response.json();
+      newData['nodes'].forEach(node => {
+        node.attributes.x = 0;
+        node.attributes.y = 0;        
+      });
       initSigma(newData);
     } catch (err) {
       console.error("Failed to fetch graph:", err);

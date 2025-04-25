@@ -91,8 +91,8 @@ async def retrieve_node_properties(iata: str, ft_to_meters: bool = True):
 
 @router.get("/dummydata")
 async def dummydata():
-    query_nodes = "Match (a:Airport {country: 'DE'}) RETURN a as airports"
-    query_relations = "MATCH(a1: Airport {country: 'DE'})-[r:FlightRoute] -> (a2: Airport {country: 'DE'}) LIMIT 5 RETURN r AS relations"
+    query_nodes = "Match (a:Airport) RETURN a as airports"
+    query_relations = "MATCH(a1: Airport)-[r:FlightRoute] -> (a2) RETURN r AS relations"
     nodes, summary, _ = driver.execute_query(query_nodes)
     relations, summary, _ = driver.execute_query(query_relations)
     return parse_neo4j_to_graphology(nodes, relations)
