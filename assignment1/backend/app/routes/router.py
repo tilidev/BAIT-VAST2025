@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, JSONResponse
 from db_utils import driver
+from data_utils import parse_neo4j_to_graphology
 
 router = APIRouter()
 
@@ -20,15 +21,17 @@ async def root():
     return HTMLResponse(content=html_content, status_code=200)
 
 # Just used for debugging
+
+
 @router.get("/clear-db", response_class=JSONResponse)
 async def clear_db():
-    
+
     with driver.session() as session:
         session.run("MATCH (n) DETACH DELETE n")
         print("Database cleared.")
-        
-    
+
     return {"success": True}
+
 
 @router.get("/populate-db")
 async def populate_db():
@@ -71,7 +74,8 @@ async def populate_db():
         print("Loaded Flight routes as relationships")
 
         return {"success": True}
-    
+
+
 @router.get("/airport-by-iata")
 async def retrieve_node_properties(iata: str, ft_to_meters: bool = True):
 
@@ -83,3 +87,12 @@ async def retrieve_node_properties(iata: str, ft_to_meters: bool = True):
 
     # TODO convert to meters (metric ftw)
     pass
+
+
+@router.get("/dummydata")
+async def dummydata():
+    query_nodes = "Match (a:Airport {country: 'DE'}) RETURN a as airports"
+    query_relations = "MATCH(a1: Airport {country: 'DE'})-[r:FlightRoute] -> (a2: Airport {country: 'DE'}) LIMIT 5 RETURN r AS relations"
+    nodes, summary, _ = driver.execute_query(query_nodes)
+    relations, summary, _ = driver.execute_query(query_relations)
+    return parse_neo4j_to_graphology(nodes, relations)
