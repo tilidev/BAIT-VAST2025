@@ -113,7 +113,7 @@ def airport_attrs():
 
 @router.post("/simple-filtered-graph")
 async def simple_filtered_graph(filters: SimpleFilterGraphRequest):
-    def query_builder_airport( where_clause): return f"MATCH (n1:Airport)-->(n2:Airport) {where_clause} RETURN n1 as airports"
+    def query_builder_airport( where_clause): return f"MATCH (n1:Airport)-->(n2:Airport) {where_clause} RETURN DISTINCT n1 as airports"
 
     def query_builder_route( where_clause): return f"MATCH (n1:Airport)-[r]->(n2:Airport) {where_clause} RETURN r as relations"
 
