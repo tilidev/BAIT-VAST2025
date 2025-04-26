@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, JSONResponse
 from db_utils import driver
 from data_utils import parse_neo4j_to_graphology
-from .models import FilterGraphRequest
+from .models import FilterGraphRequest, SimpleFilterGraphRequest
 
 router = APIRouter()
 
@@ -111,6 +111,30 @@ def airport_attrs():
     return prop_unique_values
 
 
-@router.get("/filtered-graph")
-async def filtered_graph(filters: FilterGraphRequest):
-    pass
+@router.post("/simple-filtered-graph")
+async def simple_filtered_graph(filters: SimpleFilterGraphRequest):
+    query_builder_airport = lambda where_clause: f"MATCH (n1:Airport)-->(n2:Airport) {where_clause} return n1 as airports"
+    query_builder_route = lambda where_clause: f"MATCH (n1:Airport)-[r]->(n2:Airport) {where_clause} return r as relations"
+
+    where_clause = "where "
+    for k, v in filters.__dict__.items():
+        if len(v) == 0: continue
+        where_clause += f"n1.{k} in {v} and n2.{k} in {v} and "
+    
+    where_clause = where_clause.removesuffix(" and ")
+
+    nodes, _, _ = driver.execute_query(query_builder_airport(where_clause))
+    relations, _, _ = driver.execute_query(query_builder_route(where_clause))
+    return parse_neo4j_to_graphology(nodes, relations)
+
+# @router.get("/filtered-graph")
+# async def filtered_graph(filters: FilterGraphRequest):
+#     if len(filters.countries_in) == 0:
+#         countries_in_filter = ""
+#     else:
+#         countries_in_filter = f"n.country in {filters.countries_in}"
+# 
+#     if len(filters.countries_out) == 0:
+#         countries_out_filter = ""
+#     else:
+#         countries_out_filter = "and n2.country in "
