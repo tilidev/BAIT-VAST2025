@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, JSONResponse
 from db_utils import driver
 from data_utils import parse_neo4j_to_graphology
+from .models import FilterGraphRequest
 
 router = APIRouter()
 
@@ -96,3 +97,20 @@ async def dummydata():
     nodes, summary, _ = driver.execute_query(query_nodes)
     relations, summary, _ = driver.execute_query(query_relations)
     return parse_neo4j_to_graphology(nodes, relations)
+
+
+@router.get("/airport_attributes")
+def airport_attrs():
+    keys = ["iata", "icao", "city", "region", "country", "continent"]
+    prop_unique_values = {}
+    for k in keys:
+        records = [rec[0] for rec in driver.execute_query(
+            f"MATCH (n:Airport) return distinct n.{k}",
+        )[0]]
+        prop_unique_values[k] = records
+    return prop_unique_values
+
+
+@router.get("/filtered-graph")
+async def filtered_graph(filters: FilterGraphRequest):
+    pass
