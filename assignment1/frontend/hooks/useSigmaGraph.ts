@@ -22,7 +22,21 @@ export const useSigmaGraph = (containerRef: React.RefObject<HTMLDivElement>) => 
       const Graph = (GraphModule as any).default || GraphModule;
       const bindLeafletLayer = leafletLayer.default;
 
-      const builtGraph = Graph.from(graph);
+      // Ensure all nodes have x and y coordinates for Sigma.js
+      const processedGraph = {
+        ...graph,
+        nodes: graph.nodes.map(node => ({
+          ...node,
+          attributes: {
+            ...node.attributes,
+            // Assign random coordinates if x or y are missing or not numbers
+            x: typeof node.attributes?.x === 'number' ? node.attributes.x : Math.random() * 1000,
+            y: typeof node.attributes?.y === 'number' ? node.attributes.y : Math.random() * 1000,
+          }
+        }))
+      };
+
+      const builtGraph = Graph.from(processedGraph); // Use processed graph data
 
       rendererRef.current?.kill();
 
@@ -47,4 +61,3 @@ export const useSigmaGraph = (containerRef: React.RefObject<HTMLDivElement>) => 
     };
   }, [graph, containerRef]);
 };
-
