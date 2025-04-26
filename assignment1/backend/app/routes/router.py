@@ -113,18 +113,24 @@ def airport_attrs():
 
 @router.post("/simple-filtered-graph")
 async def simple_filtered_graph(filters: SimpleFilterGraphRequest):
-    query_builder_airport = lambda where_clause: f"MATCH (n1:Airport)-->(n2:Airport) {where_clause} return n1 as airports"
-    query_builder_route = lambda where_clause: f"MATCH (n1:Airport)-[r]->(n2:Airport) {where_clause} return r as relations"
+    def query_builder_airport( where_clause): return f"MATCH (n1:Airport)-->(n2:Airport) {where_clause} RETURN n1 as airports"
 
-    where_clause = "where "
+    def query_builder_route( where_clause): return f"MATCH (n1:Airport)-[r]->(n2:Airport) {where_clause} RETURN r as relations"
+
+    conditions = []
     for k, v in filters.__dict__.items():
-        if len(v) == 0: continue
-        where_clause += f"n1.{k} in {v} and n2.{k} in {v} and "
-    
-    where_clause = where_clause.removesuffix(" and ")
+        if len(v) > 0:
+            formatted_values = [f"'{val}'" for val in v]
+            conditions.append(
+                f"n1.{k} IN [{', '.join(formatted_values)}] AND n2.{k} IN [{', '.join(formatted_values)}]")
+
+    where_clause = ""
+    if conditions:
+        where_clause = "WHERE " + " AND ".join(conditions)
 
     nodes, _, _ = driver.execute_query(query_builder_airport(where_clause))
     relations, _, _ = driver.execute_query(query_builder_route(where_clause))
+    print(f"Executing query with where clause: {where_clause}")
     return parse_neo4j_to_graphology(nodes, relations)
 
 # @router.get("/filtered-graph")
@@ -133,7 +139,7 @@ async def simple_filtered_graph(filters: SimpleFilterGraphRequest):
 #         countries_in_filter = ""
 #     else:
 #         countries_in_filter = f"n.country in {filters.countries_in}"
-# 
+#
 #     if len(filters.countries_out) == 0:
 #         countries_out_filter = ""
 #     else:
