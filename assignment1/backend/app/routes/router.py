@@ -116,9 +116,9 @@ async def simple_filtered_graph(filters: SimpleFilterGraphRequest):
     def query_builder_airport(where_clause):
         # Query to get distinct source (n1) and destination (n2) airports involved in filtered routes
         return f"""
-        MATCH (n1:Airport)-->(n2:Airport) {where_clause} RETURN DISTINCT n1 as airport
+        MATCH (n1:Airport)-->(n2:Airport) {where_clause} RETURN DISTINCT n1 as airports
         UNION
-        MATCH (n1:Airport)-->(n2:Airport) {where_clause} RETURN DISTINCT n2 as airport
+        MATCH (n1:Airport)-->(n2:Airport) {where_clause} RETURN DISTINCT n2 as airports
         """
 
     def query_builder_route( where_clause): return f"MATCH (n1:Airport)-[r]->(n2:Airport) {where_clause} RETURN r as relations"
@@ -134,7 +134,7 @@ async def simple_filtered_graph(filters: SimpleFilterGraphRequest):
     if conditions:
         where_clause = "WHERE " + " AND ".join(conditions)
 
-    nodes, _, _ = driver.execute_query(node_query)
+    nodes, _, _ = driver.execute_query(query_builder_airport(where_clause))
     relations, _, _ = driver.execute_query(query_builder_route(where_clause))
     print(f"Executing query with where clause: {where_clause}")
     return parse_neo4j_to_graphology(nodes, relations)
