@@ -128,8 +128,12 @@ async def simple_filtered_graph(filters: SimpleFilterGraphRequest, min: int = No
     for k, v in filters.__dict__.items():
         if len(v) > 0:
             formatted_values = [f"'{val}'" for val in v]
-            conditions.append(
-                f"n1.{k} IN [{', '.join(formatted_values)}] AND n2.{k} IN [{', '.join(formatted_values)}]")
+            if top_n:
+                conditions.append(
+                    f"n1.{k} IN [{', '.join(formatted_values)}]")
+            else:
+                conditions.append(
+                    f"n1.{k} IN [{', '.join(formatted_values)}] AND n2.{k} IN [{', '.join(formatted_values)}]")
 
     where_clause = ""
     if conditions:
@@ -138,9 +142,32 @@ async def simple_filtered_graph(filters: SimpleFilterGraphRequest, min: int = No
             where_clause += f" AND {min} <= count {{(n1)--()}} <= {max} "
     if min is not None and max is not None:
         where_clause = f"WHERE {min} <= count {{(n1)--()}} <= {max} "
-        
+    
+    if top_n:
+        return top_n_airports(top_n, where_clause)
 
     nodes, _, _ = driver.execute_query(query_builder_airport(where_clause))
     relations, _, _ = driver.execute_query(query_builder_route(where_clause))
     print(f"Executing query with where clause: {where_clause}")
     return parse_neo4j_to_graphology(nodes, relations)
+
+
+def top_n_airports(top_n: int, where_clause: str):
+    q_rels = f"""CALL {{
+        MATCH (n1:Airport)
+        WITH n1
+        {where_clause}
+        ORDER BY count {{ (n1)-->() }} DESC
+        LIMIT {top_n}
+        RETURN collect(n1) AS airports
+        }}
+        UNWIND airports AS a
+        MATCH (a)-[r]->(b)
+        WHERE b IN airports
+        RETURN
+        distinct
+        """
+
+    nodes = driver.execute_query(q_rels + "a as airports")[0]
+    rels = driver.execute_query(q_rels + "r as relations")[0]
+    return parse_neo4j_to_graphology(nodes, rels)
