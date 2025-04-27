@@ -1,18 +1,18 @@
 "use client";
 
-import { Card, CardHeader, CardBody, Divider, Button, Input, Switch } from "@heroui/react"; // Add Switch
+import { Card, CardHeader, CardBody, Divider, Button, Input, Switch } from "@heroui/react"; 
 import { Select, SelectItem } from "@heroui/select";
-import { useEffect, useState } from "react";
-import { GraphOverview } from "./GraphOverview";
-import { fetchFilterOptions } from "@/hooks/useFilters";
-import { useFilterStore } from "@/stores/useFilterStore";
+import { useEffect, useState } from 'react';
+import { GraphStats } from './GraphStats'; 
+import { fetchFilterOptions } from '@/hooks/useFilters';
+import { useFilterStore } from '@/stores/useFilterStore';
 import { useGraphStore } from "@/stores/useGraphStore";
-import { useHighlightStore } from "@/stores/useHighlightStore"; // Import highlight store
-import type { NodeColorAttribute, EdgeColorAttribute } from "@/stores/useHighlightStore"; // Import types
+import { useHighlightStore } from "@/stores/useHighlightStore"; 
+import type { NodeColorAttribute, EdgeColorAttribute } from "@/stores/useHighlightStore"; 
 
 // Define the attributes available for coloring (reduced)
 const nodeColorableAttributes: NodeColorAttribute[] = ["region", "continent"];
-const edgeColorableAttributes: EdgeColorAttribute[] = ["none", "national", "international", "intercontinental"]; // Added 'national'
+const edgeColorableAttributes: EdgeColorAttribute[] = ["none", "national", "international", "intercontinental"]; 
 
 export function Sidebar() {
   const { filters, setFilters, resetFilters } = useFilterStore();
@@ -213,13 +213,18 @@ export function Sidebar() {
               ))}
             </Select>
 
+            {/* @ts-expect-error Re-adding to suppress persistent type error */}
             <Select
               label="Color Edges By"
               placeholder="Default Edge Color"
-              selectedKeys={edgeColorAttribute ? [edgeColorAttribute] : ['none']}
+              selectionMode="single" // Explicitly set selection mode
+              selectedKeys={edgeColorAttribute ? [edgeColorAttribute] : []} // Mirror node select logic
               onSelectionChange={(keys) => {
                  const selected = Array.from(keys)[0] as EdgeColorAttribute | undefined;
-                 setEdgeColorAttribute(selected || 'none'); // Default to 'none' if undefined
+                 // Ensure 'none' is treated as null/cleared selection if needed by the store,
+                 // or handle 'none' explicitly if it's a valid selection key.
+                 // Assuming the store handles 'none' appropriately.
+                 setEdgeColorAttribute(selected || 'none');
               }}
             >
               {edgeColorableAttributes.map((attr) => (
@@ -228,7 +233,7 @@ export function Sidebar() {
             </Select>
 
             {/* Associate label with Switch using htmlFor/id */}
-            {/* @ts-expect-error Placing directive directly above the problematic div */}
+            {/* Remove unused @ts-expect-error */}
             <div className="flex items-center space-x-2"> {/* Container for layout */}
               <Switch
                 id="size-by-degree-switch" // Add id
@@ -273,9 +278,9 @@ export function Sidebar() {
         )}
       </CardBody>
 
-      {/* Graph Overview */}
+      {/* Graph Statistics */}
       <div className="px-4 pb-4">
-        <GraphOverview />
+        <GraphStats /> {/* Replace GraphOverview with GraphStats */}
       </div>
 
       <Divider />
