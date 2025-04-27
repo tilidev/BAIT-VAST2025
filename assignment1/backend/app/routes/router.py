@@ -112,9 +112,10 @@ def airport_attrs():
 
 
 @router.post("/simple-filtered-graph")
-async def simple_filtered_graph(filters: SimpleFilterGraphRequest):
+async def simple_filtered_graph(filters: SimpleFilterGraphRequest, min: int = None, max: int = None, top_n: int = None):
     def query_builder_airport(where_clause):
         # Query to get distinct source (n1) and destination (n2) airports involved in filtered routes
+
         return f"""
         MATCH (n1:Airport)-->(n2:Airport) {where_clause} RETURN DISTINCT n1 as airports
         UNION
@@ -133,20 +134,13 @@ async def simple_filtered_graph(filters: SimpleFilterGraphRequest):
     where_clause = ""
     if conditions:
         where_clause = "WHERE " + " AND ".join(conditions)
+        if min is not None and max is not None:
+            where_clause += f" AND {min} <= count {{(n1)--()}} <= {max} "
+    if min is not None and max is not None:
+        where_clause = f"WHERE {min} <= count {{(n1)--()}} <= {max} "
+        
 
     nodes, _, _ = driver.execute_query(query_builder_airport(where_clause))
     relations, _, _ = driver.execute_query(query_builder_route(where_clause))
     print(f"Executing query with where clause: {where_clause}")
     return parse_neo4j_to_graphology(nodes, relations)
-
-# @router.get("/filtered-graph")
-# async def filtered_graph(filters: FilterGraphRequest):
-#     if len(filters.countries_in) == 0:
-#         countries_in_filter = ""
-#     else:
-#         countries_in_filter = f"n.country in {filters.countries_in}"
-#
-#     if len(filters.countries_out) == 0:
-#         countries_out_filter = ""
-#     else:
-#         countries_out_filter = "and n2.country in "
