@@ -3,6 +3,7 @@
 import { Card, CardHeader, CardBody, Divider, Button } from "@heroui/react";
 import { Select, SelectItem } from "@heroui/select";
 import { useEffect, useState } from "react";
+import { GraphOverview } from "./GraphOverview";
 import { fetchFilterOptions } from "@/hooks/useFilters";
 import { useFilterStore } from "@/stores/useFilterStore";
 import { useGraphStore } from "@/stores/useGraphStore";
@@ -104,12 +105,18 @@ export function Sidebar() {
           <div>Loading filters...</div>
         )}
       </CardBody>
+
+      {/* Add the GraphOverview component here */}
+      <div className="px-4 pb-4"> {/* Add some padding */}
+        <GraphOverview />
+      </div>
+
       <Divider />
       <div className="p-4 flex flex-col space-y-2">
         <Button onPress={handleApplyFilters} className="w-full" color="primary" isLoading={loading}>
           Apply Filters
         </Button>
-        <Button onPress={resetFilters} className="w-full" variant="outline">
+        <Button onPress={resetFilters} className="w-full" variant="bordered">
           Reset Filters
         </Button>
       </div>
