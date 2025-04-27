@@ -140,11 +140,12 @@ async def simple_filtered_graph(filters: SimpleFilterGraphRequest, min: int = No
         where_clause = "WHERE " + " AND ".join(conditions)
         if min is not None and max is not None:
             where_clause += f" AND {min} <= count {{(n1)--()}} <= {max} "
-    if min is not None and max is not None:
-        where_clause = f"WHERE {min} <= count {{(n1)--()}} <= {max} "
     
     if top_n:
         return top_n_airports(top_n, where_clause)
+
+    if min is not None and max is not None:
+        where_clause = f"WHERE {min} <= count {{(n1)--()}} <= {max} "
 
     nodes, _, _ = driver.execute_query(query_builder_airport(where_clause))
     relations, _, _ = driver.execute_query(query_builder_route(where_clause))
