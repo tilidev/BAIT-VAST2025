@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, JSONResponse
 from db_utils import driver
 from data_utils import parse_neo4j_to_graphology
+from .models import FilterGraphRequest, SimpleFilterGraphRequest
 
 router = APIRouter()
 
@@ -91,8 +92,113 @@ async def retrieve_node_properties(iata: str, ft_to_meters: bool = True):
 
 @router.get("/dummydata")
 async def dummydata():
-    query_nodes = "Match (a:Airport {country: 'DE'}) RETURN a as airports"
-    query_relations = "MATCH(a1: Airport {country: 'DE'})-[r:FlightRoute] -> (a2: Airport {country: 'DE'}) LIMIT 5 RETURN r AS relations"
+    query_nodes = "Match (a:Airport) RETURN a as airports"
+    query_relations = "MATCH(a1: Airport)-[r:FlightRoute] -> (a2) RETURN r AS relations"
     nodes, summary, _ = driver.execute_query(query_nodes)
     relations, summary, _ = driver.execute_query(query_relations)
     return parse_neo4j_to_graphology(nodes, relations)
+
+
+@router.get("/airport_attributes")
+def airport_attrs():
+    keys = ["iata", "icao", "city", "region", "country", "continent"]
+    prop_unique_values = {}
+    for k in keys:
+        records = [rec[0] for rec in driver.execute_query(
+            f"MATCH (n:Airport) return distinct n.{k}",
+        )[0]]
+        prop_unique_values[k] = records
+    return prop_unique_values
+
+
+@router.post("/simple-filtered-graph")
+async def simple_filtered_graph(
+    filters: SimpleFilterGraphRequest,
+    min: int | None = None,
+    max: int | None = None,
+    min_runways: int | None = None,
+    max_runways: int | None = None,
+    top_n: int | None = None
+):
+    def query_builder_airport(where_clause):
+        # Query to get distinct source (n1) and destination (n2) airports involved in filtered routes
+
+        return f"""
+        MATCH (n1:Airport)-->(n2:Airport) {where_clause} RETURN DISTINCT n1 as airports
+        UNION
+        MATCH (n1:Airport)-->(n2:Airport) {where_clause} RETURN DISTINCT n2 as airports
+        """
+
+    def query_builder_route( where_clause): return f"MATCH (n1:Airport)-[r]->(n2:Airport) {where_clause} RETURN r as relations"
+
+    conditions = []
+    for k, v in filters.__dict__.items():
+        if len(v) > 0:
+            formatted_values = [f"'{val}'" for val in v]
+            if top_n:
+                conditions.append(
+                    f"n1.{k} IN [{', '.join(formatted_values)}]")
+            else:
+                conditions.append(
+                    f"n1.{k} IN [{', '.join(formatted_values)}] AND n2.{k} IN [{', '.join(formatted_values)}]")
+
+    # Build WHERE clause
+    where_conditions = []
+    if conditions:
+        where_conditions.append(" AND ".join(conditions))
+
+    # Add degree filters
+    if min is not None:
+        where_conditions.append(f"count{{(n1)--()}} >= {min}")
+    if max is not None:
+        where_conditions.append(f"count{{(n1)--()}} <= {max}")
+
+    # Add runway filters (apply to both nodes unless top_n)
+    if min_runways is not None:
+        if top_n:
+             where_conditions.append(f"n1.runways >= {min_runways}")
+        else:
+             where_conditions.append(f"n1.runways >= {min_runways} AND n2.runways >= {min_runways}")
+    if max_runways is not None:
+        if top_n:
+            where_conditions.append(f"n1.runways <= {max_runways}")
+        else:
+            where_conditions.append(f"n1.runways <= {max_runways} AND n2.runways <= {max_runways}")
+
+
+    where_clause = ""
+    if where_conditions:
+        where_clause = "WHERE " + " AND ".join(where_conditions)
+
+    if top_n:
+        # Note: top_n logic might need adjustment if runway filters should apply *before* ranking by degree
+        return top_n_airports(top_n, where_clause)
+
+
+    print(f"Executing query with where clause: {where_clause}")
+    nodes, _, _ = driver.execute_query(query_builder_airport(where_clause))
+    relations, _, _ = driver.execute_query(query_builder_route(where_clause))
+    return parse_neo4j_to_graphology(nodes, relations)
+
+
+def top_n_airports(top_n: int, where_clause: str):
+    # The where_clause now includes runway filters if applicable
+    q_rels = f"""CALL {{
+        MATCH (n1:Airport)
+        WITH n1
+        {where_clause} // Apply all filters here
+        WITH n1, count {{ (n1)-->() }} AS degree // Calculate degree after filtering
+        ORDER BY degree DESC
+        LIMIT {top_n}
+        RETURN collect(n1) AS airports
+        }}
+        UNWIND airports AS a
+        MATCH (a)-[r]->(b)
+        WHERE b IN airports
+        RETURN
+        distinct
+        """
+
+    nodes = driver.execute_query(q_rels + "a as airports")[0]
+    rels = driver.execute_query(q_rels + "r as relations")[0]
+    return parse_neo4j_to_graphology(nodes, rels)
