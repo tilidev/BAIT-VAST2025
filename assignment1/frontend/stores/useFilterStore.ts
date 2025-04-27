@@ -7,6 +7,9 @@ interface Filters {
   city: string[];
   minDegree?: number | null;
   maxDegree?: number | null;
+  minRunways?: number | null;
+  maxRunways?: number | null;
+  topN?: number | null;
 }
 
 interface FilterStore {
@@ -23,6 +26,9 @@ export const useFilterStore = create<FilterStore>((set) => ({
     city: [],
     minDegree: null,
     maxDegree: null,
+    minRunways: null,
+    maxRunways: null,
+    topN: null,
   },
   setFilters: (newFilters) =>
     set((state) => ({
@@ -37,6 +43,9 @@ export const useFilterStore = create<FilterStore>((set) => ({
         city: [],
         minDegree: null,
         maxDegree: null,
+        minRunways: null,
+        maxRunways: null,
+        topN: null,
       },
     }),
 }));

@@ -47,10 +47,10 @@ export function Sidebar() {
   const handleApplyFilters = async () => {
     try {
       setLoading(true);
-      // Separate degree filters from other filters
-      const { minDegree, maxDegree, ...bodyFilters } = filters;
+      // Separate query param filters from body filters
+      const { minDegree, maxDegree, minRunways, maxRunways, topN, ...bodyFilters } = filters; // Add topN here
 
-      // Construct query parameters for min/max degree
+      // Construct query parameters
       const queryParams = new URLSearchParams();
       if (minDegree !== null && minDegree !== undefined) {
         queryParams.append("min", minDegree.toString());
@@ -58,10 +58,19 @@ export function Sidebar() {
       if (maxDegree !== null && maxDegree !== undefined) {
         queryParams.append("max", maxDegree.toString());
       }
+      if (minRunways !== null && minRunways !== undefined) {
+        queryParams.append("min_runways", minRunways.toString()); // Use snake_case for backend
+      }
+      if (maxRunways !== null && maxRunways !== undefined) {
+        queryParams.append("max_runways", maxRunways.toString()); // Use snake_case for backend
+      }
+      if (topN !== null && topN !== undefined && topN > 0) { // Add topN query param if valid
+        queryParams.append("top_n", topN.toString()); // Use snake_case for backend
+      }
       const queryString = queryParams.toString();
       const url = `/api/simple-filtered-graph${queryString ? `?${queryString}` : ""}`;
 
-      const response = await fetch(url, { // Use the URL with query params
+      const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(bodyFilters), // Send only other filters in the body
@@ -152,6 +161,37 @@ export function Sidebar() {
               />
             </div>
 
+            {/* Add Top N Input */}
+             <Input
+                label="Top N Airports (by Degree)"
+                type="number"
+                placeholder="All"
+                value={filters.topN?.toString() ?? ""}
+                onValueChange={(value) => setFilters({ topN: value ? parseInt(value, 10) : null })}
+                min={1} // Top N should be at least 1
+              />
+
+            {/* Add Min/Max Runway Inputs */}
+            <div className="flex space-x-2">
+              <Input
+                label="Min Runways"
+                type="number"
+                placeholder="Min"
+                value={filters.minRunways?.toString() ?? ""}
+                onValueChange={(value) => setFilters({ minRunways: value ? parseInt(value, 10) : null })}
+                min={0}
+              />
+              <Input
+                label="Max Runways"
+                type="number"
+                placeholder="Max"
+                value={filters.maxRunways?.toString() ?? ""}
+                onValueChange={(value) => setFilters({ maxRunways: value ? parseInt(value, 10) : null })}
+                min={0}
+              />
+            </div>
+
+
             <Divider className="my-2" /> {/* Separator */}
 
             {/* --- Visual Encoding Controls --- */}
@@ -187,13 +227,18 @@ export function Sidebar() {
               ))}
             </Select>
 
-            {/* @ts-expect-error HeroUI Switch might have specific child type requirements */}
-            <Switch
-              isSelected={sizeByDegree}
-              onValueChange={setSizeByDegree}
-            >
-              Size Nodes by Degree
-            </Switch>
+            {/* Associate label with Switch using htmlFor/id */}
+            {/* @ts-expect-error Placing directive directly above the problematic div */}
+            <div className="flex items-center space-x-2"> {/* Container for layout */}
+              <Switch
+                id="size-by-degree-switch" // Add id
+                isSelected={sizeByDegree}
+                onValueChange={setSizeByDegree}
+              />
+              <label htmlFor="size-by-degree-switch" className="text-sm cursor-pointer"> {/* Use standard label */}
+                Size Nodes by Degree
+              </label>
+            </div>
 
             {/* --- Color Legend --- */}
             <div className="mt-4 pt-2 border-t border-gray-200 dark:border-gray-700">

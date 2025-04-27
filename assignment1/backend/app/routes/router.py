@@ -112,7 +112,14 @@ def airport_attrs():
 
 
 @router.post("/simple-filtered-graph")
-async def simple_filtered_graph(filters: SimpleFilterGraphRequest, min: int = None, max: int = None, top_n: int = None):
+async def simple_filtered_graph(
+    filters: SimpleFilterGraphRequest,
+    min: int | None = None,
+    max: int | None = None,
+    min_runways: int | None = None,
+    max_runways: int | None = None,
+    top_n: int | None = None
+):
     def query_builder_airport(where_clause):
         # Query to get distinct source (n1) and destination (n2) airports involved in filtered routes
 
@@ -135,30 +142,53 @@ async def simple_filtered_graph(filters: SimpleFilterGraphRequest, min: int = No
                 conditions.append(
                     f"n1.{k} IN [{', '.join(formatted_values)}] AND n2.{k} IN [{', '.join(formatted_values)}]")
 
-    where_clause = ""
+    # Build WHERE clause
+    where_conditions = []
     if conditions:
-        where_clause = "WHERE " + " AND ".join(conditions)
-        if min is not None and max is not None:
-            where_clause += f" AND {min} <= count {{(n1)--()}} <= {max} "
-    
+        where_conditions.append(" AND ".join(conditions))
+
+    # Add degree filters
+    if min is not None:
+        where_conditions.append(f"count{{(n1)--()}} >= {min}")
+    if max is not None:
+        where_conditions.append(f"count{{(n1)--()}} <= {max}")
+
+    # Add runway filters (apply to both nodes unless top_n)
+    if min_runways is not None:
+        if top_n:
+             where_conditions.append(f"n1.runways >= {min_runways}")
+        else:
+             where_conditions.append(f"n1.runways >= {min_runways} AND n2.runways >= {min_runways}")
+    if max_runways is not None:
+        if top_n:
+            where_conditions.append(f"n1.runways <= {max_runways}")
+        else:
+            where_conditions.append(f"n1.runways <= {max_runways} AND n2.runways <= {max_runways}")
+
+
+    where_clause = ""
+    if where_conditions:
+        where_clause = "WHERE " + " AND ".join(where_conditions)
+
     if top_n:
+        # Note: top_n logic might need adjustment if runway filters should apply *before* ranking by degree
         return top_n_airports(top_n, where_clause)
 
-    if min is not None and max is not None:
-        where_clause = f"WHERE {min} <= count {{(n1)--()}} <= {max} "
 
+    print(f"Executing query with where clause: {where_clause}")
     nodes, _, _ = driver.execute_query(query_builder_airport(where_clause))
     relations, _, _ = driver.execute_query(query_builder_route(where_clause))
-    print(f"Executing query with where clause: {where_clause}")
     return parse_neo4j_to_graphology(nodes, relations)
 
 
 def top_n_airports(top_n: int, where_clause: str):
+    # The where_clause now includes runway filters if applicable
     q_rels = f"""CALL {{
         MATCH (n1:Airport)
         WITH n1
-        {where_clause}
-        ORDER BY count {{ (n1)-->() }} DESC
+        {where_clause} // Apply all filters here
+        WITH n1, count {{ (n1)-->() }} AS degree // Calculate degree after filtering
+        ORDER BY degree DESC
         LIMIT {top_n}
         RETURN collect(n1) AS airports
         }}
