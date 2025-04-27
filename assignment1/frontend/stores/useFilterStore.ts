@@ -5,6 +5,8 @@ interface Filters {
   continent: string[];
   region: string[];
   city: string[];
+  minDegree?: number | null;
+  maxDegree?: number | null;
 }
 
 interface FilterStore {
@@ -19,6 +21,8 @@ export const useFilterStore = create<FilterStore>((set) => ({
     continent: [],
     region: [],
     city: [],
+    minDegree: null,
+    maxDegree: null,
   },
   setFilters: (newFilters) =>
     set((state) => ({
@@ -31,6 +35,8 @@ export const useFilterStore = create<FilterStore>((set) => ({
         continent: [],
         region: [],
         city: [],
+        minDegree: null,
+        maxDegree: null,
       },
     }),
 }));

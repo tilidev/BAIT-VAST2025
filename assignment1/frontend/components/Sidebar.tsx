@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardHeader, CardBody, Divider, Button } from "@heroui/react";
+import { Card, CardHeader, CardBody, Divider, Button, Input } from "@heroui/react"; // Add Input
 import { Select, SelectItem } from "@heroui/select";
 import { useEffect, useState } from "react";
 import { GraphOverview } from "./GraphOverview";
@@ -30,10 +30,24 @@ export function Sidebar() {
   const handleApplyFilters = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/simple-filtered-graph", {
+      // Separate degree filters from other filters
+      const { minDegree, maxDegree, ...bodyFilters } = filters;
+
+      // Construct query parameters for min/max degree
+      const queryParams = new URLSearchParams();
+      if (minDegree !== null && minDegree !== undefined) {
+        queryParams.append("min", minDegree.toString());
+      }
+      if (maxDegree !== null && maxDegree !== undefined) {
+        queryParams.append("max", maxDegree.toString());
+      }
+      const queryString = queryParams.toString();
+      const url = `/api/simple-filtered-graph${queryString ? `?${queryString}` : ""}`;
+
+      const response = await fetch(url, { // Use the URL with query params
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(filters),
+        body: JSON.stringify(bodyFilters), // Send only other filters in the body
       });
       const data = await response.json();
       setGraph(data);
@@ -100,6 +114,26 @@ export function Sidebar() {
                 <SelectItem key={continent}>{continent || "Unknown"}</SelectItem>
               ))}
             </Select>
+
+            {/* Add Min/Max Degree Inputs */}
+            <div className="flex space-x-2">
+              <Input
+                label="Min Degree"
+                type="number"
+                placeholder="Min"
+                value={filters.minDegree?.toString() ?? ""}
+                onValueChange={(value) => setFilters({ minDegree: value ? parseInt(value, 10) : null })}
+                min={0}
+              />
+              <Input
+                label="Max Degree"
+                type="number"
+                placeholder="Max"
+                value={filters.maxDegree?.toString() ?? ""}
+                onValueChange={(value) => setFilters({ maxDegree: value ? parseInt(value, 10) : null })}
+                min={0}
+              />
+            </div>
           </>
         ) : (
           <div>Loading filters...</div>

@@ -6,9 +6,20 @@ export function GraphOverview() {
   const graph = useGraphStore((state) => state.graph);
   const filters = useFilterStore((state) => state.filters);
 
-  const activeFilterCounts = Object.entries(filters)
-    .map(([key, value]) => ({ key, count: value.length }))
-    .filter(f => f.count > 0);
+  // Updated logic to handle different filter types
+  const activeFilters = Object.entries(filters)
+    .map(([key, value]) => {
+      if (Array.isArray(value)) {
+        // For array filters, count the number of selected items
+        return { key, count: value.length, value: null };
+      } else if ((key === 'minDegree' || key === 'maxDegree') && value !== null && value !== undefined) {
+        // For degree filters, check if a value is set
+        return { key, count: 1, value: value }; // Store the actual value
+      }
+      // Ignore other types or null/undefined values
+      return { key, count: 0, value: null };
+    })
+    .filter(f => f.count > 0); // Keep only active filters
 
   return (
     <div className="p-3 border rounded shadow-sm bg-white dark:bg-gray-800 dark:border-gray-700 text-sm">
@@ -30,12 +41,15 @@ export function GraphOverview() {
       {/* Filter Info */}
       <div>
         <h4 className="text-sm font-medium mb-1">Active Filters</h4>
-        {activeFilterCounts.length > 0 ? (
+        {activeFilters.length > 0 ? (
           <ul className="list-disc list-inside pl-1">
-            {activeFilterCounts.map(filter => (
+            {activeFilters.map(filter => (
               <li key={filter.key} className="text-xs capitalize">
-                {/* Simple display of category and count */}
-                {filter.key}: {filter.count} selected
+                {/* Display count for array filters, value for degree filters */}
+                {filter.key === 'minDegree' || filter.key === 'maxDegree'
+                  ? `${filter.key}: ${filter.value}` // Show the degree value
+                  : `${filter.key}: ${filter.count} selected` // Show the count for arrays
+                }
               </li>
             ))}
           </ul>
