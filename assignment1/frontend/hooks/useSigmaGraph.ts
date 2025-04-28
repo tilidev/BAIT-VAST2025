@@ -219,7 +219,7 @@ export const useSigmaGraph = (containerRef: React.RefObject<HTMLDivElement>) => 
           if (state.sizeByDegree && graph) {
             const degree = graph.degree(node);
             // Adjust sizing formula if needed
-            newState.size = Math.max(1, Math.sqrt(degree)) + DEFAULT_NODE_SIZE / 2;
+            newState.size = Math.max(1, Math.pow(degree, 1/3)) + DEFAULT_NODE_SIZE / 2;
           } else {
             newState.size = DEFAULT_NODE_SIZE; // Default size
           }
