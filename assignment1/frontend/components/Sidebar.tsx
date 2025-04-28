@@ -278,13 +278,6 @@ export function Sidebar() {
         )}
       </CardBody>
 
-      {/* Graph Statistics */}
-      <div className="px-4 pb-4">
-        <GraphStats /> {/* Replace GraphOverview with GraphStats */}
-      </div>
-
-      <Divider />
-
       {/* Hovered Node Details */}
       <div className="px-4 py-3">
         <h3 className="text-md font-semibold mb-2">Node Details</h3>
@@ -303,6 +296,13 @@ export function Sidebar() {
         ) : (
           <p className="text-xs text-gray-500">Hover over a node for details.</p>
         )}
+      </div>
+
+      <Divider />
+
+      {/* Graph Statistics */}
+      <div className="px-4 pb-4">
+        <GraphStats /> {/* Replace GraphOverview with GraphStats */}
       </div>
 
       <Divider />
