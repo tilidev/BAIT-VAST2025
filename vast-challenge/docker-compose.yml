@@ -1,0 +1,66 @@
+name: vast-challenge
+
+services:
+  database:
+    image: neo4j:5.18 # Using a slightly older but stable version
+    container_name: vast-challenge-database
+    ports:
+      - "7474:7474"   # HTTP
+      - "7687:7687"   # Bolt
+    volumes:
+      - neo4j_data:/data
+    environment:
+      - NEO4J_AUTH=neo4j/ava25-DB!!
+      - NEO4J_server_memory_pagecache_size=1G
+      - NEO4J_server_memory_heap_initial__size=512m
+      - NEO4J_server_memory_heap_max__size=1G
+      - NEO4J_server_bolt_enabled=true
+      - NEO4J_server_http_enabled=true
+      - NEO4J_server_https_enabled=false
+    healthcheck:
+        test: ["CMD-SHELL", "wget --spider --quiet http://localhost:7474 || exit 1"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+
+  frontend:
+    container_name: vast-challenge-frontend
+    image: vast-challenge-frontend:latest
+    build:
+      context: ./frontend/
+      dockerfile: ./Dockerfile
+    environment:
+      # VITE_BACKEND_URL is a common convention for Vite env vars
+      VITE_BACKEND_URL: "http://vast-challenge-backend:8080"
+      PRODUCTION: "false"
+    ports:
+      - "5173:5173" # Map host 5173 to container's Vite dev port 5173
+    volumes:
+      - ./frontend:/app
+      # Prevent host node_modules from overwriting container node_modules
+      - /app/node_modules
+    depends_on:
+      backend:
+        condition: service_started # Wait for backend to start (basic check)
+
+  backend:
+    build: ./backend
+    container_name: vast-challenge-backend
+    image: vast-challenge-backend:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=vast-challenge-database
+      - DB_PASSWORD=ava25-DB!!
+      - PRODUCTION=false
+    volumes:
+      # Mount the app code directory for hot-reloading
+      - ./backend/app:/usr/src/app/app
+    working_dir: /usr/src/app # Working dir remains /usr/src/app where uvicorn runs
+    depends_on:
+      database:
+        condition: service_healthy # Wait for Neo4j to be healthy
+
+volumes:
+  neo4j_data:
+    driver: local
