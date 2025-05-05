@@ -2,9 +2,6 @@
   <div class="container mx-auto p-4">
     <h1 class="text-2xl font-bold mb-4">Main App</h1>
     <ExampleComponent />
-    <hr class="my-4" />
-    <h2 class="text-xl font-semibold mb-2">Router View:</h2>
-    <router-view />
   </div>
 </template>
 
