@@ -1,21 +1,25 @@
 <template>
-  <div class="p-4 border rounded shadow-md bg-gray-100">
-    <h2 class="text-xl font-semibold mb-2">{{ message }}</h2>
-    <p>This is an example component using the Options API.</p>
-    <button
+  <div class="p-4"> 
+    <h2 class="text-2xl font-semibold mb-3 text-gray-700 dark:text-gray-200">{{ message }}</h2>
+    <p class="text-gray-600 dark:text-gray-400 mb-4">moin moin moin moin</p>
+    <Button
       @click="incrementCounter"
-      class="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-    >
-      Click Count: {{ counter }}
-    </button>
+      :label="`Click Count: ${counter}`"
+      severity="info"
+      class="mt-2"
+    />
   </div>
 </template>
 
 <script lang="ts">
 import { defineComponent } from 'vue';
+import Button from 'primevue/button'; // Import PrimeVue Button
 
 export default defineComponent({
   name: 'ExampleComponent',
+  components: { // Register the Button component
+    Button,
+  },
   data() {
     return {
       message: 'Hello from ExampleComponent!',
