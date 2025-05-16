@@ -3,6 +3,9 @@ from contextlib import asynccontextmanager
 from neo4j import AsyncDriver, AsyncGraphDatabase, basic_auth
 import os
 
+from .models import Entity, BaseGraphObject
+from .crud import query_and_results, retrieve_entities
+
 # Neo4j connection details from environment variables or local development
 NEO4J_URI = f"bolt://{os.getenv('DB_HOST', 'localhost')}:7687"
 NEO4J_USER = "neo4j"
@@ -60,3 +63,7 @@ async def health_check(driver: AsyncDriver = Depends(get_driver)):
 
 
 # Add other API endpoints here
+
+@app.get("/entities", response_model=list[BaseGraphObject])
+async def entities(entity: Entity, driver: AsyncDriver = Depends(get_driver)):
+    return await retrieve_entities(driver, entity)
