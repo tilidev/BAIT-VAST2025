@@ -9,15 +9,15 @@ def remove_null_vals(elements):
 
 
 def load_files():
-    with open('journalist.json', 'r') as jf:
+    with open('data/journalist.json', 'r') as jf:
         journalist_data = json.load(jf)
         journalist_data['nodes'] = remove_null_vals(journalist_data['nodes'])
         journalist_data['links'] = remove_null_vals(journalist_data['links'])
-    with open('FILAH.json', 'r') as jf:
+    with open('data/FILAH.json', 'r') as jf:
         FILAH_data = json.load(jf)
         FILAH_data['nodes'] = remove_null_vals(FILAH_data['nodes'])
         FILAH_data['links'] = remove_null_vals(FILAH_data['links'])
-    with open('TROUT.json', 'r') as jf:
+    with open('data/TROUT.json', 'r') as jf:
         TROUT_data = json.load(jf)
         TROUT_data['nodes'] = remove_null_vals(TROUT_data['nodes'])
         TROUT_data['links'] = remove_null_vals(TROUT_data['links'])
@@ -25,7 +25,7 @@ def load_files():
 
 
 def load_road_map():
-    with open('road_map.json', 'r') as rm:
+    with open('data/road_map.json', 'r') as rm:
         road_map = json.load(rm)
         road_map['nodes'] = remove_null_vals(road_map['nodes'])
         road_map['links'] = remove_null_vals(road_map['links'])
@@ -349,7 +349,7 @@ def to_database(all_nodes, all_links):
 
     URI = "bolt://localhost:7687"
 
-    driver = GraphDatabase.driver(URI, auth=('', ''))
+    driver = GraphDatabase.driver(URI, auth=('neo4j', 'ava25-DB!!'))
     driver.verify_connectivity()
 
     def delete_all():

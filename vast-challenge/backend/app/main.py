@@ -1,15 +1,16 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from contextlib import asynccontextmanager
-from neo4j import AsyncGraphDatabase, basic_auth
+from neo4j import AsyncDriver, AsyncGraphDatabase, basic_auth
 import os
 
-# Neo4j connection details from environment variables
+# Neo4j connection details from environment variables or local development
 NEO4J_URI = f"bolt://{os.getenv('DB_HOST', 'localhost')}:7687"
 NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = os.getenv('DB_PASSWORD', 'password')
+NEO4J_PASSWORD = os.getenv('DB_PASSWORD', 'ava25-DB!!')
 
 # Global variable to hold the driver instance
 driver = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -25,10 +26,10 @@ async def lifespan(app: FastAPI):
         print("Successfully connected to Neo4j.")
     except Exception as e:
         print(f"Failed to connect to Neo4j: {e}")
-        # Optionally, you might want to raise the exception or handle it differently
-        # raise e
+        raise e
+
     yield
-    # Shutdown: Close Neo4j driver
+
     if driver:
         print("Closing Neo4j connection.")
         await driver.close()
@@ -36,18 +37,26 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+
 @app.get("/")
 async def read_root():
     return {"message": "Backend is running"}
 
+
+async def get_driver() -> AsyncDriver:
+    if not driver:
+        raise HTTPException(
+            status_code=500, detail="Neo4j driver is not initialized")
+    return driver
+
+
 @app.get("/health")
-async def health_check():
-    if driver:
-        try:
-            await driver.verify_connectivity()
-            return {"status": "ok", "neo4j_connection": "connected"}
-        except Exception as e:
-            return {"status": "error", "neo4j_connection": "disconnected", "error": str(e)}
-    return {"status": "error", "neo4j_connection": "driver_not_initialized"}
+async def health_check(driver: AsyncDriver = Depends(get_driver)):
+    try:
+        await driver.verify_connectivity()
+        return {"status": "ok", "neo4j_connection": "connected"}
+    except Exception as e:
+        return {"status": "error", "neo4j_connection": "disconnected", "error": str(e)}
+
 
 # Add other API endpoints here
