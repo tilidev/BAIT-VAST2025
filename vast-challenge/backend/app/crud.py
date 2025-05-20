@@ -1,7 +1,7 @@
 from typing import AsyncGenerator
 
-from neo4j import AsyncDriver
-from neo4j.graph import Node, Relationship
+from neo4j import AsyncDriver, AsyncResult
+from neo4j.graph import Graph, Node, Relationship
 
 from .utils import convert_attr_values
 
@@ -24,6 +24,12 @@ async def query_and_results(driver: AsyncDriver, query: str, params: dict = None
         summary.result_available_after, "/", summary.result_consumed_after
     )
     return records
+
+
+async def query_graph(driver: AsyncDriver, query: str, params: dict = None) -> Graph:
+    """Executes a Cypher query asynchronously and returns the result as a graph. E.g. for deduplication."""
+    graph = await driver.execute_query(query, parameters_=params, result_transformer_=AsyncResult.graph)
+    return graph
 
 
 async def query_and_lazy_results(driver: AsyncDriver, query: str, params: dict = None) -> AsyncGenerator[dict, None]:
