@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from neo4j.time import Date, Time, DateTime
 from neo4j.graph import Node, Relationship
 
