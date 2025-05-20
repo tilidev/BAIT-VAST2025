@@ -4,7 +4,7 @@ from neo4j import AsyncDriver, AsyncGraphDatabase, basic_auth
 import os
 
 from .models import Entity, BaseGraphObject
-from .crud import query_and_results, retrieve_entities
+from .crud import query_and_results, retrieve_entities, retrieve_trips_by_person
 
 # Neo4j connection details from environment variables or local development
 NEO4J_URI = f"bolt://{os.getenv('DB_HOST', 'localhost')}:7687"
@@ -67,3 +67,14 @@ async def health_check(driver: AsyncDriver = Depends(get_driver)):
 @app.get("/entities", response_model=list[BaseGraphObject])
 async def entities(entity: Entity, driver: AsyncDriver = Depends(get_driver)):
     return await retrieve_entities(driver, entity)
+
+
+@app.get("/trip-activity-by-person")
+async def trips_of_person(person_id: str, driver: AsyncDriver = Depends(get_driver)):
+    records = await retrieve_trips_by_person(driver, person_id)
+    return records
+
+
+@app.get("/sentiment")
+async def sentiment():
+    pass
