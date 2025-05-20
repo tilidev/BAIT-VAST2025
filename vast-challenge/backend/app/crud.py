@@ -26,9 +26,9 @@ async def query_and_results(driver: AsyncDriver, query: str, params: dict = None
     return records
 
 
-async def query_graph(driver: AsyncDriver, query: str, params: dict = None) -> Graph:
+async def query_graph(driver: AsyncDriver, query: str, params: dict = None, result_transformer=AsyncResult.graph) -> Graph:
     """Executes a Cypher query asynchronously and returns the result as a graph. E.g. for deduplication."""
-    graph = await driver.execute_query(query, parameters_=params, result_transformer_=AsyncResult.graph)
+    graph = await driver.execute_query(query, parameters_=params, result_transformer_=result_transformer)
     return graph
 
 
@@ -69,7 +69,8 @@ def _convert_visited_places(visit_rels: list[Relationship], place_nodes: list[No
 
 
 async def retrieve_trips_by_person(driver: AsyncDriver, person_id: str):
-    query = 'match (p:ENTITY_PERSON {id: $person_id})--(t:TRIP)-[visit]-(pl:PLACE) return t, collect(visit) as visit, collect(pl) as pl'
+    query = 'match (p:ENTITY_PERSON {id: $person_id})--(t:TRIP)-[visit]-(pl:PLACE) ' \
+    'return t, collect(visit) as visit, collect(pl) as pl'
     records = await query_and_results(driver, query, {'person_id': person_id})
     return [
         {
@@ -80,8 +81,17 @@ async def retrieve_trips_by_person(driver: AsyncDriver, person_id: str):
     ]
 
 
+async def graph_skeleton(driver: AsyncDriver, in_graph_arr: list):
+    query = """
+        MATCH (n)
+        WHERE all(x IN $graph_keys WHERE x IN n.in_graph)
+        OPTIONAL MATCH (n)-[r]-(m)
+        WHERE all(x IN $graph_keys WHERE x IN r.in_graph) 
+        AND all(x IN $graph_keys WHERE x IN m.in_graph)
+        RETURN n, r, m"""
+    graph: Graph = await query_graph(driver, query, {'graph_keys' : in_graph_arr})
+    return graph
+
 # TODO inject smart in_graph property in requests/db access
 
 # TODO implement sentiment collection
-
-# TODO implement graph skeleton

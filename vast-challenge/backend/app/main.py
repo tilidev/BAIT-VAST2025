@@ -3,8 +3,8 @@ from contextlib import asynccontextmanager
 from neo4j import AsyncDriver, AsyncGraphDatabase, basic_auth
 import os
 
-from .models import Entity, BaseGraphObject
-from .crud import query_and_results, retrieve_entities, retrieve_trips_by_person
+from .models import Entity, BaseGraphObject, GraphMembership
+from .crud import graph_skeleton, query_and_results, retrieve_entities, retrieve_trips_by_person
 
 # Neo4j connection details from environment variables or local development
 NEO4J_URI = f"bolt://{os.getenv('DB_HOST', 'localhost')}:7687"
@@ -78,3 +78,13 @@ async def trips_of_person(person_id: str, driver: AsyncDriver = Depends(get_driv
 @app.get("/sentiment")
 async def sentiment():
     pass
+
+
+@app.get("/full-graph")
+async def full_graph(driver: AsyncDriver = Depends(get_driver)):
+    graphs = ['jo', 'fi', 'tr']
+    graph = await graph_skeleton(driver, graphs)
+    return {
+        "nodes" : graph.nodes,
+        "edges" : graph.relationships
+    }
