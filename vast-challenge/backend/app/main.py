@@ -1,3 +1,4 @@
+import time
 from fastapi import Depends, FastAPI, HTTPException
 from contextlib import asynccontextmanager
 from neo4j import AsyncDriver, AsyncGraphDatabase, basic_auth
@@ -89,8 +90,11 @@ async def get_graph_skeleton(driver: AsyncDriver = Depends(get_driver)):
 
 @app.get("/dataset-specific-nodes-edges")
 async def nodes_and_edges_only_in(dataset: GraphMembership, neighbors: bool = False, driver: AsyncDriver = Depends(get_driver)):
-    # TODO include neighboring node placeholders if graph should be displayed and links 
+    # TODO include neighboring node placeholders if graph should be displayed and links
+    start_time = time.time()
     graph = await dataset_specific_nodes_and_links(driver, dataset)
-    return {
+    result = {
         k: [serialize_entity(entity) for entity in v] for k, v in graph.items()
     }
+    print("Query and processing took", round((time.time() - start_time) * 1000), "ms")
+    return result
