@@ -5,6 +5,7 @@ import os
 
 from .models import Entity, BaseGraphObject, GraphMembership
 from .crud import dataset_specific_nodes_and_links, graph_skeleton, query_and_results, retrieve_entities, retrieve_trips_by_person
+from .utils import serialize_entity
 
 # Neo4j connection details from environment variables or local development
 NEO4J_URI = f"bolt://{os.getenv('DB_HOST', 'localhost')}:7687"
@@ -87,5 +88,9 @@ async def get_graph_skeleton(driver: AsyncDriver = Depends(get_driver)):
 
 
 @app.get("/dataset-specific-nodes-edges")
-async def nodes_and_edges_only_in(dataset: GraphMembership, driver: AsyncDriver = Depends(get_driver)):
-    return await dataset_specific_nodes_and_links(driver, dataset)
+async def nodes_and_edges_only_in(dataset: GraphMembership, neighbors: bool = False, driver: AsyncDriver = Depends(get_driver)):
+    # TODO include neighboring node placeholders if graph should be displayed and links 
+    graph = await dataset_specific_nodes_and_links(driver, dataset)
+    return {
+        k: [serialize_entity(entity) for entity in v] for k, v in graph.items()
+    }

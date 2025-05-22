@@ -30,7 +30,7 @@ async def query_and_results(driver: AsyncDriver, query: str, params: dict = None
 async def query_graph(driver: AsyncDriver, query: str, params: dict = None, result_transformer=AsyncResult.graph) -> Graph:
     """Executes a Cypher query asynchronously and returns the result as a graph. E.g. for deduplication."""
     graph = await driver.execute_query(query, parameters_=params, result_transformer_=result_transformer)
-    print(len(graph.nodes), len(graph.relationships))
+    print(f"Executed graph query {query}")
     return graph
 
 
@@ -120,7 +120,8 @@ async def nodes_only_in(driver: AsyncDriver, dataset: str):
 
 
 async def links_only_in(driver: AsyncDriver, dataset: str):
-    query = "match ()-[r {in_graph: $in_graph_arr}]->() return r"
+    query = "match (n)-[r {in_graph: $in_graph_arr}]->(m) return n, r, m"
+    # we want to return nodes so that the Graph object can reference them
     in_graph_arr = ['jo']
     in_graph_arr.append(dataset)
     links = (await query_graph(driver, query, {'in_graph_arr' : in_graph_arr}))._relationships
@@ -136,9 +137,6 @@ async def dataset_specific_nodes_and_links(driver: AsyncDriver, dataset: str):
     Returns:
         dict: Dictionary with 'nodes' and 'edges' specific to the dataset.
     """
-    # skeleton = await graph_skeleton(driver, AsyncResult.graph)
-    # specific_nodes = await nodes_only_in(driver, dataset)
-    # specific_links = await links_only_in(driver, dataset)
     async with asyncio.TaskGroup() as tg:
         t1 = tg.create_task(graph_skeleton(driver, AsyncResult.graph))
         t2 = tg.create_task(nodes_only_in(driver, dataset))
@@ -152,8 +150,8 @@ async def dataset_specific_nodes_and_links(driver: AsyncDriver, dataset: str):
     difference_links = specific_links.keys() - skeleton._nodes.keys()
 
     return {
-        "nodes" : [serialize_entity(specific_nodes[key]) for key in difference_nodes],
-        "edges" : [serialize_entity(specific_links[key]) for key in difference_links]
+        "nodes" : [specific_nodes[key] for key in difference_nodes],
+        "links" : [specific_links[key] for key in difference_links]
     }
 
 
