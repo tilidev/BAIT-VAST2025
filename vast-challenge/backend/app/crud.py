@@ -50,6 +50,20 @@ async def query_and_lazy_results(driver: AsyncDriver, query: str, params: dict =
             yield record
 
 
+async def graph_transformer(result: AsyncResult):
+    graph: Graph = await result.graph()
+    nodes = [convert_attr_values(node) for node in graph._nodes.values()]
+    edges = [
+        {
+            "source" : edge.start_node.get('id', edge.element_id),
+            "target" : edge.end_node.get('id', edge.element_id),
+            "properties" : convert_attr_values(edge)
+        }
+        for edge in graph._relationships.values()
+    ]
+    return {"nodes" : nodes, "edges" : edges}
+
+
 async def retrieve_entities(driver: AsyncDriver, entity: str):
     query = f"match (n:{entity}) return distinct n"
     results = await query_and_results(driver, query)
@@ -70,7 +84,7 @@ def _convert_visited_places(visit_rels: list[Relationship], place_nodes: list[No
 
 async def retrieve_trips_by_person(driver: AsyncDriver, person_id: str):
     query = 'match (p:ENTITY_PERSON {id: $person_id})--(t:TRIP)-[visit]-(pl:PLACE) ' \
-    'return t, collect(visit) as visit, collect(pl) as pl'
+        'return t, collect(visit) as visit, collect(pl) as pl'
     records = await query_and_results(driver, query, {'person_id': person_id})
     return [
         {
@@ -89,7 +103,7 @@ async def graph_skeleton(driver: AsyncDriver, in_graph_arr: list):
         WHERE all(x IN $graph_keys WHERE x IN r.in_graph) 
         AND all(x IN $graph_keys WHERE x IN m.in_graph)
         RETURN n, r, m"""
-    graph: Graph = await query_graph(driver, query, {'graph_keys' : in_graph_arr})
+    graph = await query_graph(driver, query, {'graph_keys': in_graph_arr}, graph_transformer)
     return graph
 
 # TODO inject smart in_graph property in requests/db access

@@ -80,11 +80,8 @@ async def sentiment():
     pass
 
 
-@app.get("/full-graph")
-async def full_graph(driver: AsyncDriver = Depends(get_driver)):
+@app.get("/graph-skeleton")
+async def get_graph_skeleton(driver: AsyncDriver = Depends(get_driver)):
     graphs = ['jo', 'fi', 'tr']
     graph = await graph_skeleton(driver, graphs)
-    return {
-        "nodes" : graph.nodes,
-        "edges" : graph.relationships
-    }
+    return graph
