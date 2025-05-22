@@ -1,3 +1,4 @@
+import type { Entity } from './entity.ts'
 type BaseNode = {
   id: string;
   in_graph?: string[];
@@ -43,7 +44,7 @@ export type Organization = BaseNode & {
 };
 
 export type Person = BaseNode & {
-  type: "entity.person";
+  type: "ENTITY_PERSON";
   name: string;
   role: string;
 };

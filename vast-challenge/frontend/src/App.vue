@@ -1,5 +1,8 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-teal-100 via-sky-100 to-indigo-100 dark:from-gray-900 dark:via-slate-800 dark:to-neutral-900 p-4 sm:p-8 transition-colors duration-300">
+  <div> <!--
+    class="min-h-screen bg-gradient-to-br from-teal-100 via-sky-100 to-indigo-100 dark:from-gray-900 dark:via-slate-800 dark:to-neutral-900 p-4 sm:p-8 transition-colors duration-300">
+    -->
+
     <div class="container mx-auto">
       <div class="flex justify-end mb-4">
         <ThemeSwitcher />
@@ -12,16 +15,21 @@
           <div class="p-4 sm:p-6">
             <ExampleComponent />
           </div>
+          <GeoJsonMap></GeoJsonMap>
+          <EntityComponent></EntityComponent>
         </template>
       </Card>
     </div>
   </div>
 </template>
 
-<script setup lang="ts">
+<script setup>
 import ExampleComponent from './components/ExampleComponent.vue';
 import Card from 'primevue/card'; // Import PrimeVue Card
 import ThemeSwitcher from './components/ThemeSwitcher.vue'; // Import the new component
+import GeoJsonMap from './components/GeoJsonMap.vue';
+import EntityComponent from './components/EntityComponent.vue';
+import { useEntityStore } from './stores/entityStore';
 
 </script>
 
