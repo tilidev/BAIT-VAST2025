@@ -1,7 +1,7 @@
 import { api } from '../lib/axios.ts'
 import type { Entity } from '../types/entity.ts'
 
-export async function fetchGraph(entityType: Entity): Promise<any> {
+export async function fetchEntity(entityType: Entity): Promise<any> {
   try {
     const res = await api.get<any[]>(`/entities`, {
       params: { entity: entityType },
