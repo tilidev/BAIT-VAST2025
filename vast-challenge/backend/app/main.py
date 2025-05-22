@@ -4,7 +4,7 @@ from neo4j import AsyncDriver, AsyncGraphDatabase, basic_auth
 import os
 
 from .models import Entity, BaseGraphObject, GraphMembership
-from .crud import graph_skeleton, query_and_results, retrieve_entities, retrieve_trips_by_person
+from .crud import dataset_specific_nodes_and_links, graph_skeleton, query_and_results, retrieve_entities, retrieve_trips_by_person
 
 # Neo4j connection details from environment variables or local development
 NEO4J_URI = f"bolt://{os.getenv('DB_HOST', 'localhost')}:7687"
@@ -82,6 +82,10 @@ async def sentiment():
 
 @app.get("/graph-skeleton")
 async def get_graph_skeleton(driver: AsyncDriver = Depends(get_driver)):
-    graphs = ['jo', 'fi', 'tr']
-    graph = await graph_skeleton(driver, graphs)
-    return graph
+    serialized_graph = await graph_skeleton(driver)
+    return serialized_graph
+
+
+@app.get("/dataset-specific-nodes-edges")
+async def nodes_and_edges_only_in(dataset: GraphMembership, driver: AsyncDriver = Depends(get_driver)):
+    return await dataset_specific_nodes_and_links(driver, dataset)

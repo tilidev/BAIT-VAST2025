@@ -1,9 +1,10 @@
+import asyncio
 from typing import AsyncGenerator
 
 from neo4j import AsyncDriver, AsyncResult
 from neo4j.graph import Graph, Node, Relationship
 
-from .utils import convert_attr_values
+from .utils import convert_attr_values, serialize_entity
 
 
 async def query_and_results(driver: AsyncDriver, query: str, params: dict = None) -> list[dict]:
@@ -29,6 +30,7 @@ async def query_and_results(driver: AsyncDriver, query: str, params: dict = None
 async def query_graph(driver: AsyncDriver, query: str, params: dict = None, result_transformer=AsyncResult.graph) -> Graph:
     """Executes a Cypher query asynchronously and returns the result as a graph. E.g. for deduplication."""
     graph = await driver.execute_query(query, parameters_=params, result_transformer_=result_transformer)
+    print(len(graph.nodes), len(graph.relationships))
     return graph
 
 
@@ -50,18 +52,14 @@ async def query_and_lazy_results(driver: AsyncDriver, query: str, params: dict =
             yield record
 
 
-async def graph_transformer(result: AsyncResult):
+async def serializable_graph_transformer(result: AsyncResult):
     graph: Graph = await result.graph()
-    nodes = [convert_attr_values(node) for node in graph._nodes.values()]
+    nodes = [serialize_entity(node) for node in graph._nodes.values()]
     edges = [
-        {
-            "source" : edge.start_node.get('id', edge.element_id),
-            "target" : edge.end_node.get('id', edge.element_id),
-            "properties" : convert_attr_values(edge)
-        }
+        serialize_entity(edge)
         for edge in graph._relationships.values()
     ]
-    return {"nodes" : nodes, "edges" : edges}
+    return {"nodes": nodes, "edges": edges}
 
 
 async def retrieve_entities(driver: AsyncDriver, entity: str):
@@ -95,16 +93,69 @@ async def retrieve_trips_by_person(driver: AsyncDriver, person_id: str):
     ]
 
 
-async def graph_skeleton(driver: AsyncDriver, in_graph_arr: list):
+async def graph_skeleton(driver: AsyncDriver, result_transformer=serializable_graph_transformer):
     query = """
         MATCH (n)
-        WHERE all(x IN $graph_keys WHERE x IN n.in_graph)
+        WHERE n.in_graph = $graph_keys  
         OPTIONAL MATCH (n)-[r]-(m)
-        WHERE all(x IN $graph_keys WHERE x IN r.in_graph) 
-        AND all(x IN $graph_keys WHERE x IN m.in_graph)
+        WHERE r.in_graph = $graph_keys
+        AND m.in_graph = $graph_keys
         RETURN n, r, m"""
-    graph = await query_graph(driver, query, {'graph_keys': in_graph_arr}, graph_transformer)
+    serializable_graph = await query_graph(driver, query, {'graph_keys': ['jo', 'fi', 'tr']}, result_transformer)
+    return serializable_graph
+
+
+async def full_graph_no_roadmap(driver: AsyncDriver):
+    query = "match (n:!ROADMAP_PLACE) OPTIONAL MATCH (n:!ROADMAP_PLACE)-[r:!IS]-() return n, r"
+    graph = await query_graph(driver, query)
     return graph
+
+
+async def nodes_only_in(driver: AsyncDriver, dataset: str):
+    query = "match (n:!ROADMAP_PLACE {in_graph: $in_graph_arr}) return n"
+    in_graph_arr = ['jo']
+    in_graph_arr.append(dataset)
+    nodes = (await query_graph(driver, query, {'in_graph_arr' : in_graph_arr}))._nodes
+    return nodes
+
+
+async def links_only_in(driver: AsyncDriver, dataset: str):
+    query = "match ()-[r {in_graph: $in_graph_arr}]->() return r"
+    in_graph_arr = ['jo']
+    in_graph_arr.append(dataset)
+    links = (await query_graph(driver, query, {'in_graph_arr' : in_graph_arr}))._relationships
+    return links
+
+
+async def dataset_specific_nodes_and_links(driver: AsyncDriver, dataset: str):
+    """
+    Retrieve nodes and links specific to a given dataset.
+    Args:
+        driver (AsyncDriver): The async database driver.
+        dataset (str): The dataset identifier.
+    Returns:
+        dict: Dictionary with 'nodes' and 'edges' specific to the dataset.
+    """
+    # skeleton = await graph_skeleton(driver, AsyncResult.graph)
+    # specific_nodes = await nodes_only_in(driver, dataset)
+    # specific_links = await links_only_in(driver, dataset)
+    async with asyncio.TaskGroup() as tg:
+        t1 = tg.create_task(graph_skeleton(driver, AsyncResult.graph))
+        t2 = tg.create_task(nodes_only_in(driver, dataset))
+        t3 = tg.create_task(links_only_in(driver, dataset))
+
+    skeleton = t1.result()
+    specific_nodes = t2.result()
+    specific_links = t3.result()
+
+    difference_nodes = specific_nodes.keys() - skeleton._nodes.keys()
+    difference_links = specific_links.keys() - skeleton._nodes.keys()
+
+    return {
+        "nodes" : [serialize_entity(specific_nodes[key]) for key in difference_nodes],
+        "edges" : [serialize_entity(specific_links[key]) for key in difference_links]
+    }
+
 
 # TODO inject smart in_graph property in requests/db access
 

@@ -29,3 +29,16 @@ def convert_attr_values(node_or_link: dict | Node | Relationship, attrs: list = 
         return {k: convert(v) if k in attrs else v for k, v in node_or_link.items()}
     else:
         return {k: convert(v) for k, v in node_or_link.items()}
+
+
+def serialize_entity(node_or_link: Node | Relationship):
+    if isinstance(node_or_link, Node):
+        return convert_attr_values(node_or_link)
+    elif isinstance(node_or_link, Relationship):
+        return {
+            "source": node_or_link.start_node.get('id', node_or_link.element_id),
+            "target": node_or_link.start_node.get('id', node_or_link.element_id),
+            "properties": convert_attr_values(node_or_link)
+        }
+    else:
+        raise NotImplementedError
