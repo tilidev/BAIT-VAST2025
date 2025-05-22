@@ -7,7 +7,6 @@
 <script>
 import { defineComponent } from 'vue';
 import * as d3 from 'd3'
-import { fetchGraph } from '../services/entityService';
 
 export default defineComponent({
   data() {
@@ -47,11 +46,6 @@ export default defineComponent({
         this.path = d3.geoPath().projection(this.projection);
 
         this.draw("All");
-
-        filterSelect.on("change", (event) => {
-          const selected = event.target.value;
-          this.draw(selected);
-        });
       })
       .catch(err => console.error("Failed to load geojson:", err));
   },
