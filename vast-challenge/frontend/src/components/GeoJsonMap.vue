@@ -7,6 +7,9 @@
 <script>
 import { defineComponent } from 'vue';
 import * as d3 from 'd3'
+import { useEntityStore } from '../stores/entityStore';
+import { mapState } from 'pinia';
+import { toRaw } from 'vue';
 
 export default defineComponent({
   data() {
@@ -16,14 +19,34 @@ export default defineComponent({
       geojson: null,
       projection: null,
       path: null,
-      colorScale: {
+      regionColors: {
         "Island": "#8dd3c7",
         "Ecological Preserve": "#a1d99b",
         "Fishing Ground": "#9ecae1",
         "default": "#e5e7eb"
+      },
+      zoneColors: {
+        "government": "#6366f1",
+        "commercial": "#f59e0b",
+        "residential": "#10b981",
+        "industrial": "#ef4444",
+        "default": "grey"
       }
     };
   },
+
+  watch: {
+    places(newVal, oldVal) {
+      if (newVal.length > 0) {
+        this.draw()
+      }
+    }
+  },
+
+  computed: {
+    ...mapState(useEntityStore, ['places']),
+  },
+
   mounted() {
     const container = d3.select("body")
       .append("div")
@@ -45,17 +68,17 @@ export default defineComponent({
         this.projection = d3.geoIdentity().reflectY(true).fitSize([this.width, this.height], this.geojson);
         this.path = d3.geoPath().projection(this.projection);
 
-        this.draw("All");
+        this.draw();
       })
       .catch(err => console.error("Failed to load geojson:", err));
   },
   methods: {
-    draw(kindFilter = "All") {
+    draw() {
       const svg = this.svg;
       const tooltip = this.tooltip;
       const projection = this.projection;
       const path = this.path;
-      const colorScale = this.colorScale;
+      const regionColors = this.regionColors;
 
       svg.selectAll("*").remove();
 
@@ -63,13 +86,11 @@ export default defineComponent({
       svg.append("g")
         .selectAll("path")
         .data(this.geojson.features.filter(d =>
-          d.geometry.type === "Polygon" &&
-          (kindFilter === "All" || d.properties.Kind === kindFilter)
-        ))
+          d.geometry.type === "Polygon"))
         .enter()
         .append("path")
         .attr("d", path)
-        .attr("fill", d => colorScale[d.properties.Kind] || colorScale["default"])
+        .attr("fill", d => regionColors[d.properties.Kind] || regionColors["default"])
         .attr("stroke", "#1f2937")
         .attr("stroke-width", 1.2)
         .on("mouseover", function (event, d) {
@@ -91,32 +112,24 @@ export default defineComponent({
             .style("top", (event.pageY - 28) + "px");
         })
         .on("mouseout", function (event, d) {
-          d3.select(this).attr("fill", colorScale[d.properties.Kind] || colorScale["default"]);
+          console.log(d)
+          d3.select(this).attr("fill", regionColors[d.properties.Kind] || regionColors["default"]);
           tooltip.classed("hidden", true);
         });
 
-      // Fish Icons
+      // Cities and Buoys
       svg.append("g")
         .selectAll("text")
-        .data(this.geojson.features.filter(d => d.properties.Kind === "Fishing Ground"))
-        .enter()
-        .append("text")
-        .attr("x", d => projection(d.geometry.coordinates || d.geometry?.coordinates[0][0])[0])
-        .attr("y", d => projection(d.geometry.coordinates || d.geometry?.coordinates[0][0])[1])
-        .attr("font-size", "20px")
-        .text("🐟");
-
-      // Cities / Buoys
-      svg.append("g")
-        .selectAll("circle")
         .data(this.geojson.features.filter(d => d.geometry.type === "Point"))
         .enter()
-        .append("circle")
-        .attr("cx", d => projection(d.geometry.coordinates)[0])
-        .attr("cy", d => projection(d.geometry.coordinates)[1])
-        .attr("r", 6)
-        .attr("fill", d => d.properties.Kind === "city" ? "#ef4444" : "#3b82f6")
-        .attr("stroke", "#000")
+        .append("text")
+        .attr("x", d => projection(d.geometry.coordinates)[0])
+        .attr("y", d => projection(d.geometry.coordinates)[1])
+        .attr("text-anchor", "middle")
+        .attr("alignment-baseline", "central")
+        .text(d => d.properties.Kind === "city" ? "📍" : "🛟") // City as 📍, Buoy as 🛟
+        .attr("font-size", "16px")
+        .attr("pointer-events", "none")
         .on("mouseover", function (event, d) {
           tooltip
             .classed("hidden", false)
@@ -134,6 +147,71 @@ export default defineComponent({
         .on("mouseout", function () {
           tooltip.classed("hidden", true);
         });
+
+      // Event layer 
+      svg.append("g")
+        .selectAll("circle")
+        .data(this.geojson.features.filter(d => d.geometry.type === "Point"))
+        .enter()
+        .append("circle")
+        .attr("cx", d => projection(d.geometry.coordinates)[0])
+        .attr("cy", d => projection(d.geometry.coordinates)[1])
+        .attr("r", 6)
+        .attr("opacity", 0)
+        .attr("stroke", "#000")
+        .text(d => d.properties.Kind === "city" ? "📍" : "🛟") // City as 📍, Buoy as 🛟
+        .on("mouseover", function (event, d) {
+          tooltip
+            .classed("hidden", false)
+            .html(`
+          <div class="font-semibold text-blue-700">${d.properties.Name}</div>
+          <div>Type: ${d.properties.Kind}</div>
+          <div>Activities: ${d.properties.Activities?.join(", ") || "None"}</div>
+        `);
+        })
+        .on("mousemove", function (event) {
+          tooltip
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 28) + "px");
+        })
+        .on("mouseout", function () {
+          tooltip.classed("hidden", true);
+        });
+
+      // Places
+      svg.append("g")
+        .selectAll("circle")
+        .data(toRaw(this.places))
+        .enter()
+        .append("circle")
+        .attr("cx", d => projection([d.lat, d.lon])[0])
+        .attr("cy", d => projection([d.lat, d.lon])[1])
+        .attr("r", 3)
+        .attr("fill", d => {
+          return this.zoneColors[d.zone] || this.zoneColors.default;
+        })
+        .attr("stroke", "#000")
+        .on("mouseover", function (event, d) {
+          tooltip
+            .classed("hidden", false)
+            .html(`
+        <div class="font-semibold text-blue-700">${d.name || "Unknown Place"}</div>
+        <div>Zone: ${d.zone || "N/A"}</div>
+        <div>Detail: ${d.zone_detail || "N/A"}</div>
+        ${d.in_graph?.length
+                ? `<div>Graph Links: ${d.in_graph.join(", ")}</div>`
+                : ""}
+      `);
+        })
+        .on("mousemove", function (event) {
+          tooltip
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 28) + "px");
+        })
+        .on("mouseout", function () {
+          tooltip.classed("hidden", true);
+        });
+
     }
   }
 })
