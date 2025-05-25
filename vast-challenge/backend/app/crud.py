@@ -115,7 +115,7 @@ async def nodes_only_in(driver: AsyncDriver, dataset: str):
     query = "match (n:!ROADMAP_PLACE {in_graph: $in_graph_arr}) return n"
     in_graph_arr = ['jo']
     in_graph_arr.append(dataset)
-    nodes = (await query_graph(driver, query, {'in_graph_arr' : in_graph_arr}))._nodes
+    nodes = (await query_graph(driver, query, {'in_graph_arr': in_graph_arr}))._nodes
     return nodes
 
 
@@ -124,7 +124,7 @@ async def links_only_in(driver: AsyncDriver, dataset: str):
     # we want to return nodes so that the Graph object can reference them
     in_graph_arr = ['jo']
     in_graph_arr.append(dataset)
-    links = (await query_graph(driver, query, {'in_graph_arr' : in_graph_arr}))._relationships
+    links = (await query_graph(driver, query, {'in_graph_arr': in_graph_arr}))._relationships
     return links
 
 
@@ -150,8 +150,8 @@ async def dataset_specific_nodes_and_links(driver: AsyncDriver, dataset: str):
     difference_links = specific_links.keys() - skeleton._nodes.keys()
 
     return {
-        "nodes" : [specific_nodes[key] for key in difference_nodes],
-        "links" : [specific_links[key] for key in difference_links]
+        "nodes": [specific_nodes[key] for key in difference_nodes],
+        "links": [specific_links[key] for key in difference_links]
     }
 
 

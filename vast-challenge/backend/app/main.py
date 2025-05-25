@@ -96,5 +96,6 @@ async def nodes_and_edges_only_in(dataset: GraphMembership, neighbors: bool = Fa
     result = {
         k: [serialize_entity(entity) for entity in v] for k, v in graph.items()
     }
-    print("Query and processing took", round((time.time() - start_time) * 1000), "ms")
+    print("Query and processing took", round(
+        (time.time() - start_time) * 1000), "ms")
     return result
