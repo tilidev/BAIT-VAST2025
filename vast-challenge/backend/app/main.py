@@ -1,10 +1,12 @@
+import time
 from fastapi import Depends, FastAPI, HTTPException
 from contextlib import asynccontextmanager
 from neo4j import AsyncDriver, AsyncGraphDatabase, basic_auth
 import os
 
-from .models import Entity, BaseGraphObject
-from .crud import query_and_results, retrieve_entities
+from .models import Entity, BaseGraphObject, GraphMembership
+from .crud import dataset_specific_nodes_and_links, graph_skeleton, query_and_results, retrieve_entities, retrieve_trips_by_person
+from .utils import serialize_entity
 
 # Neo4j connection details from environment variables or local development
 NEO4J_URI = f"bolt://{os.getenv('DB_HOST', 'localhost')}:7687"
@@ -67,3 +69,32 @@ async def health_check(driver: AsyncDriver = Depends(get_driver)):
 @app.get("/entities", response_model=list[BaseGraphObject])
 async def entities(entity: Entity, driver: AsyncDriver = Depends(get_driver)):
     return await retrieve_entities(driver, entity)
+
+
+@app.get("/trip-activity-by-person")
+async def trips_of_person(person_id: str, driver: AsyncDriver = Depends(get_driver)):
+    records = await retrieve_trips_by_person(driver, person_id)
+    return records
+
+
+@app.get("/sentiment")
+async def sentiment():
+    pass
+
+
+@app.get("/graph-skeleton")
+async def get_graph_skeleton(driver: AsyncDriver = Depends(get_driver)):
+    serialized_graph = await graph_skeleton(driver)
+    return serialized_graph
+
+
+@app.get("/dataset-specific-nodes-edges")
+async def nodes_and_edges_only_in(dataset: GraphMembership, neighbors: bool = False, driver: AsyncDriver = Depends(get_driver)):
+    # TODO include neighboring node placeholders if graph should be displayed and links
+    start_time = time.time()
+    graph = await dataset_specific_nodes_and_links(driver, dataset)
+    result = {
+        k: [serialize_entity(entity) for entity in v] for k, v in graph.items()
+    }
+    print("Query and processing took", round((time.time() - start_time) * 1000), "ms")
+    return result

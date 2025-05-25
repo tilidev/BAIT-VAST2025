@@ -1,16 +1,15 @@
-from datetime import datetime
-
-from neo4j.time import Date, Time
+from neo4j.time import Date, Time, DateTime
+from neo4j.graph import Node, Relationship
 
 
 def convert(value):
     # https://neo4j.com/docs/api/python-driver/current/types/temporal.html
-    if isinstance(value, (Date, Time)):
+    if isinstance(value, (Date, Time, DateTime)):
         return value.to_native()
     return value
 
 
-def convert_attr_values(node_or_link: dict, attrs: list = None) -> dict:
+def convert_attr_values(node_or_link: dict | Node | Relationship, attrs: list = None) -> dict:
     """
     Converts the values of specified attributes in a dictionary using the `convert` function.
     Args:
@@ -30,3 +29,16 @@ def convert_attr_values(node_or_link: dict, attrs: list = None) -> dict:
         return {k: convert(v) if k in attrs else v for k, v in node_or_link.items()}
     else:
         return {k: convert(v) for k, v in node_or_link.items()}
+
+
+def serialize_entity(node_or_link: Node | Relationship):
+    if isinstance(node_or_link, Node):
+        return convert_attr_values(node_or_link)
+    elif isinstance(node_or_link, Relationship):
+        return {
+            "source": node_or_link.start_node.get('id', node_or_link.element_id),
+            "target": node_or_link.start_node.get('id', node_or_link.element_id),
+            "properties": convert_attr_values(node_or_link)
+        }
+    else:
+        raise NotImplementedError
