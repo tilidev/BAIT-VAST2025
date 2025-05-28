@@ -1,10 +1,11 @@
 import asyncio
+from collections import defaultdict
 from typing import AsyncGenerator
 
 from neo4j import AsyncDriver, AsyncResult
 from neo4j.graph import Graph, Node, Relationship
 
-from .utils import convert_attr_values, serialize_entity
+from .utils import convert_attr_values, serialize_neo4j_entity
 
 
 async def query_and_results(driver: AsyncDriver, query: str, params: dict = None) -> list[dict]:
@@ -54,9 +55,9 @@ async def query_and_lazy_results(driver: AsyncDriver, query: str, params: dict =
 
 async def serializable_graph_transformer(result: AsyncResult):
     graph: Graph = await result.graph()
-    nodes = [serialize_entity(node) for node in graph._nodes.values()]
+    nodes = [serialize_neo4j_entity(node) for node in graph._nodes.values()]
     edges = [
-        serialize_entity(edge)
+        serialize_neo4j_entity(edge)
         for edge in graph._relationships.values()
     ]
     return {"nodes": nodes, "edges": edges}
@@ -115,7 +116,7 @@ async def nodes_only_in(driver: AsyncDriver, dataset: str):
     query = "match (n:!ROADMAP_PLACE {in_graph: $in_graph_arr}) return n"
     in_graph_arr = ['jo']
     in_graph_arr.append(dataset)
-    nodes = (await query_graph(driver, query, {'in_graph_arr' : in_graph_arr}))._nodes
+    nodes = (await query_graph(driver, query, {'in_graph_arr': in_graph_arr}))._nodes
     return nodes
 
 
@@ -124,7 +125,7 @@ async def links_only_in(driver: AsyncDriver, dataset: str):
     # we want to return nodes so that the Graph object can reference them
     in_graph_arr = ['jo']
     in_graph_arr.append(dataset)
-    links = (await query_graph(driver, query, {'in_graph_arr' : in_graph_arr}))._relationships
+    links = (await query_graph(driver, query, {'in_graph_arr': in_graph_arr}))._relationships
     return links
 
 
@@ -150,9 +151,37 @@ async def dataset_specific_nodes_and_links(driver: AsyncDriver, dataset: str):
     difference_links = specific_links.keys() - skeleton._nodes.keys()
 
     return {
-        "nodes" : [specific_nodes[key] for key in difference_nodes],
-        "links" : [specific_links[key] for key in difference_links]
+        "nodes": [specific_nodes[key] for key in difference_nodes],
+        "links": [specific_links[key] for key in difference_links]
     }
+
+
+async def entity_topic_participation(driver: AsyncDriver):
+    query = "match (t:TOPIC)--(pd:PLAN | DISCUSSION)-[p:PARTICIPANT]-(e:ENTITY_PERSON | ENTITY_ORGANIZATION) " \
+    "return e, t, collect(pd) as pd, p.sentiment, p.industry, p.in_graph"
+    records = await query_and_results(driver, query)
+
+    transformed_records_by_entity = defaultdict(list)
+    for row in records:
+        transformed_records_by_entity[row['e'].get('id')].append(row)
+
+    return [
+        {
+            'entity_id': e_id,
+            'entity_type': list(row_list[0]['e'].labels)[0],
+            'in_graph': row_list[0]['e'].get('in_graph'),
+            'topic_sentiments': [  # row transform with testing
+                {
+                    'topic_id' : row['t'].get('id'),
+                    'sentiment' : row['p.sentiment'],
+                    'sentiment_recorded_in' : row['p.in_graph'],
+                    'topic_industry' : row['p.industry']
+                }
+                for row in row_list
+            ]
+        }
+        for e_id, row_list in transformed_records_by_entity.items()
+    ]
 
 
 # TODO inject smart in_graph property in requests/db access

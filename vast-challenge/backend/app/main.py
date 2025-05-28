@@ -5,8 +5,8 @@ from neo4j import AsyncDriver, AsyncGraphDatabase, basic_auth
 import os
 
 from .models import Entity, BaseGraphObject, GraphMembership
-from .crud import dataset_specific_nodes_and_links, graph_skeleton, query_and_results, retrieve_entities, retrieve_trips_by_person
-from .utils import serialize_entity
+from .crud import dataset_specific_nodes_and_links, entity_topic_participation, graph_skeleton, query_and_results, retrieve_entities, retrieve_trips_by_person
+from .utils import serialize_neo4j_entity
 
 # Neo4j connection details from environment variables or local development
 NEO4J_URI = f"bolt://{os.getenv('DB_HOST', 'localhost')}:7687"
@@ -94,7 +94,18 @@ async def nodes_and_edges_only_in(dataset: GraphMembership, neighbors: bool = Fa
     start_time = time.time()
     graph = await dataset_specific_nodes_and_links(driver, dataset)
     result = {
-        k: [serialize_entity(entity) for entity in v] for k, v in graph.items()
+        k: [serialize_neo4j_entity(entity) for entity in v] for k, v in graph.items()
     }
     print("Query and processing took", round((time.time() - start_time) * 1000), "ms")
     return result
+
+
+@app.get("/topic-sentiment-by-entity")
+async def retrieve_aggregated_sentiments(driver: AsyncDriver=Depends(get_driver)):
+    return await entity_topic_participation(driver)
+
+# TODO aggregations on person (meetings, discussions, plans participated, trips taken, places gone to etc.)
+
+# TODO Topic industry (match (t:TOPIC)--(:PLAN | DISCUSSION)-[rel]-(p:ENTITY_PERSON) return t.id, collect(rel.industry))
+
+# TODO infer date of meeting by travel plans
