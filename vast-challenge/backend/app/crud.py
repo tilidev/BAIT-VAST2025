@@ -157,32 +157,39 @@ async def dataset_specific_nodes_and_links(driver: AsyncDriver, dataset: str):
 
 
 async def entity_topic_participation(driver: AsyncDriver):
-    query = "match (t:TOPIC)--(pd:PLAN | DISCUSSION)-[p:PARTICIPANT]-(e:ENTITY_PERSON | ENTITY_ORGANIZATION) " \
-    "return e, t, collect(pd) as pd, p.sentiment, p.industry, p.in_graph"
+    query = """
+    MATCH (t:TOPIC)--(pd:PLAN | DISCUSSION)-[p:PARTICIPANT]-(e:ENTITY_PERSON | ENTITY_ORGANIZATION)
+    RETURN
+      e.id as entity_id,
+      labels(e)[0] as entity_type,
+      e.in_graph as node_in_graph,
+      t.id as topic_id,
+      collect(pd),
+      p.sentiment as sentiment,
+      p.in_graph as sentiment_recorded_in,
+      p.industry as topic_industry
+    """
     records = await query_and_results(driver, query)
 
-    transformed_records_by_entity = defaultdict(list)
+    entity_topic_sentiments = {}
     for row in records:
-        transformed_records_by_entity[row['e'].get('id')].append(row)
+        eid = row["entity_id"]
+        if eid not in entity_topic_sentiments:
+            entity_topic_sentiments[eid] = {
+                "entity_id": eid,
+                "entity_type": row["entity_type"],
+                "node_in_graph": row["node_in_graph"],
+                "topic_sentiments": []
+            }
 
-    return [
-        {
-            'entity_id': e_id,
-            'entity_type': list(row_list[0]['e'].labels)[0],
-            'in_graph': row_list[0]['e'].get('in_graph'),
-            'topic_sentiments': [  # row transform with testing
-                {
-                    'topic_id' : row['t'].get('id'),
-                    'sentiment' : row['p.sentiment'],
-                    'sentiment_recorded_in' : row['p.in_graph'],
-                    'topic_industry' : row['p.industry']
-                }
-                for row in row_list
-            ]
-        }
-        for e_id, row_list in transformed_records_by_entity.items()
-    ]
+        entity_topic_sentiments[eid]["topic_sentiments"].append({
+            "topic_id": row["topic_id"],
+            "sentiment": row["sentiment"],
+            "sentiment_recorded_in": row["sentiment_recorded_in"],
+            "topic_industry": row["topic_industry"]
+        })
 
+    return list(entity_topic_sentiments.values())
 
 # TODO inject smart in_graph property in requests/db access
 
