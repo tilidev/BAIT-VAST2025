@@ -15,8 +15,9 @@
           <div class="p-4 sm:p-6">
             <ExampleComponent />
           </div>
-          <GeoJsonMap></GeoJsonMap>
-          <EntityComponent></EntityComponent>
+          <!-- <GeoJsonMap></GeoJsonMap> -->
+          <!-- <EntityComponent></EntityComponent> -->
+          <GraphView></GraphView>
         </template>
       </Card>
     </div>
@@ -29,7 +30,7 @@ import Card from 'primevue/card'; // Import PrimeVue Card
 import ThemeSwitcher from './components/ThemeSwitcher.vue'; // Import the new component
 import GeoJsonMap from './components/GeoJsonMap.vue';
 import EntityComponent from './components/EntityComponent.vue';
-
+import GraphView from './components/GraphView.vue';
 </script>
 
 <style>
