@@ -1,10 +1,11 @@
 import asyncio
+from collections import defaultdict
 from typing import AsyncGenerator
 
 from neo4j import AsyncDriver, AsyncResult
 from neo4j.graph import Graph, Node, Relationship
 
-from .utils import convert_attr_values, serialize_entity
+from .utils import convert_attr_values, serialize_neo4j_entity
 
 
 async def query_and_results(driver: AsyncDriver, query: str, params: dict = None) -> list[dict]:
@@ -54,9 +55,9 @@ async def query_and_lazy_results(driver: AsyncDriver, query: str, params: dict =
 
 async def serializable_graph_transformer(result: AsyncResult):
     graph: Graph = await result.graph()
-    nodes = [serialize_entity(node) for node in graph._nodes.values()]
+    nodes = [serialize_neo4j_entity(node) for node in graph._nodes.values()]
     edges = [
-        serialize_entity(edge)
+        serialize_neo4j_entity(edge)
         for edge in graph._relationships.values()
     ]
     return {"nodes": nodes, "edges": edges}
@@ -155,6 +156,37 @@ async def dataset_specific_nodes_and_links(driver: AsyncDriver, dataset: str):
     }
 
 
-# TODO inject smart in_graph property in requests/db access
+async def entity_topic_participation(driver: AsyncDriver):
+    query = """
+    MATCH (t:TOPIC)--(pd:PLAN | DISCUSSION)-[p:PARTICIPANT]-(e:ENTITY_PERSON | ENTITY_ORGANIZATION)
+    RETURN
+      e.id as entity_id,
+      labels(e)[0] as entity_type,
+      e.in_graph as node_in_graph,
+      t.id as topic_id,
+      collect(pd),
+      p.sentiment as sentiment,
+      p.in_graph as sentiment_recorded_in,
+      p.industry as topic_industry
+    """
+    records = await query_and_results(driver, query)
 
-# TODO implement sentiment collection
+    entity_topic_sentiments = {}
+    for row in records:
+        eid = row["entity_id"]
+        if eid not in entity_topic_sentiments:
+            entity_topic_sentiments[eid] = {
+                "entity_id": eid,
+                "entity_type": row["entity_type"],
+                "node_in_graph": row["node_in_graph"],
+                "topic_sentiments": []
+            }
+
+        entity_topic_sentiments[eid]["topic_sentiments"].append({
+            "topic_id": row["topic_id"],
+            "sentiment": row["sentiment"],
+            "sentiment_recorded_in": row["sentiment_recorded_in"],
+            "topic_industry": row["topic_industry"]
+        })
+
+    return list(entity_topic_sentiments.values())

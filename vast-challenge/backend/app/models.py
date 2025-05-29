@@ -1,6 +1,6 @@
 from enum import StrEnum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class Entity(StrEnum):
     PERSON = "ENTITY_PERSON"
@@ -33,3 +33,15 @@ class BaseGraphObject(BaseModel):
 
     class Config:
         extra = 'allow'
+
+class TopicSentiment(BaseModel):
+    topic_id : str
+    sentiment : float | None
+    sentiment_recorded_in : list[GraphMembership]
+    topic_industry : list[str] | None
+
+class EntityTopicSentiment(BaseModel):
+    entity_id : str
+    entity_type : Entity
+    node_in_graph : list[GraphMembership]
+    topic_sentiments : list[TopicSentiment]

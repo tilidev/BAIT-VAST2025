@@ -4,9 +4,9 @@ from contextlib import asynccontextmanager
 from neo4j import AsyncDriver, AsyncGraphDatabase, basic_auth
 import os
 
-from .models import Entity, BaseGraphObject, GraphMembership
-from .crud import dataset_specific_nodes_and_links, graph_skeleton, query_and_results, retrieve_entities, retrieve_trips_by_person
-from .utils import serialize_entity
+from .models import Entity, BaseGraphObject, EntityTopicSentiment, GraphMembership
+from .crud import dataset_specific_nodes_and_links, entity_topic_participation, graph_skeleton, query_and_results, retrieve_entities, retrieve_trips_by_person
+from .utils import serialize_neo4j_entity
 
 # Neo4j connection details from environment variables or local development
 NEO4J_URI = f"bolt://{os.getenv('DB_HOST', 'localhost')}:7687"
@@ -94,8 +94,42 @@ async def nodes_and_edges_only_in(dataset: GraphMembership, neighbors: bool = Fa
     start_time = time.time()
     graph = await dataset_specific_nodes_and_links(driver, dataset)
     result = {
-        k: [serialize_entity(entity) for entity in v] for k, v in graph.items()
+        k: [serialize_neo4j_entity(entity) for entity in v] for k, v in graph.items()
     }
     print("Query and processing took", round(
         (time.time() - start_time) * 1000), "ms")
     return result
+
+
+@app.get("/retrieve-sentiments", response_model=list[EntityTopicSentiment])
+async def retrieve_sentiments(driver: AsyncDriver=Depends(get_driver)):
+    """
+    Retrieve sentiment scores for each entity towards the topics they are connected to.
+
+    This endpoint queries the graph database for all TOPIC nodes connected to PLAN or DISCUSSION nodes,
+    joined via PARTICIPANT relationships to ENTITY_PERSON or ENTITY_ORGANIZATION nodes.
+    The sentiment is extracted using the PARTICIPANT relationship (null if no sentiment recorded).
+
+    Steps performed:
+    1. MATCH all (TOPIC) -- (PLAN|DISCUSSION) -- [PARTICIPANT] -- (ENTITY)
+    2. RETURN entity and topic identifiers, sentiment scores, graph-membership metadata, and industry tags (if recorded)
+    3. Group by entity_id and construct a list of TopicSentiment objects
+
+    Returns:
+        List[EntityTopicSentiment]:  
+            - entity_id (str): Unique identifier of the entity (person or organization).  
+            - entity_type (Entity): Label indicating whether it's a person or organization.  
+            - node_in_graph (list[GraphMembership]): Metadata on where the entity node exists in the graph.  
+            - topic_sentiments (list[TopicSentiment]): For each topic connected to this entity:  
+                * topic_id (str)  
+                * sentiment (float | None): The sentiment score, if recorded.  
+                * sentiment_recorded_in (list[GraphMembership]): Where in the graph the sentiment was captured.  
+                * topic_industry (list[str] | None): Industry tags associated with the topic.
+    """
+    return await entity_topic_participation(driver)
+
+# TODO aggregations on person (meetings, discussions, plans participated, trips taken, places gone to etc.)
+
+# TODO Topic industry (match (t:TOPIC)--(:PLAN | DISCUSSION)-[rel]-(p:ENTITY_PERSON) return t.id, collect(rel.industry))
+
+# TODO infer date of meeting by travel plans
