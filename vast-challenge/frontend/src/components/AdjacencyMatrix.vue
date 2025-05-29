@@ -143,15 +143,4 @@ export default {
 }
 </script>
 
-<style scoped>
-.cell:hover {
-  stroke: black;
-  stroke-width: 1.5px;
-}
-
-text.active {
-  font-weight: bold;
-  font-size: 1;
-  fill: red;
-}
-</style>
+<style scoped></style>
