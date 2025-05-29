@@ -76,6 +76,7 @@ export default {
 
       // change devs by looking here:
       // https://iros.github.io/patternfills/sample_d3.html
+      // TODO: refactor this clutter dahin wo der Pfeffer wächst
       svgGroup.append("defs")
         .append("pattern")
         .attr("id", "crosshatch")
