@@ -74,15 +74,34 @@ export default {
         .attr("height", innerHeight)
         .attr("fill", "#fff")
 
-      svgGroup.append("defs").append("pattern")
-        .attr("id", "diagonalHatch")
+      // change devs by looking here:
+      // https://iros.github.io/patternfills/sample_d3.html
+      svgGroup.append("defs")
+        .append("pattern")
+        .attr("id", "crosshatch")
         .attr("patternUnits", "userSpaceOnUse")
-        .attr("width", 4)
-        .attr("height", 4)
-        .append("path")
-        .attr("d", "M0,0 l4,4")
-        .attr("stroke", "#999")
-        .attr("stroke-width", 1)
+        .attr("width", 8)
+        .attr("height", 8)
+        .append("image")
+        .attr("xlink:href", "data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSc4JyBoZWlnaHQ9JzgnPgogIDxyZWN0IHdpZHRoPSc4JyBoZWlnaHQ9JzgnIGZpbGw9JyNmZmYnLz4KICA8cGF0aCBkPSdNMCAwTDggOFpNOCAwTDAgOFonIHN0cm9rZS13aWR0aD0nMC41JyBzdHJva2U9JyNhYWEnLz4KPC9zdmc+Cg==")
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("width", 8)
+        .attr("height", 8);
+
+      svgGroup.append("defs")
+        .append("pattern")
+        .attr("id", "diagonalStripe6")
+        .attr("patternUnits", "userSpaceOnUse")
+        .attr("width", 10)
+        .attr("height", 10)
+        .append("image")
+        .attr("xlink:href", "data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxMCcgaGVpZ2h0PScxMCc+CiAgPHJlY3Qgd2lkdGg9JzEwJyBoZWlnaHQ9JzEwJyBmaWxsPSdibGFjaycvPgogIDxwYXRoIGQ9J00tMSwxIGwyLC0yCiAgICAgICAgICAgTTAsMTAgbDEwLC0xMAogICAgICAgICAgIE05LDExIGwyLC0yJyBzdHJva2U9J3doaXRlJyBzdHJva2Utd2lkdGg9JzEnLz4KPC9zdmc+")
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("width", 10)
+        .attr("height", 10);
+
 
       const matrix = persons.map(person =>
         topics.map(topic => {
@@ -111,8 +130,8 @@ export default {
         .attr("width", x.bandwidth())
         .attr("height", y.bandwidth())
         .style("fill", d => {
-          if (d.z === null) return "#ccc"
-          if (typeof d.z === "undefined") return "url(#diagonalHatch)"
+          if (d.z === null) return "url(#diagonalStripe6)"
+          if (typeof d.z === "undefined") return "url(#crosshatch)"
           return color(d.z)
         })
         .style("stroke", "#ccc")
