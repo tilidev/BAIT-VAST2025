@@ -77,11 +77,6 @@ async def trips_of_person(person_id: str, driver: AsyncDriver = Depends(get_driv
     return records
 
 
-@app.get("/sentiment")
-async def sentiment():
-    pass
-
-
 @app.get("/graph-skeleton")
 async def get_graph_skeleton(driver: AsyncDriver = Depends(get_driver)):
     serialized_graph = await graph_skeleton(driver)
