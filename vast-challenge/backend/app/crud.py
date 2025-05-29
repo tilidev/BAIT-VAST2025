@@ -190,7 +190,3 @@ async def entity_topic_participation(driver: AsyncDriver):
         })
 
     return list(entity_topic_sentiments.values())
-
-# TODO inject smart in_graph property in requests/db access
-
-# TODO implement sentiment collection
