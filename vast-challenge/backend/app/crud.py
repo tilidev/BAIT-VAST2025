@@ -166,6 +166,7 @@ async def entity_topic_participation(driver: AsyncDriver):
       t.id as topic_id,
       collect(pd),
       p.sentiment as sentiment,
+      p.reason as reason,
       p.in_graph as sentiment_recorded_in,
       p.industry as topic_industry
     """
@@ -185,6 +186,7 @@ async def entity_topic_participation(driver: AsyncDriver):
         entity_topic_sentiments[eid]["topic_sentiments"].append({
             "topic_id": row["topic_id"],
             "sentiment": row["sentiment"],
+            "reason" : row["reason"],
             "sentiment_recorded_in": row["sentiment_recorded_in"],
             "topic_industry": row["topic_industry"]
         })

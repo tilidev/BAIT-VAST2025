@@ -37,6 +37,7 @@ class BaseGraphObject(BaseModel):
 class TopicSentiment(BaseModel):
     topic_id : str
     sentiment : float | None
+    reason : str | None
     sentiment_recorded_in : list[GraphMembership]
     topic_industry : list[str] | None
 
