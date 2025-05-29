@@ -1,6 +1,5 @@
 <template>
-  <div id="svg">
-  </div>
+  <div id="svg"></div>
 </template>
 
 <script>
@@ -19,37 +18,18 @@ export default {
       default: 800
     }
   },
-  mounted() {
-    const container = d3.select("body")
-      .append('div')
-      .attr('class', 'matrix-container max-w-5xl mx-auto mt-10 p-6 bg-white shadow-2xl rounded-2xl')
-
-    this.svg = container.append('svg')
-      .attr('width', this.width)
-      .attr('height', this.height)
-      .attr('class', 'rounded-lg shadow-md border')
-    console.log(this.matrixData)
-    this.draw()
-  },
   computed: {
     matrixData() {
       const persons = []
       const topicsSet = new Set()
       const sentiments = []
 
-      this.entities.forEach(entity => {
-        const personId = entity.entity_id
-        persons.push(personId)
+      this.entities.forEach(({ entity_id, topic_sentiments }) => {
+        persons.push(entity_id)
 
-        entity.topic_sentiments.forEach(topicSent => {
-          const topicId = topicSent.topic_id
-          topicsSet.add(topicId)
-
-          sentiments.push({
-            person: personId,
-            topic: topicId,
-            value: topicSent.sentiment
-          })
+        topic_sentiments.forEach(({ topic_id, sentiment }) => {
+          topicsSet.add(topic_id)
+          sentiments.push({ person: entity_id, topic: topic_id, value: sentiment })
         })
       })
 
@@ -60,44 +40,41 @@ export default {
       }
     }
   },
+  mounted() {
+    const container = d3.select("body")
+      .append('div')
+      .attr('class', 'matrix-container max-w-5xl mx-auto mt-10 p-6 bg-white shadow-2xl rounded-2xl')
+
+    this.svg = container.append('svg')
+      .attr('width', this.width)
+      .attr('height', this.height)
+      .attr('class', 'rounded-lg shadow-md border')
+
+    this.draw()
+  },
   methods: {
     draw() {
+      const { persons, topics, sentiments } = this.matrixData
       const margin = { top: 80, right: 0, bottom: 10, left: 80 }
       const innerWidth = this.width - margin.left - margin.right
       const innerHeight = this.height - margin.top - margin.bottom
 
-      console.log(this.matrixData.topics)
-      const x = d3.scaleBand().range([0, innerWidth]).domain(this.matrixData.topics)
-      const y = d3.scaleBand().range([0, innerHeight]).domain(this.matrixData.persons)
-      const z = d3.scaleLinear().domain([-1, 1]).clamp(true)
-      const c = d3.scaleOrdinal(d3.schemeCategory10)
+      const x = d3.scaleBand().range([0, innerWidth]).domain(topics)
+      const y = d3.scaleBand().range([0, innerHeight]).domain(persons)
       const color = d3.scaleSequential()
         .domain([-1, 1])
-        .interpolator(d3.interpolateRdYlGn);
-      const svg = this.svg.append('g')
+        .interpolator(d3.interpolateRdYlGn)
+
+      const svgGroup = this.svg.append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`)
 
-      // Build and populate matrix
-      const matrix = this.matrixData.persons.map(person =>
-        this.matrixData.topics.map(topic => {
-          const sentiment = this.matrixData.sentiments.find(s => s.person === person && s.topic === topic)
-          return {
-            x: topic,
-            y: person,
-            z: sentiment?.value, // may be number, null, or undefined
-            raw: sentiment
-          }
-        })
-      )
-
-      // Background
-      svg.append("rect")
+      svgGroup.append("rect")
         .attr("class", "background")
         .attr("width", innerWidth)
         .attr("height", innerHeight)
         .attr("fill", "#fff")
 
-      svg.append("defs").append("pattern")
+      svgGroup.append("defs").append("pattern")
         .attr("id", "diagonalHatch")
         .attr("patternUnits", "userSpaceOnUse")
         .attr("width", 4)
@@ -107,55 +84,61 @@ export default {
         .attr("stroke", "#999")
         .attr("stroke-width", 1)
 
+      const matrix = persons.map(person =>
+        topics.map(topic => {
+          const sentiment = sentiments.find(s => s.person === person && s.topic === topic)
+          return {
+            x: topic,
+            y: person,
+            z: sentiment?.value,
+            raw: sentiment
+          }
+        })
+      )
+
       // Draw rows
-      const rowGroups = svg.selectAll(".row")
+      const rowGroups = svgGroup.selectAll(".row")
         .data(matrix)
         .join("g")
         .attr("class", "row")
-        .attr("transform", (_, i) => `translate(0,${y(this.matrixData.persons[i])})`)
+        .attr("transform", (_, i) => `translate(0,${y(persons[i])})`)
 
       rowGroups.selectAll(".cell")
-        .data(d => d.filter(cell => cell))
+        .data(d => d)
         .join("rect")
         .attr("class", "cell")
         .attr("x", d => x(d.x))
         .attr("width", x.bandwidth())
         .attr("height", y.bandwidth())
         .style("fill", d => {
-          if (d.z === null) return "#ccc"        // Explicit null → light gray
-          if (typeof d.z === "undefined") return "url(#diagonalHatch)"  // Missing/undefined → pattern
-          return color(d.z)                      // Number → interpolate color
+          if (d.z === null) return "#ccc"
+          if (typeof d.z === "undefined") return "url(#diagonalHatch)"
+          return color(d.z)
         })
         .style("stroke", "#ccc")
-        .on("mouseover", mouseover)
-        .on("mouseout", mouseout)
 
-      // Row labels (persons)
+      // Row labels
       rowGroups.append("text")
         .attr("x", -6)
         .attr("y", y.bandwidth() / 2)
         .attr("dy", ".32em")
         .attr("text-anchor", "end")
-        .text((_, i) => this.matrixData.persons[i])
+        .text((_, i) => persons[i])
 
-      // Column labels (topics)
-      const columnGroups = svg.selectAll(".column")
-        .data(this.matrixData.topics)
+      // Column labels
+      const columnGroups = svgGroup.selectAll(".column")
+        .data(topics)
         .join("g")
         .attr("class", "column")
-        .attr("transform", (d) => {
-          const xPos = x(d) + x.bandwidth() / 2; // center of the column
-          return `translate(${xPos},0) rotate(-90)`;
-        });
+        .attr("transform", d => `translate(${x(d) + x.bandwidth() / 2},0) rotate(-90)`)
 
       columnGroups.append("text")
         .attr("x", 6)
         .attr("y", 0)
         .attr("dy", ".32em")
         .attr("text-anchor", "start")
-        .text(d => d);
+        .text(d => d)
     }
-
   }
 }
 </script>
