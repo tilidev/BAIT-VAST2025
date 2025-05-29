@@ -29,7 +29,6 @@ import Card from 'primevue/card'; // Import PrimeVue Card
 import ThemeSwitcher from './components/ThemeSwitcher.vue'; // Import the new component
 import GeoJsonMap from './components/GeoJsonMap.vue';
 import EntityComponent from './components/EntityComponent.vue';
-import { useEntityStore } from './stores/entityStore';
 
 </script>
 

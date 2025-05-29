@@ -27,13 +27,31 @@ export const useEntityStore = defineStore('entity', {
 
   actions: {
     async init() {
-      this.setOrganization(await fetchEntity('ENTITY_ORGANIZATION'))
-      this.setPlace(await fetchEntity('PLACE'))
-      this.setMeeting(await fetchEntity('MEETING'))
-      this.setPlan(await fetchEntity('PLAN'))
-      this.setTopic(await fetchEntity('TOPIC'))
-      this.setTrip(await fetchEntity('TRIP'))
-      this.setPerson(await fetchEntity('ENTITY_PERSON'))
+      const [
+        organizations,
+        places,
+        meetings,
+        plans,
+        topics,
+        trips,
+        persons
+      ] = await Promise.all([
+        fetchEntity('ENTITY_ORGANIZATION'),
+        fetchEntity('PLACE'),
+        fetchEntity('MEETING'),
+        fetchEntity('PLAN'),
+        fetchEntity('TOPIC'),
+        fetchEntity('TRIP'),
+        fetchEntity('ENTITY_PERSON')
+      ])
+
+      this.setOrganization(organizations)
+      this.setPlace(places)
+      this.setMeeting(meetings)
+      this.setPlan(plans)
+      this.setTopic(topics)
+      this.setTrip(trips)
+      this.setPerson(persons)
     },
     setTrip(trips: Trip[]) {
       this.trips = trips
