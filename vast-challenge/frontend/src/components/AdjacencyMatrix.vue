@@ -18,6 +18,13 @@ export default {
       default: 800
     }
   },
+  data() {
+    return {
+      container: null,
+      svg: null,
+      tooltip: null,
+    };
+  },
   computed: {
     matrixData() {
       const persons = []
@@ -41,23 +48,38 @@ export default {
     }
   },
   mounted() {
-    const container = d3.select("body")
+    this.container = d3.select("body")
       .append('div')
-      .attr('class', 'matrix-container max-w-5xl mx-auto mt-10 p-6 bg-white shadow-2xl rounded-2xl')
+      .attr('class', 'matrix-container max-w-5xl mx-auto mt-10 p-6 bg-white shadow-2xl rounded-2xl');
 
-    this.svg = container.append('svg')
+    this.svg = this.container.append('svg')
       .attr('width', this.width)
       .attr('height', this.height)
-      .attr('class', 'rounded-lg shadow-md border')
+      .attr('class', 'rounded-lg shadow-md border');
 
-    this.draw()
+    // init tooltip
+    this.tooltip = d3.select("body")
+      .append("div")
+      .attr("class", "tooltip pointer-events-none absolute hidden p-3 rounded-lg shadow-lg bg-white border border-gray-200 text-sm text-gray-800 transition")
+      .style("z-index", "50")
+      .classed("hidden", true); // Initially hide the tooltip
+
+    this.draw();
+  },
+  beforeUnmount() {
+    if (this.tooltip) {
+      this.tooltip.remove();
+    }
+    if (this.container) {
+      this.container.remove();
+    }
   },
   methods: {
     draw() {
-      const { persons, topics, sentiments } = this.matrixData
-      const margin = { top: 80, right: 0, bottom: 10, left: 80 }
-      const innerWidth = this.width - margin.left - margin.right
-      const innerHeight = this.height - margin.top - margin.bottom
+      const { persons, topics, sentiments } = this.matrixData;
+      const margin = { top: 150, right: 0, bottom: 10, left: 150 };
+      const innerWidth = this.width - margin.left - margin.right;
+      const innerHeight = this.height - margin.top - margin.bottom;
 
       const x = d3.scaleBand().range([0, innerWidth]).domain(topics)
       const y = d3.scaleBand().range([0, innerHeight]).domain(persons)
@@ -136,6 +158,43 @@ export default {
           return color(d.z)
         })
         .style("stroke", "#ccc")
+        .on("mouseover", (event, d) => {
+          this.tooltip
+            .classed("hidden", false)
+            .html(`
+              <div class="font-semibold text-blue-700">Person: ${d.y}</div>
+              <div>Topic: ${d.x}</div>
+              <div>Sentiment: ${d.z !== undefined ? d.z : 'N/A'}</div>
+            `);
+
+          // Bold row label
+          d3.select(event.currentTarget.parentNode).select("text")
+            .style("font-weight", "bold");
+
+          // Bold column label
+          svgGroup.selectAll(".column")
+            .filter(colD => colD === d.x)
+            .select("text")
+            .style("font-weight", "bold");
+        })
+        .on("mousemove", (event) => {
+          this.tooltip
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 28) + "px");
+        })
+        .on("mouseout", (event, d) => {
+          this.tooltip.classed("hidden", true);
+
+          // Unbold row label
+          d3.select(event.currentTarget.parentNode).select("text")
+            .style("font-weight", "normal");
+
+          // Unbold column label
+          svgGroup.selectAll(".column")
+            .filter(colD => colD === d.x)
+            .select("text")
+            .style("font-weight", "normal");
+        });
 
       // Row labels
       rowGroups.append("text")
