@@ -132,21 +132,49 @@ async def retrieve_sentiments(driver: AsyncDriver=Depends(get_driver)):
 @app.get("/sentiments-by-industry")
 async def retrieve_sentiments_aggregate_by_industry(driver: AsyncDriver=Depends(get_driver)):
     sentiments_by_topic = await entity_topic_participation(driver)
-    def _aggregate_industry(sentiment_dict: EntityTopicSentiment):
+
+    def _check_condition(condition_name: str, check_against: list):
+        assert check_against is not None, "Dude wtf"
+        evaluate = {
+            "full_graph" : "jo" in check_against,
+            # "only_trout" : "fi" not in check_against and 'tr' in check_against,
+            "known_in_trout" : 'tr' in check_against,
+            # "only_filah" : "tr" not in check_against and 'fi' in check_against,
+            "known_in_filah" : 'fi' in check_against,
+            # "only_journalist" : check_against == ["jo"]
+        }
+        return evaluate[condition_name]
+    
+    def _aggregate_industry(sentiment_dict: EntityTopicSentiment, condition_name):
         agg_sentiment_by_industry = {}
         for topic_sentiment_entry in sentiment_dict['topic_sentiments']:
-            cur_indust = topic_sentiment_entry['topic_industry']
-            if cur_indust is None:
-                continue
-            for industry in cur_indust:
-                cur_value = agg_sentiment_by_industry.get(industry, (0, 0))
-                sentiment_mean = cur_value[0]
-                new_n = cur_value[1] + 1
-                agg_sentiment_by_industry[industry] = ((sentiment_mean + topic_sentiment_entry['sentiment']) / new_n, new_n)
+            if _check_condition(condition_name, topic_sentiment_entry['sentiment_recorded_in']): # TODO loop over conditions here?
+                related_industries = topic_sentiment_entry['topic_industry']
+                if related_industries is None:
+                    continue
+                for industry in related_industries:
+                    cur_value = agg_sentiment_by_industry.get(industry, (0, 0))
+                    sentiment_mean = cur_value[0]
+                    new_n = cur_value[1] + 1
+                    agg_sentiment_by_industry[industry] = ((sentiment_mean + topic_sentiment_entry['sentiment']) / new_n, new_n)
+        for key in agg_sentiment_by_industry.keys():
+            mean, n = agg_sentiment_by_industry[key]
+            agg_sentiment_by_industry[key] = {
+                "mean_sentiment" : mean,
+                "num_sentiments" : n
+            }
         return agg_sentiment_by_industry
     
-    converted = [{entry['entity_id'] : _aggregate_industry(entry)} for entry in sentiments_by_topic]
-    return converted
+    aggregated_sentiments_by_graph_and_industry = {
+        condition_name : [
+            {
+                entry['entity_id'] : _aggregate_industry(entry, condition_name)
+            }
+            for entry in sentiments_by_topic
+        ]
+        for condition_name in ["full_graph", "known_in_trout", "known_in_filah"] # TODO remove loop here (see above)
+    }
+    return aggregated_sentiments_by_graph_and_industry
 
 
 # TODO aggregations on person (meetings, discussions, plans participated, trips taken, places gone to etc.)
