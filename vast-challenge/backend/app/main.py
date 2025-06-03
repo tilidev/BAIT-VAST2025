@@ -128,6 +128,27 @@ async def retrieve_sentiments(driver: AsyncDriver=Depends(get_driver)):
     """
     return await entity_topic_participation(driver)
 
+
+@app.get("/sentiments-by-industry")
+async def retrieve_sentiments_aggregate_by_industry(driver: AsyncDriver=Depends(get_driver)):
+    sentiments_by_topic = await entity_topic_participation(driver)
+    def _aggregate_industry(sentiment_dict: EntityTopicSentiment):
+        agg_sentiment_by_industry = {}
+        for topic_sentiment_entry in sentiment_dict['topic_sentiments']:
+            cur_indust = topic_sentiment_entry['topic_industry']
+            if cur_indust is None:
+                continue
+            for industry in cur_indust:
+                cur_value = agg_sentiment_by_industry.get(industry, (0, 0))
+                sentiment_mean = cur_value[0]
+                new_n = cur_value[1] + 1
+                agg_sentiment_by_industry[industry] = ((sentiment_mean + topic_sentiment_entry['sentiment']) / new_n, new_n)
+        return agg_sentiment_by_industry
+    
+    converted = [{entry['entity_id'] : _aggregate_industry(entry)} for entry in sentiments_by_topic]
+    return converted
+
+
 # TODO aggregations on person (meetings, discussions, plans participated, trips taken, places gone to etc.)
 
 # TODO Topic industry (match (t:TOPIC)--(:PLAN | DISCUSSION)-[rel]-(p:ENTITY_PERSON) return t.id, collect(rel.industry))
