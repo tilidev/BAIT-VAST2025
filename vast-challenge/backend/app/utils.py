@@ -37,7 +37,7 @@ def serialize_neo4j_entity(node_or_link: Node | Relationship):
     elif isinstance(node_or_link, Relationship):
         return {
             "source": node_or_link.start_node.get('id', node_or_link.element_id),
-            "target": node_or_link.start_node.get('id', node_or_link.element_id),
+            "target": node_or_link.end_node.get('id', node_or_link.element_id),
             "properties": convert_attr_values(node_or_link)
         }
     else:
