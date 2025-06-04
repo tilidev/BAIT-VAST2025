@@ -188,7 +188,7 @@ async def entity_topic_participation(driver: AsyncDriver):
             "sentiment": row["sentiment"],
             "reason" : row["reason"],
             "sentiment_recorded_in": row["sentiment_recorded_in"],
-            "topic_industry": row["topic_industry"]
+            "topic_industry": row["topic_industry"] if row["topic_industry"] != [] else ['misc']
         })
 
     return list(entity_topic_sentiments.values())

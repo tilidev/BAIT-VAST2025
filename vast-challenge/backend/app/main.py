@@ -128,6 +128,89 @@ async def retrieve_sentiments(driver: AsyncDriver=Depends(get_driver)):
     """
     return await entity_topic_participation(driver)
 
+
+@app.get("/sentiments-by-industry")
+async def retrieve_sentiments_aggregate_by_industry(driver: AsyncDriver=Depends(get_driver)):
+    """
+    Retrieve aggregated sentiment scores grouped by industry and filtered by graph context.
+
+    This endpoint analyzes sentiment data recorded from entities (persons or organizations)
+    in the context of their participation in topics (via plans or discussions).
+    It aggregates sentiment scores by industry, grouped under three predefined conditions
+    based on where the sentiment was recorded:
+
+    - **full_graph**: Sentiment recorded in the full graph context (includes 'jo', 'fi', 'tr')
+    - **known_in_trout**: Sentiment recorded at least in the 'tr' graph
+    - **known_in_filah**: Sentiment recorded at least in the 'fi' graph
+
+    For each entity, the endpoint computes:
+    - The mean sentiment per industry
+    - The number of sentiment records contributing to that mean
+
+    Returns:
+        dict: A dictionary with keys as condition names and values as lists of per-entity
+              industry-level sentiment aggregations. Example structure:
+        
+        {
+            "full_graph": [
+                {
+                    "entity_id_1": {
+                        "Industry A": {"mean_sentiment": 0.75, "num_sentiments": 4},
+                        ...
+                    }
+                },
+                ...
+            ],
+            "known_in_trout": [...],
+            "known_in_filah": [...]
+        }
+    """
+    sentiments_by_topic = await entity_topic_participation(driver)
+
+    def _check_condition(condition_name: str, check_against: list):
+        assert check_against is not None, "Dude wtf"
+        evaluate = {
+            "full_graph" : "jo" in check_against,
+            # "only_trout" : "fi" not in check_against and 'tr' in check_against,
+            "known_in_trout" : 'tr' in check_against,
+            # "only_filah" : "tr" not in check_against and 'fi' in check_against,
+            "known_in_filah" : 'fi' in check_against,
+            # "only_journalist" : check_against == ["jo"]
+        }
+        return evaluate[condition_name]
+    
+    def _aggregate_industry(sentiment_dict: EntityTopicSentiment, condition_name):
+        agg_sentiment_by_industry = {}
+        for topic_sentiment_entry in sentiment_dict['topic_sentiments']:
+            if _check_condition(condition_name, topic_sentiment_entry['sentiment_recorded_in']): # TODO loop over conditions here?
+                related_industries = topic_sentiment_entry['topic_industry']
+                if related_industries is None:
+                    continue
+                for industry in related_industries:
+                    cur_value = agg_sentiment_by_industry.get(industry, (0, 0))
+                    sentiment_mean = cur_value[0]
+                    new_n = cur_value[1] + 1
+                    agg_sentiment_by_industry[industry] = ((sentiment_mean + topic_sentiment_entry['sentiment']) / new_n, new_n)
+        for key in agg_sentiment_by_industry.keys():
+            mean, n = agg_sentiment_by_industry[key]
+            agg_sentiment_by_industry[key] = {
+                "mean_sentiment" : mean,
+                "num_sentiments" : n
+            }
+        return agg_sentiment_by_industry
+    
+    aggregated_sentiments_by_graph_and_industry = {
+        condition_name : [
+            {
+                entry['entity_id'] : _aggregate_industry(entry, condition_name)
+            }
+            for entry in sentiments_by_topic
+        ]
+        for condition_name in ["full_graph", "known_in_trout", "known_in_filah"] # TODO remove loop here (see above)
+    }
+    return aggregated_sentiments_by_graph_and_industry
+
+
 # TODO aggregations on person (meetings, discussions, plans participated, trips taken, places gone to etc.)
 
 # TODO Topic industry (match (t:TOPIC)--(:PLAN | DISCUSSION)-[rel]-(p:ENTITY_PERSON) return t.id, collect(rel.industry))
