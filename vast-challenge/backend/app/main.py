@@ -271,10 +271,9 @@ async def retrieve_sentiment_bubbles(driver: AsyncDriver = Depends(get_driver)) 
             sent_val = sentiment['sentiment']
             if sent_val in [0, None]:
                 continue
-            multi_idxs = [
-                (entity['entity_id'], entity['entity_type'], sent_val >= 0, _check(
-                    # id, type, sentiment sign, known in, industry
-                    sentiment['sentiment_recorded_in']), industry)
+            multi_idxs = [  # id, type, sentiment polarity, dataset, industry
+                (entity['entity_id'], entity['entity_type'], sent_val >= 0,
+                    _check(sentiment['sentiment_recorded_in']), industry)
                 for industry in sentiment['topic_industry']
             ]
             for mx in multi_idxs:
