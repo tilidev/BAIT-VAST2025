@@ -211,6 +211,40 @@ async def retrieve_sentiments_aggregate_by_industry(driver: AsyncDriver=Depends(
     return aggregated_sentiments_by_graph_and_industry
 
 
+@app.get("/aggregated-sentiment-bubbles")
+async def retrieve_sentiment_bubbles(driver: AsyncDriver = Depends(get_driver)):
+    data = await entity_topic_participation(driver)
+
+    def _check(sentiment_recorded_in):
+        datasets = set(sentiment_recorded_in)
+        if {'jo', 'fi', 'tr'}.issubset(datasets):
+            return 'all'
+        elif 'tr' in datasets and 'fi' not in datasets:
+            return 'tr'
+        elif 'fi' in datasets and 'tr' not in datasets:
+            return 'fi'
+        else:
+            return 'jo'
+
+    results = {}
+    for entity in data:
+        for sentiment in entity['topic_sentiments']:
+            sent_val = sentiment['sentiment']
+            if sent_val in [0, None]: continue
+            multi_idxs = [
+                (entity['entity_id'], entity['entity_type'], sent_val >= 0, _check(sentiment['sentiment_recorded_in']), industry) # id, type, sentiment sign, known in, industry
+                for industry in sentiment['topic_industry']
+            ]
+            for mx in multi_idxs:
+                if mx not in results:
+                    results[mx] = {"agg_sentiment": sent_val, "contributing_sentiments": [sentiment]}
+                else:
+                    results[mx]['agg_sentiment'] += sent_val
+                    results[mx]['contributing_sentiments'].append(sentiment)
+
+    keys = ['entity_id', 'entity_type', 'sentiment_positive', 'dataset', 'industry']
+    return [dict(zip(keys + list(val.keys()), idx + tuple(val.values()))) for idx, val in results.items()]
+
 # TODO aggregations on person (meetings, discussions, plans participated, trips taken, places gone to etc.)
 
 # TODO Topic industry (match (t:TOPIC)--(:PLAN | DISCUSSION)-[rel]-(p:ENTITY_PERSON) return t.id, collect(rel.industry))
