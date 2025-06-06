@@ -1,6 +1,8 @@
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
+
 
 class Entity(StrEnum):
     PERSON = "ENTITY_PERSON"
@@ -12,6 +14,7 @@ class Entity(StrEnum):
     PLAN = "PLAN"
     TOPIC = "TOPIC"
     TRIP = "TRIP"
+
 
 class GraphMembership(StrEnum):
     JOURNALIST = "jo"
@@ -28,21 +31,33 @@ class BaseGraphObject(BaseModel):
         id (str | int): Unique identifier for the graph object.
     """
 
-    in_graph : list[GraphMembership]
-    id : str | int
+    in_graph: list[GraphMembership]
+    id: str | int
 
     class Config:
         extra = 'allow'
 
+
 class TopicSentiment(BaseModel):
-    topic_id : str
-    sentiment : float | None
-    reason : str | None
-    sentiment_recorded_in : list[GraphMembership]
-    topic_industry : list[str] | None
+    topic_id: str
+    sentiment: float | None
+    reason: str | None
+    sentiment_recorded_in: list[GraphMembership]
+    topic_industry: list[str] | None
+
 
 class EntityTopicSentiment(BaseModel):
-    entity_id : str
-    entity_type : Entity
-    node_in_graph : list[GraphMembership]
-    topic_sentiments : list[TopicSentiment]
+    entity_id: str
+    entity_type: Entity
+    node_in_graph: list[GraphMembership]
+    topic_sentiments: list[TopicSentiment]
+
+
+class AggregatedSentimentBubble(BaseModel):
+    entity_id: str | int
+    entity_type: str
+    sentiment_positive: bool
+    dataset: Literal['jo', 'fi', 'tr', 'all']
+    industry: str
+    agg_sentiment: float
+    contributing_sentiments: list[TopicSentiment]
