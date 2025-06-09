@@ -20,6 +20,9 @@
           <GraphView></GraphView>
         </template>
       </Card>
+        <div class="chart-container" style="height: 60vh;">
+          <IndustryAlignmentHeatmap />
+        </div>
     </div>
   </div>
 </template>
@@ -31,6 +34,7 @@ import ThemeSwitcher from './components/ThemeSwitcher.vue'; // Import the new co
 import GeoJsonMap from './components/GeoJsonMap.vue';
 import EntityComponent from './components/EntityComponent.vue';
 import GraphView from './components/GraphView.vue';
+import IndustryAlignmentHeatmap from './components/CosineSimilarity.vue'
 </script>
 
 <style>
