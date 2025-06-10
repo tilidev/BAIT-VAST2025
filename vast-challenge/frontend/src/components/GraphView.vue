@@ -1,7 +1,11 @@
 <template>
   <div v-if="isReady">
     <!-- <NodeLinkGraph :nodes="entities.nodes" :edges="skeleton.edges" /> -->
-    <AdjacencyMatrix :entities="entities" />
+    <div class="flex">
+      <AdjacencyMatrix class="flex-auto" :entities="entities" :filter="filterJo" />
+      <AdjacencyMatrix class="flex-auto" :entities="entities" :filter="filterTr" />
+      <AdjacencyMatrix class="flex-auto" :entities="entities" :filter="filterFi" />
+    </div>
   </div>
   <div v-else>
     Loading...
@@ -22,7 +26,10 @@ export default {
   },
   data() {
     return {
-      isReady: false
+      isReady: false,
+      filterJo: ["jo"],
+      filterTr: ["tr"],
+      filterFi: ["fi"]
     }
   },
   watch: {
