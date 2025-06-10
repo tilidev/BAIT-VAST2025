@@ -5,11 +5,13 @@ import Aura from '@primeuix/themes/aura';
 import 'primeicons/primeicons.css';
 import './style.css';
 import App from './App.vue';
+import VueGridLayout from 'vue-grid-layout-v3';
 
 const pinia = createPinia();
 const app = createApp(App);
 
 // Use plugins
+app.use(VueGridLayout)
 app.use(pinia);
 app.use(PrimeVue, {
   theme: {
