@@ -4,6 +4,7 @@
 
 <script>
 import * as d3 from 'd3'
+import { PopoverStyle } from 'primevue';
 
 export default {
   name: 'AdjacencyMatrix',
@@ -16,6 +17,16 @@ export default {
     height: {
       type: Number,
       default: 800
+    },
+    filter: {
+      validator(values, props) {
+        // The value must match one of these strings
+        values.forEach(value => {
+          if (['jo', 'fi', 'tr'].includes(value))
+            return false
+        });
+        return true
+      }
     }
   },
   data() {
@@ -34,18 +45,26 @@ export default {
       this.entities.forEach(({ entity_id, topic_sentiments }) => {
         persons.push(entity_id)
 
-        topic_sentiments.forEach(({ topic_id, sentiment }) => {
+        topic_sentiments.forEach(({ topic_id, sentiment, sentiment_recorded_in }) => {
+          const matchesFilter = this.filter.length === 0 || this.filter.some(value =>
+            sentiment_recorded_in.includes(value)
+          )
+
           topicsSet.add(topic_id)
+          if (!matchesFilter) return
+
           sentiments.push({ person: entity_id, topic: topic_id, value: sentiment })
         })
       })
 
+      console.log(Array.from(topicsSet).sort())
       return {
         persons,
-        topics: Array.from(topicsSet),
+        topics: Array.from(topicsSet).sort(),
         sentiments
       }
     }
+
   },
   mounted() {
     this.container = d3.select("body")
@@ -83,9 +102,10 @@ export default {
 
       const x = d3.scaleBand().range([0, innerWidth]).domain(topics)
       const y = d3.scaleBand().range([0, innerHeight]).domain(persons)
-      const color = d3.scaleSequential()
-        .domain([-1, 1])
-        .interpolator(d3.interpolateRdYlGn)
+      const color = d3.scaleLinear()
+        .domain([-1, 0, 1])
+        .range(["#d15f5d", "#FFFFFF", "#6a9f58"])
+      // .interpolator(d3.schemeRdBu())
 
       const svgGroup = this.svg.append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`)
