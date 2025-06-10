@@ -11,8 +11,12 @@
             </div>
         </div>
         <br/>
-        <div @drag="drag" @dragend="dragend" class="droppable-element" draggable="true"
-             unselectable="on">Droppable Element (Drag me!)</div>
+        <div class="flex space-x-4 mb-4">
+            <div @drag="drag" @dragend="dragend" class="droppable-element" draggable="true"
+                 unselectable="on" data-component-type="GraphView">Drag Graph View</div>
+            <div @drag="drag" @dragend="dragend" class="droppable-element" draggable="true"
+                 unselectable="on" data-component-type="GeoJsonMap">Drag GeoJSON Map</div>
+        </div>
         <div id="content">
             <GridLayout
                 :ref="setLayoutRef"
@@ -34,8 +38,10 @@
                     :h="item.h"
                     :i="item.i"
                 >
-                    <span class="text">{{ item.i }}</span>
+                    <!-- <span class="text">{{ item.i }}</span> -->
                     <span class="remove" @click="removeItem(item.i)">x</span>
+                    <GraphView v-if="item.component === 'GraphView'" />
+                    <GeoJsonMap v-else-if="item.component === 'GeoJsonMap'" />
                 </GridItem>
             </GridLayout>
         </div>
@@ -45,6 +51,8 @@
 <script lang="ts">
 import { defineComponent, nextTick } from 'vue';
 import { GridLayout, GridItem } from 'vue-grid-layout-v3';
+import GraphView from './GraphView.vue'; // Import GraphView
+import GeoJsonMap from './GeoJsonMap.vue'; // Import GeoJsonMap
 
 interface LayoutItem {
     x: number;
@@ -53,6 +61,7 @@ interface LayoutItem {
     h: number;
     i: string;
     static?: boolean;
+    component?: string; // Add a component type
 }
 
 interface DragPos {
@@ -68,11 +77,14 @@ export default defineComponent({
     components: {
         GridLayout,
         GridItem,
+        GraphView, // Register GraphView
+        GeoJsonMap, // Register GeoJsonMap
     },
     data() {
         return {
             mouseXY: { x: null as number | null, y: null as number | null },
             DragPos: { x: null, y: null, w: 1, h: 1, i: null } as DragPos,
+            draggedComponentType: null as string | null, // New property to store dragged component type
             layout: [
                 { x: 0, y: 0, w: 2, h: 2, i: '0' },
                 { x: 2, y: 0, w: 2, h: 4, i: '1' },
@@ -101,7 +113,9 @@ export default defineComponent({
             this.mouseXY.x = e.clientX;
             this.mouseXY.y = e.clientY;
         },
-        async drag() {
+        async drag(event: DragEvent) {
+            this.draggedComponentType = (event.target as HTMLElement).dataset.componentType || null;
+
             const parentRect = document.getElementById('content')?.getBoundingClientRect();
             if (!parentRect) return;
 
@@ -158,15 +172,25 @@ export default defineComponent({
                 this.layoutRef.emitter.emit('dragEvent', ['dragend', 'drop', this.DragPos.x, this.DragPos.y, 1, 1]);
                 this.layout = this.layout.filter(obj => obj.i !== 'drop');
 
+                const newItemId = `${this.draggedComponentType || 'item'}-${Date.now()}`; // Unique ID for new item
+                let newW = 4;
+                let newH = 6;
+
+                if (this.draggedComponentType === 'GeoJsonMap') {
+                    newW = 6; // Example default size for map
+                    newH = 8; // Example default size for map
+                }
+
                 this.layout.push({
                     x: this.DragPos.x!,
                     y: this.DragPos.y!,
-                    w: 1,
-                    h: 1,
-                    i: this.DragPos.i!,
+                    w: newW,
+                    h: newH,
+                    i: newItemId,
+                    component: this.draggedComponentType || undefined, // Specify component type
                 });
                 await nextTick();
-                this.layoutRef.emitter.emit('dragEvent', ['dragend', this.DragPos.i, this.DragPos.x, this.DragPos.y, 1, 1]);
+                this.layoutRef.emitter.emit('dragEvent', ['dragend', newItemId, this.DragPos.x, this.DragPos.y, newW, newH]);
             }
         },
         setItemRef(item: LayoutItem, e: any) {
