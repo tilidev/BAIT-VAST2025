@@ -17,7 +17,7 @@
           </div>
           <!-- <GeoJsonMap></GeoJsonMap> -->
           <!-- <EntityComponent></EntityComponent> -->
-          <GraphView></GraphView>
+          <GridLayoutContainer></GridLayoutContainer>
         </template>
       </Card>
     </div>
@@ -31,6 +31,7 @@ import ThemeSwitcher from './components/ThemeSwitcher.vue'; // Import the new co
 import GeoJsonMap from './components/GeoJsonMap.vue';
 import EntityComponent from './components/EntityComponent.vue';
 import GraphView from './components/GraphView.vue';
+import GridLayoutContainer from './components/GridLayoutContainer.vue';
 </script>
 
 <style>
