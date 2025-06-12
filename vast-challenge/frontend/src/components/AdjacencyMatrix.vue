@@ -2,7 +2,7 @@
   <div ref="matrixContainer"></div>
 </template>
 
-<script lang>
+<script>
 import * as d3 from 'd3';
 
 export default {
@@ -161,7 +161,7 @@ export default {
         .attr("width", 10)
         .attr("height", 10);
 
-      const dataMap = {};
+      const dataMap = new Map();
       data.forEach(d => {
         dataMap.set(`${d.rowId}-${d.colId}`, d);
       });
@@ -246,7 +246,7 @@ export default {
         .data(colLabels)
         .join("g")
         .attr("class", "column-label")
-        .attr("transform", d => `translate(${x() + x.bandwidth() / 2},0) rotate(-90)`)
+        .attr("transform", d => `translate(${x(d) + x.bandwidth() / 2},0) rotate(-90)`)
         .append("text")
         .attr("x", 6)
         .attr("y", 0)
