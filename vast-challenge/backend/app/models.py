@@ -53,7 +53,7 @@ class EntityTopicSentiment(BaseModel):
     topic_sentiments: list[TopicSentiment]
 
 
-class AggregatedSentimentBubble(BaseModel):
+class IndustryProContraSentiment(BaseModel):
     entity_id: str | int
     entity_type: str
     sentiment_positive: bool
