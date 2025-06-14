@@ -6,9 +6,7 @@ from contextlib import asynccontextmanager
 from neo4j import AsyncDriver, AsyncGraphDatabase, basic_auth
 import os
 
-import numpy as np
-
-from .models import AggregatedSentimentBubble, Entity, BaseGraphObject, EntityTopicSentiment, GraphMembership
+from .models import IndustryProContraSentiment, Entity, BaseGraphObject, EntityTopicSentiment, GraphMembership
 from .crud import dataset_specific_nodes_and_links, entity_topic_participation, graph_skeleton, query_and_results, retrieve_entities, retrieve_trips_by_person
 from .utils import cosine_similarity_with_nans, serialize_neo4j_entity
 
@@ -222,18 +220,18 @@ async def retrieve_sentiments_aggregate_by_industry(driver: AsyncDriver = Depend
 
 
 @app.get(
-    "/aggregated-sentiment-bubbles",
-    summary="Get Aggregated Sentiment Bubbles",
+    "/industry-pro-contra-sentiments",
+    summary="Get Industry Pro Contra Sentiments",
     description=(
         "Returns aggregated sentiment values for each entity-industry combination "
         "based on topic-level sentiments. Sentiment values are grouped by entity ID, "
         "entity type, sentiment polarity (positive/negative), data source subset, and industry. "
         "Only non-neutral sentiment values (i.e., not 0 or None) are considered."
     ),
-    response_description="List of aggregated sentiment bubbles per entity-industry group.",
+    response_description="List of aggregated industry pro contra sentiments per entity-industry group.",
     tags=["Sentiment Analysis"]
 )
-async def retrieve_sentiment_bubbles(driver: AsyncDriver = Depends(get_driver)) -> list[AggregatedSentimentBubble]:
+async def retrieve_industry_pro_contra_sentiments(driver: AsyncDriver = Depends(get_driver)) -> list[IndustryProContraSentiment]:
     """
     Aggregate sentiment values by entity and industry.
 
