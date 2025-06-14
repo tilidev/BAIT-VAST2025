@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from neo4j import AsyncDriver, AsyncGraphDatabase, basic_auth
 import os
 
-from .models import Entity, BaseGraphObject, EntityTopicSentiment, GraphMembership
+from .models import IndustryProContraSentiment, Entity, BaseGraphObject, EntityTopicSentiment, GraphMembership
 from .crud import dataset_specific_nodes_and_links, entity_topic_participation, graph_skeleton, query_and_results, retrieve_entities, retrieve_trips_by_person
 from .utils import serialize_neo4j_entity
 
@@ -101,8 +101,8 @@ async def nodes_and_edges_only_in(dataset: GraphMembership, neighbors: bool = Fa
     return result
 
 
-@app.get("/retrieve-sentiments", response_model=list[EntityTopicSentiment])
-async def retrieve_sentiments(driver: AsyncDriver=Depends(get_driver)):
+@app.get("/retrieve-sentiments", response_model=list[EntityTopicSentiment], tags=["Sentiment Analysis"])
+async def retrieve_sentiments(driver: AsyncDriver = Depends(get_driver)):
     """
     Retrieve sentiment scores for each entity towards the topics they are connected to.
 
@@ -129,8 +129,8 @@ async def retrieve_sentiments(driver: AsyncDriver=Depends(get_driver)):
     return await entity_topic_participation(driver)
 
 
-@app.get("/sentiments-by-industry")
-async def retrieve_sentiments_aggregate_by_industry(driver: AsyncDriver=Depends(get_driver)):
+@app.get("/sentiments-by-industry", tags=["Sentiment Analysis"])
+async def retrieve_sentiments_aggregate_by_industry(driver: AsyncDriver = Depends(get_driver)):
     """
     Retrieve aggregated sentiment scores grouped by industry and filtered by graph context.
 
@@ -150,7 +150,7 @@ async def retrieve_sentiments_aggregate_by_industry(driver: AsyncDriver=Depends(
     Returns:
         dict: A dictionary with keys as condition names and values as lists of per-entity
               industry-level sentiment aggregations. Example structure:
-        
+
         {
             "full_graph": [
                 {
@@ -170,19 +170,20 @@ async def retrieve_sentiments_aggregate_by_industry(driver: AsyncDriver=Depends(
     def _check_condition(condition_name: str, check_against: list):
         assert check_against is not None, "Dude wtf"
         evaluate = {
-            "full_graph" : "jo" in check_against,
+            "full_graph": "jo" in check_against,
             # "only_trout" : "fi" not in check_against and 'tr' in check_against,
-            "known_in_trout" : 'tr' in check_against,
+            "known_in_trout": 'tr' in check_against,
             # "only_filah" : "tr" not in check_against and 'fi' in check_against,
-            "known_in_filah" : 'fi' in check_against,
+            "known_in_filah": 'fi' in check_against,
             # "only_journalist" : check_against == ["jo"]
         }
         return evaluate[condition_name]
-    
+
     def _aggregate_industry(sentiment_dict: EntityTopicSentiment, condition_name):
         agg_sentiment_by_industry = {}
         for topic_sentiment_entry in sentiment_dict['topic_sentiments']:
-            if _check_condition(condition_name, topic_sentiment_entry['sentiment_recorded_in']): # TODO loop over conditions here?
+            # TODO loop over conditions here?
+            if _check_condition(condition_name, topic_sentiment_entry['sentiment_recorded_in']):
                 related_industries = topic_sentiment_entry['topic_industry']
                 if related_industries is None:
                     continue
@@ -190,26 +191,102 @@ async def retrieve_sentiments_aggregate_by_industry(driver: AsyncDriver=Depends(
                     cur_value = agg_sentiment_by_industry.get(industry, (0, 0))
                     sentiment_mean = cur_value[0]
                     new_n = cur_value[1] + 1
-                    agg_sentiment_by_industry[industry] = ((sentiment_mean + topic_sentiment_entry['sentiment']) / new_n, new_n)
+                    agg_sentiment_by_industry[industry] = (
+                        (sentiment_mean + topic_sentiment_entry['sentiment']) / new_n, new_n)
         for key in agg_sentiment_by_industry.keys():
             mean, n = agg_sentiment_by_industry[key]
             agg_sentiment_by_industry[key] = {
-                "mean_sentiment" : mean,
-                "num_sentiments" : n
+                "mean_sentiment": mean,
+                "num_sentiments": n
             }
         return agg_sentiment_by_industry
-    
+
     aggregated_sentiments_by_graph_and_industry = {
-        condition_name : [
+        condition_name: [
             {
-                entry['entity_id'] : _aggregate_industry(entry, condition_name)
+                entry['entity_id']: _aggregate_industry(entry, condition_name)
             }
             for entry in sentiments_by_topic
         ]
-        for condition_name in ["full_graph", "known_in_trout", "known_in_filah"] # TODO remove loop here (see above)
+        # TODO remove loop here (see above)
+        for condition_name in ["full_graph", "known_in_trout", "known_in_filah"]
     }
     return aggregated_sentiments_by_graph_and_industry
 
+
+@app.get(
+    "/industry-pro-contra-sentiments",
+    summary="Get Industry Pro Contra Sentiments",
+    description=(
+        "Returns aggregated sentiment values for each entity-industry combination "
+        "based on topic-level sentiments. Sentiment values are grouped by entity ID, "
+        "entity type, sentiment polarity (positive/negative), data source subset, and industry. "
+        "Only non-neutral sentiment values (i.e., not 0 or None) are considered."
+    ),
+    response_description="List of aggregated industry pro contra sentiments per entity-industry group.",
+    tags=["Sentiment Analysis"]
+)
+async def retrieve_industry_pro_contra_sentiments(driver: AsyncDriver = Depends(get_driver)) -> list[IndustryProContraSentiment]:
+    """
+    Aggregate sentiment values by entity and industry.
+
+    For each topic sentiment associated with an entity, this endpoint aggregates
+    the sentiment score across the industries the sentiment applies to. It groups data
+    by the following key:
+
+    - `entity_id`: The ID of the entity
+    - `entity_type`: Type of entity (e.g., company, person)
+    - `sentiment_positive`: Boolean flag (True for positive sentiment, False for negative)
+    - `dataset`: Source of sentiment data (`jo`, `fi`, `tr`, or `all`)
+    - `industry`: Industry the sentiment relates to
+
+    Sentiments with values of 0 or None are ignored.
+
+    Returns:
+        List of dictionaries, each containing:
+        - `entity_id`
+        - `entity_type`
+        - `sentiment_positive`
+        - `dataset`
+        - `industry`
+        - `agg_sentiment`: Aggregated sentiment value
+        - `contributing_sentiments`: List of original sentiment dicts that contributed
+    """
+    data = await entity_topic_participation(driver)
+
+    def _check(sentiment_recorded_in):
+        datasets = set(sentiment_recorded_in)
+        if {'jo', 'fi', 'tr'}.issubset(datasets):
+            return 'all'
+        elif 'tr' in datasets and 'fi' not in datasets:
+            return 'tr'
+        elif 'fi' in datasets and 'tr' not in datasets:
+            return 'fi'
+        else:
+            return 'jo'
+
+    results = {}
+    for entity in data:
+        for sentiment in entity['topic_sentiments']:
+            sent_val = sentiment['sentiment']
+            if sent_val in [0, None]:
+                continue
+            multi_idxs = [  # id, type, sentiment polarity, dataset, industry
+                (entity['entity_id'], entity['entity_type'], sent_val >= 0,
+                    _check(sentiment['sentiment_recorded_in']), industry)
+                for industry in sentiment['topic_industry']
+            ]
+            for mx in multi_idxs:
+                if mx not in results:
+                    results[mx] = {"agg_sentiment": sent_val,
+                                   "contributing_sentiments": [sentiment]}
+                else:
+                    results[mx]['agg_sentiment'] += sent_val
+                    results[mx]['contributing_sentiments'].append(sentiment)
+
+    keys = ['entity_id', 'entity_type',
+            'sentiment_positive', 'dataset', 'industry']
+    return [dict(zip(keys + list(val.keys()), idx + tuple(val.values()))) for idx, val in results.items()]
 
 # TODO aggregations on person (meetings, discussions, plans participated, trips taken, places gone to etc.)
 
