@@ -6,11 +6,13 @@ export const useIndustrySimilarityStore = defineStore('industrySimilarity', {
     industrySimilarityMatrix: {},
   }),
   actions: {
-    async init() {
-      this.setIndustrySimilarityMatrix(await fetchIndustryInterestAlignment());
-    },
-    setIndustrySimilarityMatrix(matrix: any) {
-      this.industrySimilarityMatrix = matrix;
+    async init(useWeightedMean: boolean = false) {
+      try {
+        const data = await fetchIndustryInterestAlignment(useWeightedMean);
+        this.industrySimilarityMatrix = data;
+      } catch (error) {
+        console.error('Error initializing industry similarity store:', error);
+      }
     },
   },
 });

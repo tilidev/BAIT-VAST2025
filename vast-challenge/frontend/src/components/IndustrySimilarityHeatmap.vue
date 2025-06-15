@@ -1,19 +1,25 @@
 <template>
-  <div v-if="isReady" class="flex">
-    <AdjacencyMatrix
-      class="flex-auto"
-      :data="matrixData"
-      :rowLabels="industryLabels"
-      :colLabels="industryLabels"
-      :width="500"
-      :height="500"
-      :margin="{ top: 150, right: 0, bottom: 10, left: 150 }"
-      :colorScale="colorScale"
-      :tooltipFormatter="tooltipFormatter"
-    />
-  </div>
-  <div v-else>
-    Loading industry similarity data...
+  <div class="industry-similarity-heatmap">
+    <div class="mb-4 flex items-center">
+      <ToggleSwitch v-model="useWeightedMean" @change="fetchData" inputId="weighted-mean-toggle" />
+      <label for="weighted-mean-toggle" class="ml-2 text-gray-700">Use Weighted Mean</label>
+    </div>
+    <div v-if="isReady" class="flex">
+      <AdjacencyMatrix
+        class="flex-auto"
+        :data="matrixData"
+        :rowLabels="industryLabels"
+        :colLabels="industryLabels"
+        :width="500"
+        :height="500"
+        :margin="{ top: 150, right: 0, bottom: 10, left: 150 }"
+        :colorScale="colorScale"
+        :tooltipFormatter="tooltipFormatter"
+      />
+    </div>
+    <div v-else>
+      Loading industry similarity data...
+    </div>
   </div>
 </template>
 
@@ -23,21 +29,23 @@ import { useIndustrySimilarityStore } from '../stores/industrySimilarityStore';
 import AdjacencyMatrix from './AdjacencyMatrix.vue';
 import type { MatrixCell } from '../types/matrixTypes';
 import * as d3 from 'd3';
+import ToggleSwitch from 'primevue/toggleswitch';
 
 export default defineComponent({
   name: 'IndustrySimilarityHeatmap',
   components: {
     AdjacencyMatrix,
+    ToggleSwitch, 
   },
   data() {
     return {
       industrySimilarityStore: useIndustrySimilarityStore(),
       isReady: false,
+      useWeightedMean: false,
     };
   },
   async created() {
-    await this.industrySimilarityStore.init();
-    this.isReady = true;
+    await this.fetchData();
   },
   computed: {
     industrySimilarityMatrix(): any {
@@ -70,10 +78,15 @@ export default defineComponent({
     colorScale(): d3.ScaleLinear<string, number> {
       return d3.scaleLinear<string, number>()
         .domain([-1, 0, 1])
-        .range(["#d15f5d", "#FFFFFF", "#6a9f58"]); // Consistent with GraphView.vue sentiment scale
+        .range(["#d15f5d", "#FFFFFF", "#6a9f58"]);
     },
   },
   methods: {
+    async fetchData() {
+      this.isReady = false;
+      await this.industrySimilarityStore.init(this.useWeightedMean);
+      this.isReady = true;
+    },
     tooltipFormatter(cell: MatrixCell): string {
       if (cell.value === null) {
         return `

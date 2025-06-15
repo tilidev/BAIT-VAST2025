@@ -37,10 +37,10 @@ export async function fetchSentiment(): Promise<any> {
   }
 }
 
-export async function fetchIndustryInterestAlignment(): Promise<any> {
+export async function fetchIndustryInterestAlignment(weight: boolean = false): Promise<any> {
   try {
     const res = await api.get<any>(`/industry-interest-alignment`, {
-      params: {},
+      params: { weight },
     });
     return res.data;
   } catch (error) {
