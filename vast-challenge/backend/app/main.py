@@ -1,4 +1,6 @@
+from itertools import product
 import time
+import pandas as pd
 from fastapi import Depends, FastAPI, HTTPException
 from contextlib import asynccontextmanager
 from neo4j import AsyncDriver, AsyncGraphDatabase, basic_auth
@@ -6,7 +8,7 @@ import os
 
 from .models import IndustryProContraSentiment, Entity, BaseGraphObject, EntityTopicSentiment, GraphMembership
 from .crud import dataset_specific_nodes_and_links, entity_topic_participation, graph_skeleton, query_and_results, retrieve_entities, retrieve_trips_by_person
-from .utils import serialize_neo4j_entity
+from .utils import cosine_similarity_with_nans, serialize_neo4j_entity
 
 # Neo4j connection details from environment variables or local development
 NEO4J_URI = f"bolt://{os.getenv('DB_HOST', 'localhost')}:7687"
@@ -129,44 +131,7 @@ async def retrieve_sentiments(driver: AsyncDriver = Depends(get_driver)):
     return await entity_topic_participation(driver)
 
 
-@app.get("/sentiments-by-industry", tags=["Sentiment Analysis"])
-async def retrieve_sentiments_aggregate_by_industry(driver: AsyncDriver = Depends(get_driver)):
-    """
-    Retrieve aggregated sentiment scores grouped by industry and filtered by graph context.
-
-    This endpoint analyzes sentiment data recorded from entities (persons or organizations)
-    in the context of their participation in topics (via plans or discussions).
-    It aggregates sentiment scores by industry, grouped under three predefined conditions
-    based on where the sentiment was recorded:
-
-    - **full_graph**: Sentiment recorded in the full graph context (includes 'jo', 'fi', 'tr')
-    - **known_in_trout**: Sentiment recorded at least in the 'tr' graph
-    - **known_in_filah**: Sentiment recorded at least in the 'fi' graph
-
-    For each entity, the endpoint computes:
-    - The mean sentiment per industry
-    - The number of sentiment records contributing to that mean
-
-    Returns:
-        dict: A dictionary with keys as condition names and values as lists of per-entity
-              industry-level sentiment aggregations. Example structure:
-
-        {
-            "full_graph": [
-                {
-                    "entity_id_1": {
-                        "Industry A": {"mean_sentiment": 0.75, "num_sentiments": 4},
-                        ...
-                    }
-                },
-                ...
-            ],
-            "known_in_trout": [...],
-            "known_in_filah": [...]
-        }
-    """
-    sentiments_by_topic = await entity_topic_participation(driver)
-
+def convert_graph_topics(sentiments_by_topic):
     def _check_condition(condition_name: str, check_against: list):
         assert check_against is not None, "Dude wtf"
         evaluate = {
@@ -212,6 +177,46 @@ async def retrieve_sentiments_aggregate_by_industry(driver: AsyncDriver = Depend
         for condition_name in ["full_graph", "known_in_trout", "known_in_filah"]
     }
     return aggregated_sentiments_by_graph_and_industry
+
+
+@app.get("/sentiments-by-industry", tags=["Sentiment Analysis"])
+async def retrieve_sentiments_aggregate_by_industry(driver: AsyncDriver = Depends(get_driver)):
+    """
+    Retrieve aggregated sentiment scores grouped by industry and filtered by graph context.
+
+    This endpoint analyzes sentiment data recorded from entities (persons or organizations)
+    in the context of their participation in topics (via plans or discussions).
+    It aggregates sentiment scores by industry, grouped under three predefined conditions
+    based on where the sentiment was recorded:
+
+    - **full_graph**: Sentiment recorded in the full graph context (includes 'jo', 'fi', 'tr')
+    - **known_in_trout**: Sentiment recorded at least in the 'tr' graph
+    - **known_in_filah**: Sentiment recorded at least in the 'fi' graph
+
+    For each entity, the endpoint computes:
+    - The mean sentiment per industry
+    - The number of sentiment records contributing to that mean
+
+    Returns:
+        dict: A dictionary with keys as condition names and values as lists of per-entity
+              industry-level sentiment aggregations. Example structure:
+
+        {
+            "full_graph": [
+                {
+                    "entity_id_1": {
+                        "Industry A": {"mean_sentiment": 0.75, "num_sentiments": 4},
+                        ...
+                    }
+                },
+                ...
+            ],
+            "known_in_trout": [...],
+            "known_in_filah": [...]
+        }
+    """
+    sentiments_by_topic = await entity_topic_participation(driver)
+    return convert_graph_topics(sentiments_by_topic)
 
 
 @app.get(
@@ -288,8 +293,56 @@ async def retrieve_industry_pro_contra_sentiments(driver: AsyncDriver = Depends(
             'sentiment_positive', 'dataset', 'industry']
     return [dict(zip(keys + list(val.keys()), idx + tuple(val.values()))) for idx, val in results.items()]
 
-# TODO aggregations on person (meetings, discussions, plans participated, trips taken, places gone to etc.)
 
-# TODO Topic industry (match (t:TOPIC)--(:PLAN | DISCUSSION)-[rel]-(p:ENTITY_PERSON) return t.id, collect(rel.industry))
+@app.get("/industry-interest-alignment", tags=['Sentiment Analysis'])
+async def retrieve_industry_interest_alignment(weight: bool = False, driver: AsyncDriver = Depends(get_driver)) -> dict[str, dict[str, float | None]]:
+    """
+    Retrieve a similarity matrix showing how aligned different industries are 
+    based on sentiment data from entities.
+
+    This endpoint calculates the cosine similarity between industries using 
+    mean sentiment values toward them from various entities. Optionally, sentiments 
+    can be weighted by the number of observations.
+
+    Args:
+        weight (bool): Whether to weight sentiment values by their frequency.
+        driver (AsyncDriver): Async Neo4j driver for data retrieval (injected dependency).
+
+    Returns:
+        pd.DataFrame: A square similarity matrix with industries as both rows and columns.
+    """
+    sentiments_by_topic = await entity_topic_participation(driver)
+    data = convert_graph_topics(sentiments_by_topic)['full_graph']
+    data = {k: v for e in data for k, v in e.items()}
+    unique_entities = list(data.keys())
+    unique_industries = ['tourism', 'small vessel', 'misc', 'large vessel']
+
+    matrix = []
+    for industry in unique_industries:
+        row = []
+        for ent in unique_entities:
+            if industry in data[ent]:
+                value = data[ent][industry]['mean_sentiment']
+                if weight:
+                    value *= data[ent][industry]['num_sentiments']
+            else:
+                value = np.nan
+            row.append(value)
+        matrix.append(row)
+
+    df_industry_sentiments_by_person = pd.DataFrame(
+        matrix, unique_industries, unique_entities)
+
+    idx = unique_industries
+    similarity_matrix = pd.DataFrame(index=idx, columns=idx, dtype=float)
+    for i, j in product(idx, idx):
+        x = df_industry_sentiments_by_person.loc[i].values
+        y = df_industry_sentiments_by_person.loc[j].values
+        similarity_matrix.loc[i, j] = round(
+            cosine_similarity_with_nans(x, y), 2)
+    return similarity_matrix.to_dict()
+
+
+# TODO aggregations on person (meetings, discussions, plans participated, trips taken, places gone to etc.)
 
 # TODO infer date of meeting by travel plans
