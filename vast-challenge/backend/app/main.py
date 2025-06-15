@@ -5,6 +5,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from contextlib import asynccontextmanager
 from neo4j import AsyncDriver, AsyncGraphDatabase, basic_auth
 import os
+import numpy as np
 
 from .models import IndustryProContraSentiment, Entity, BaseGraphObject, EntityTopicSentiment, GraphMembership
 from .crud import dataset_specific_nodes_and_links, entity_topic_participation, graph_skeleton, query_and_results, retrieve_entities, retrieve_trips_by_person
