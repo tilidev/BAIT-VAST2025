@@ -20,19 +20,84 @@
           <GraphView></GraphView>
         </template>
       </Card>
+
+      <Card class="shadow-xl rounded-lg overflow-hidden mt-8">
+        <template #title>
+          <h2 class="text-2xl font-bold text-center text-gray-800 dark:text-gray-100 py-3">Mini Visualizations Showcase</h2>
+        </template>
+        <template #content>
+          <div class="p-4 sm:p-6 mini-viz-grid">
+            <EntityTypeDistribution />
+            <OverallSentimentDistribution />
+            <DatasetNodeComparison />
+            <TopicSentimentOverview />
+            <IndustrySentimentBreakdown />
+            <TopicCoverageByDataset />
+            <EntityActivityCard :entity-id="exampleEntityId" />
+            <PersonSentimentAcrossDatasets :person-id="examplePersonId" />
+            <EntitySentimentConsistencyMatrix />
+          </div>
+        </template>
+      </Card>
+
     </div>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import { onMounted } from 'vue';
 import ExampleComponent from './components/ExampleComponent.vue';
 import Card from 'primevue/card'; // Import PrimeVue Card
 import ThemeSwitcher from './components/ThemeSwitcher.vue'; // Import the new component
-import GeoJsonMap from './components/GeoJsonMap.vue';
-import EntityComponent from './components/EntityComponent.vue';
+// import GeoJsonMap from './components/GeoJsonMap.vue';
+// import EntityComponent from './components/EntityComponent.vue';
 import GraphView from './components/GraphView.vue';
+
+// Import Pinia Stores
+import { useEntityStore } from './stores/entityStore';
+import { useGraphStore } from './stores/graphStore';
+
+// Import Mini Visualizations
+import PersonSentimentAcrossDatasets from './components/mini-visualizations/PersonSentimentAcrossDatasets.vue';
+import EntitySentimentConsistencyMatrix from './components/mini-visualizations/EntitySentimentConsistencyMatrix.vue';
+import TopicCoverageByDataset from './components/mini-visualizations/TopicCoverageByDataset.vue';
+import EntityTypeDistribution from './components/mini-visualizations/EntityTypeDistribution.vue';
+import IndustrySentimentBreakdown from './components/mini-visualizations/IndustrySentimentBreakdown.vue';
+import OverallSentimentDistribution from './components/mini-visualizations/OverallSentimentDistribution.vue';
+import EntityActivityCard from './components/mini-visualizations/EntityActivityCard.vue';
+import DatasetNodeComparison from './components/mini-visualizations/DatasetNodeComparison.vue';
+import TopicSentimentOverview from './components/mini-visualizations/TopicSentimentOverview.vue';
+
+const entityStore = useEntityStore();
+const graphStore = useGraphStore();
+
+// Placeholder IDs for components that need them
+const examplePersonId = 'Person_1'; // Adjust if a known ID is available
+const exampleEntityId = 'Organization_1'; // Adjust if a known ID is available
+
+onMounted(async () => {
+  try {
+    // Initialize stores if they haven't been already
+    // Check a basic property to see if init might be needed.
+    // A more robust check or global init in main.ts might be better.
+    if (entityStore.persons.length === 0) {
+      await entityStore.init();
+    }
+    if (graphStore.sentimentPerTopic.length === 0) {
+      await graphStore.init();
+    }
+  } catch (error) {
+    console.error("Error initializing stores in App.vue:", error);
+  }
+});
+
 </script>
 
 <style>
 /* Add global styles if needed, or ensure Tailwind base styles are included in main.ts/style.css */
+.mini-viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1rem;
+}
 </style>
