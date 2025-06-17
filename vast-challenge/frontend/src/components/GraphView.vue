@@ -1,13 +1,13 @@
 <template>
   <div v-if="isReady" class="flex">
     <AdjacencyMatrix class="flex-auto" :data="sentimentMatrixData" :rowLabels="personLabels" :colLabels="topicLabels"
-      :colorScale="sentimentColorScale" :cellFilter="filterSentimentCells('jo')"
+      :colorScale="sentimentColorScaleLinear" :cellFilter="filterSentimentCells('jo')"
       :tooltipFormatter="sentimentTooltipFormatter" />
     <AdjacencyMatrix class="flex-auto" :data="sentimentMatrixData" :rowLabels="personLabels" :colLabels="topicLabels"
-      :colorScale="sentimentColorScale" :cellFilter="filterSentimentCells('tr')"
+      :colorScale="sentimentColorScaleLinear" :cellFilter="filterSentimentCells('tr')"
       :tooltipFormatter="sentimentTooltipFormatter" />
     <AdjacencyMatrix class="flex-auto" :data="sentimentMatrixData" :rowLabels="personLabels" :colLabels="topicLabels"
-      :colorScale="sentimentColorScale" :cellFilter="filterSentimentCells('fi')"
+      :colorScale="sentimentColorScaleLinear" :cellFilter="filterSentimentCells('fi')"
       :tooltipFormatter="sentimentTooltipFormatter" />
   </div>
   <div v-else>
@@ -20,7 +20,7 @@ import { defineComponent } from 'vue';
 import { useGraphStore } from '../stores/graphStore';
 import AdjacencyMatrix from './AdjacencyMatrix.vue';
 import type { MatrixCell } from '../types/matrixTypes';
-import * as d3 from 'd3';
+import { sentimentColorScaleLinear } from '../utils/colors'; 
 
 export default defineComponent({
   name: 'GraphView',
@@ -31,6 +31,7 @@ export default defineComponent({
     return {
       graphStore: useGraphStore(),
       isReady: false,
+      sentimentColorScaleLinear,
     };
   },
   async created() {
@@ -67,11 +68,6 @@ export default defineComponent({
         });
       });
       return Array.from(topics).sort();
-    },
-    sentimentColorScale(): d3.ScaleLinear<string, number> {
-      return d3.scaleLinear<string, number>()
-        .domain([-1, 0, 1])
-        .range(["#d15f5d", "#FFFFFF", "#6a9f58"]);
     },
   },
   methods: {
