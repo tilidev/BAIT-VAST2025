@@ -1,5 +1,7 @@
 from neo4j.time import Date, Time, DateTime
 from neo4j.graph import Node, Relationship
+import numpy as np
+from numpy.linalg import norm
 
 
 def convert(value):
@@ -42,3 +44,12 @@ def serialize_neo4j_entity(node_or_link: Node | Relationship):
         }
     else:
         raise NotImplementedError
+
+def cosine_similarity_with_nans(x, y):
+    # only keep non-naN
+    mask = ~np.isnan(x) & ~np.isnan(y)
+    if np.sum(mask) == 0:
+        return np.nan
+    x_masked = x[mask]
+    y_masked = y[mask]
+    return np.dot(x_masked, y_masked) / (norm(x_masked) * norm(y_masked))
