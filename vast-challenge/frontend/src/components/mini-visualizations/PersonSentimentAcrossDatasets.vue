@@ -9,76 +9,59 @@
   </div>
 </template>
 
-<script lang="ts">
-import { defineComponent, ref, onMounted, watch, computed } from 'vue';
+<script>
 import * as d3 from 'd3';
-import { useGraphStore } from '../../stores/graphStore'; // Assuming graphStore holds /retrieve-sentiments data
-import type { EntityTopicSentiment, TopicSentiment } from '../../types/entity'; // Adjust path and types as needed
+import { useGraphStore } from '../../stores/graphStore';
 
-interface IProcessedSentimentData {
-  topicId: string; // Or industry
-  dataset: string; // 'jo', 'fi', 'tr'
-  averageSentiment: number;
-  count: number;
-}
-
-export default defineComponent({
+export default {
   name: 'PersonSentimentAcrossDatasets',
   props: {
     personId: {
       type: String,
       required: true,
     },
-    // Optional: Prop to select between topic or industry view
     sentimentGranularity: {
       type: String,
-      default: 'topic', // 'topic' or 'industry'
+      default: 'topic',
     }
   },
-  setup(props) {
-    const chartContainer = ref<HTMLElement | null>(null);
-    const isLoading = ref(true);
-    const error = ref<string | null>(null);
-    const graphStore = useGraphStore();
-
-    const processedData = computed<IProcessedSentimentData[]>(() => {
-      if (!graphStore.sentimentPerTopic || graphStore.sentimentPerTopic.length === 0) {
+  data() {
+    return {
+      chartContainer: null,
+      isLoading: true,
+      error: null,
+      graphStore: useGraphStore(),
+    };
+  },
+  computed: {
+    processedData() {
+      if (!this.graphStore.sentimentPerTopic || this.graphStore.sentimentPerTopic.length === 0) {
         return [];
       }
 
-      const personData = graphStore.sentimentPerTopic.find(
-        (entity: EntityTopicSentiment) => entity.entity_id === props.personId
+      const personData = this.graphStore.sentimentPerTopic.find(
+        (entity) => entity.entity_id === this.personId
       );
 
       if (!personData) {
         return [];
       }
 
-      const sentimentsByTopicAndDataset: Record<string, Record<string, { sum: number; count: number }>> = {};
+      const sentimentsByTopicAndDataset = {};
 
-      personData.topic_sentiments.forEach((ts: TopicSentiment) => {
+      personData.topic_sentiments.forEach((ts) => {
         if (ts.sentiment === null || ts.sentiment === undefined) return;
 
-        const key = props.sentimentGranularity === 'industry' ? (ts.topic_industry?.join(', ') || 'Unknown Industry') : ts.topic_id;
+        const key = this.sentimentGranularity === 'industry' ? (ts.topic_industry?.join(', ') || 'Unknown Industry') : ts.topic_id;
         
-        // Determine datasets. 'sentiment_recorded_in' can be like ['jo'], ['fi'], ['tr'], ['jo', 'fi'], etc.
-        // For simplicity, we'll consider each recorded dataset.
-        // A more nuanced approach might be needed if a single sentiment record spans multiple primary datasets.
-        // For now, if 'jo', 'fi', 'tr' are present, it's complex. Let's assume primary dataset context.
-        // The backend endpoint /industry-pro-contra-sentiments already handles 'dataset' categorization.
-        // If using /retrieve-sentiments, we need to infer or simplify.
-        // Let's assume sentiment_recorded_in gives the relevant dataset(s).
-        // For this example, we'll just pick the first one if multiple, or handle specific cases.
-        
-        let datasetsToAttribute: string[] = [];
+        let datasetsToAttribute = [];
         if (ts.sentiment_recorded_in?.includes('tr')) datasetsToAttribute.push('tr');
         if (ts.sentiment_recorded_in?.includes('fi')) datasetsToAttribute.push('fi');
         if (ts.sentiment_recorded_in?.includes('jo') && !ts.sentiment_recorded_in?.includes('tr') && !ts.sentiment_recorded_in?.includes('fi')) {
-          // Only 'jo' if not also in 'tr' or 'fi' to avoid double counting if 'jo' is a general context
           datasetsToAttribute.push('jo');
         }
         if (datasetsToAttribute.length === 0 && ts.sentiment_recorded_in?.includes('jo')) {
-            datasetsToAttribute.push('jo'); // Default to 'jo' if no other specific dataset context
+            datasetsToAttribute.push('jo');
         }
 
 
@@ -89,12 +72,12 @@ export default defineComponent({
           if (!sentimentsByTopicAndDataset[key][dataset]) {
             sentimentsByTopicAndDataset[key][dataset] = { sum: 0, count: 0 };
           }
-          sentimentsByTopicAndDataset[key][dataset].sum += ts.sentiment!;
+          sentimentsByTopicAndDataset[key][dataset].sum += ts.sentiment;
           sentimentsByTopicAndDataset[key][dataset].count += 1;
         });
       });
 
-      const result: IProcessedSentimentData[] = [];
+      const result = [];
       for (const topicKey in sentimentsByTopicAndDataset) {
         for (const dataset in sentimentsByTopicAndDataset[topicKey]) {
           result.push({
@@ -106,32 +89,46 @@ export default defineComponent({
         }
       }
       return result;
-    });
-
-    function drawChart() {
-      if (!chartContainer.value || processedData.value.length === 0) {
-        // Clear previous chart if any
-        if(chartContainer.value) d3.select(chartContainer.value).selectAll("*").remove();
+    },
+  },
+  methods: {
+    async fetchDataForDatasets() {
+      this.isLoading = true;
+      this.error = null;
+      try {
+        if (this.graphStore.sentimentPerTopic.length === 0) {
+          await this.graphStore.init();
+        }
+      } catch (e) {
+        console.error("Error initializing or processing data:", e);
+        this.error = e.message || "An unknown error occurred";
+      } finally {
+        this.isLoading = false;
+      }
+    },
+    drawChart() {
+      const container = this.$refs.chartContainer;
+      if (!container || this.processedData.length === 0) {
+        if(container) d3.select(container).selectAll("*").remove();
         return;
       }
-      d3.select(chartContainer.value).selectAll("*").remove(); // Clear previous chart
+      d3.select(container).selectAll("*").remove();
 
-      const data = processedData.value;
+      const data = this.processedData;
 
       const margin = { top: 20, right: 30, bottom: 70, left: 60 };
-      const width = chartContainer.value.clientWidth - margin.left - margin.right;
-      const height = chartContainer.value.clientHeight - margin.top - margin.bottom;
+      const width = container.clientWidth - margin.left - margin.right;
+      const height = container.clientHeight - margin.top - margin.bottom;
 
-      const svg = d3.select(chartContainer.value)
+      const svg = d3.select(container)
         .append("svg")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
         .append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
-      // Get unique topics/industries and datasets for scales
-      const groupKeys = Array.from(new Set(data.map(d => d.topicId))); // Topics or Industries
-      const subGroupKeys = Array.from(new Set(data.map(d => d.dataset))); // Datasets: 'jo', 'fi', 'tr'
+      const groupKeys = Array.from(new Set(data.map(d => d.topicId)));
+      const subGroupKeys = Array.from(new Set(data.map(d => d.dataset)));
 
       const x0 = d3.scaleBand()
         .domain(groupKeys)
@@ -144,12 +141,12 @@ export default defineComponent({
         .padding(0.05);
 
       const y = d3.scaleLinear()
-        .domain([-1, 1]) // Sentiment typically ranges from -1 to 1
+        .domain([-1, 1])
         .range([height, 0]);
 
-      const color = d3.scaleOrdinal<string>()
+      const color = d3.scaleOrdinal()
         .domain(subGroupKeys)
-        .range(['#1f77b4', '#ff7f0e', '#2ca02c']); // Example colors for 'jo', 'fi', 'tr'
+        .range(['#1f77b4', '#ff7f0e', '#2ca02c']);
 
       // X axis
       svg.append("g")
@@ -169,7 +166,7 @@ export default defineComponent({
         .call(d3.axisLeft(y)
             .ticks(10)
             .tickSize(-width)
-            .tickFormat("" as any) // Type assertion for empty string
+            .tickFormat("")
         )
         .selectAll("line")
         .attr("stroke-opacity", 0.1);
@@ -183,10 +180,10 @@ export default defineComponent({
         .selectAll("rect")
         .data(groupKey => subGroupKeys.map(subGroupKey => {
           return data.find(d => d.topicId === groupKey && d.dataset === subGroupKey) || 
-                 { topicId: groupKey, dataset: subGroupKey, averageSentiment: 0, count: 0 }; // Default if no data
+                 { topicId: groupKey, dataset: subGroupKey, averageSentiment: 0, count: 0 };
         }))
         .join("rect")
-          .attr("x", d => x1(d.dataset)!)
+          .attr("x", d => x1(d.dataset))
           .attr("y", d => y(d.averageSentiment))
           .attr("width", x1.bandwidth())
           .attr("height", d => height - y(d.averageSentiment))
@@ -198,7 +195,7 @@ export default defineComponent({
         .attr("font-size", 10)
         .attr("text-anchor", "end")
         .selectAll("g")
-        .data(subGroupKeys.slice().reverse()) // To match color order
+        .data(subGroupKeys.slice().reverse())
         .join("g")
           .attr("transform", (d, i) => `translate(0,${i * 20})`);
 
@@ -221,10 +218,9 @@ export default defineComponent({
 
       svg.selectAll("rect")
         .on("mouseover", (event, d) => {
-            const typedD = d as IProcessedSentimentData; // Type assertion
             tooltip
                 .classed("hidden", false)
-                .html(`Topic: ${typedD.topicId}<br>Dataset: ${typedD.dataset}<br>Avg. Sentiment: ${typedD.averageSentiment.toFixed(2)}<br>Count: ${typedD.count}`);
+                .html(`Topic: ${d.topicId}<br>Dataset: ${d.dataset}<br>Avg. Sentiment: ${d.averageSentiment.toFixed(2)}<br>Count: ${d.count}`);
         })
         .on("mousemove", (event) => {
             tooltip.style("left", (event.pageX + 10) + "px")
@@ -234,50 +230,58 @@ export default defineComponent({
             tooltip.classed("hidden", true);
         });
 
-    }
-
-    onMounted(async () => {
-      isLoading.value = true;
-      error.value = null;
-      try {
-        if (graphStore.sentimentPerTopic.length === 0) {
-          // Assuming graphStore.init() fetches this data
-          // Or, if not already fetched, trigger a fetch here or ensure it's fetched by a parent component
-          await graphStore.init(); // This might fetch all graph store data
-        }
-        // Data processing is now in computed property `processedData`
-      } catch (e) {
-        console.error("Error initializing or processing data:", e);
-        error.value = (e as Error).message || "An unknown error occurred";
-      } finally {
-        isLoading.value = false;
-      }
-    });
-
-    // Watch for changes in processedData (due to prop changes or store updates) and redraw
-    watch([processedData, () => props.personId, () => props.sentimentGranularity], () => {
-      if (!isLoading.value) { // Only draw if not in initial loading phase
-        drawChart();
-      }
-    }, { immediate: false, deep: true }); // deep true for processedData if it's complex
-
-    // Also explicitly call drawChart after initial loading is complete and data is ready
-    watch(isLoading, (newIsLoading) => {
-        if (!newIsLoading && processedData.value.length > 0) {
-            drawChart();
-        }
-    });
-
-
-    return {
-      chartContainer,
-      isLoading,
-      error,
-      processedData,
-    };
+    },
   },
-});
+  mounted() {
+    this.fetchDataForDatasets();
+  },
+  watch: {
+    processedData: {
+      handler() {
+        if (!this.isLoading && this.processedData.length > 0) {
+          this.$nextTick(() => {
+            this.drawChart();
+          });
+        }
+      },
+      deep: true,
+    },
+    isLoading(newIsLoading) {
+      if (!newIsLoading && this.processedData.length > 0) {
+        this.$nextTick(() => {
+          this.drawChart();
+        });
+      }
+    },
+    personId: {
+      handler() {
+        // Re-fetch data when personId changes
+        this.isLoading = true; // Set loading true to show loading state
+        this.fetchDataForDatasets(); // Re-fetch data for the new personId
+      },
+      immediate: true, // Fetch data immediately on mount with initial personId
+    },
+    sentimentGranularity: {
+      handler() {
+        // Re-draw chart when granularity changes, if data is already loaded
+        if (!this.isLoading && this.processedData.length > 0) {
+          this.$nextTick(() => {
+            this.drawChart();
+          });
+        }
+      },
+    },
+  },
+};
 </script>
+
+<style scoped>
+/* Add any component-specific styles here */
+.tooltip {
+  /* Tailwind classes are used directly, but you can add more specific styles */
+  z-index: 50;
+}
+</style>
 
 <style scoped>
 /* Add any component-specific styles here */

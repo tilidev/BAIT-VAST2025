@@ -8,75 +8,60 @@
   </div>
 </template>
 
-<script lang="ts">
-import { defineComponent, ref, onMounted, watch, computed } from 'vue';
+<script>
 import * as d3 from 'd3';
 import { api as axiosInstance } from '../../lib/axios';
-import type { GraphMembership } from '../../types/entity'; // GraphMembership: 'jo', 'fi', 'tr'
 
-interface IDatasetNodeCount {
-  dataset: GraphMembership;
-  nodeCount: number;
-}
-
-// Simplified structure for API response from /dataset-specific-nodes-edges
-interface IDatasetSpecificGraph {
-  nodes: Array<{ id: string; [key: string]: any }>; // Assuming nodes have an 'id'
-  edges: Array<{ source: string; target: string; [key: string]: any }>;
-}
-
-export default defineComponent({
+export default {
   name: 'DatasetNodeComparison',
-  setup() {
-    const chartContainer = ref<HTMLElement | null>(null);
-    const isLoading = ref(true);
-    const error = ref<string | null>(null);
-    const processedData = ref<IDatasetNodeCount[]>([]);
-
-    const datasetsToFetch: GraphMembership[] = ['jo', 'fi', 'tr'];
-
-    async function fetchDataForDatasets() {
-      isLoading.value = true;
-      error.value = null;
-      const results: IDatasetNodeCount[] = [];
+  data() {
+    return {
+      chartContainer: null,
+      isLoading: true,
+      error: null,
+      processedData: [],
+      datasetsToFetch: ['jo', 'fi', 'tr'],
+    };
+  },
+  methods: {
+    async fetchDataForDatasets() {
+      this.isLoading = true;
+      this.error = null;
+      const results = [];
 
       try {
-        for (const dataset of datasetsToFetch) {
-          const response = await axiosInstance.get<IDatasetSpecificGraph>(
+        for (const dataset of this.datasetsToFetch) {
+          const response = await axiosInstance.get(
             `/dataset-specific-nodes-edges?dataset=${dataset}`
           );
-          // We are interested in nodes *only* in this dataset,
-          // The backend endpoint returns nodes that have the dataset in their 'in_graph' property.
-          // For a true "only in" count, the backend logic might need adjustment or further client-side filtering if full graph data were available.
-          // For now, we assume the endpoint gives a relevant count of nodes associated primarily with this dataset.
           results.push({
             dataset: dataset,
             nodeCount: response.data.nodes.length,
           });
         }
-        processedData.value = results;
+        this.processedData = results;
       } catch (e) {
         console.error("Error fetching dataset node counts:", e);
-        error.value = (e as Error).message || "Failed to fetch data";
+        this.error = e.message || "Failed to fetch data";
       } finally {
-        isLoading.value = false;
+        this.isLoading = false;
       }
-    }
-
-    function drawChart() {
-      if (!chartContainer.value || processedData.value.length === 0) {
-        if(chartContainer.value) d3.select(chartContainer.value).selectAll("*").remove();
+    },
+    drawChart() {
+      const container = this.$refs.chartContainer;
+      if (!container || this.processedData.length === 0) {
+        if(container) d3.select(container).selectAll("*").remove();
         return;
       }
-      d3.select(chartContainer.value).selectAll("*").remove();
+      d3.select(container).selectAll("*").remove();
 
-      const data = processedData.value;
+      const data = this.processedData;
 
       const margin = { top: 20, right: 30, bottom: 40, left: 60 };
-      const width = chartContainer.value.clientWidth - margin.left - margin.right;
-      const height = chartContainer.value.clientHeight - margin.top - margin.bottom;
+      const width = container.clientWidth - margin.left - margin.right;
+      const height = container.clientHeight - margin.top - margin.bottom;
 
-      const svg = d3.select(chartContainer.value)
+      const svg = d3.select(container)
         .append("svg")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
@@ -84,7 +69,7 @@ export default defineComponent({
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
       const x = d3.scaleBand()
-        .domain(data.map(d => d.dataset.toUpperCase())) // Display as JO, FI, TR
+        .domain(data.map(d => d.dataset.toUpperCase()))
         .range([0, width])
         .padding(0.3);
 
@@ -92,9 +77,9 @@ export default defineComponent({
         .domain([0, d3.max(data, d => d.nodeCount) || 10])
         .range([height, 0]);
 
-      const color = d3.scaleOrdinal<string>()
-        .domain(datasetsToFetch)
-        .range(['#1f77b4', '#ff7f0e', '#2ca02c']); // Colors for 'jo', 'fi', 'tr'
+      const color = d3.scaleOrdinal()
+        .domain(this.datasetsToFetch)
+        .range(['#1f77b4', '#ff7f0e', '#2ca02c']);
 
       // X axis
       svg.append("g")
@@ -110,7 +95,7 @@ export default defineComponent({
         .data(data)
         .join("rect")
           .attr("class", "bar")
-          .attr("x", d => x(d.dataset.toUpperCase())!)
+          .attr("x", d => x(d.dataset.toUpperCase()))
           .attr("y", d => y(d.nodeCount))
           .attr("width", x.bandwidth())
           .attr("height", d => height - y(d.nodeCount))
@@ -123,10 +108,9 @@ export default defineComponent({
 
       svg.selectAll(".bar")
         .on("mouseover", (event, d) => {
-          const typedD = d as IDatasetNodeCount;
           tooltip
             .classed("hidden", false)
-            .html(`Dataset: ${typedD.dataset.toUpperCase()}<br>Node Count: ${typedD.nodeCount}`);
+            .html(`Dataset: ${d.dataset.toUpperCase()}<br>Node Count: ${d.nodeCount}`);
         })
         .on("mousemove", (event) => {
           tooltip.style("left", (event.pageX + 10) + "px")
@@ -135,28 +119,31 @@ export default defineComponent({
         .on("mouseout", () => {
           tooltip.classed("hidden", true);
         });
-    }
-
-    onMounted(fetchDataForDatasets);
-
-    watch(processedData, () => { // Watch processedData directly as it's a ref
-      if (!isLoading.value) drawChart();
-    }, { deep: true });
-    
-    watch(isLoading, (newIsLoading) => {
-        if (!newIsLoading && processedData.value.length > 0) {
-            drawChart();
-        }
-    });
-
-    return {
-      chartContainer,
-      isLoading,
-      error,
-      processedData,
-    };
+    },
   },
-});
+  mounted() {
+    this.fetchDataForDatasets();
+  },
+  watch: {
+    processedData: {
+      handler() {
+        if (!this.isLoading && this.processedData.length > 0) {
+          this.$nextTick(() => {
+            this.drawChart();
+          });
+        }
+      },
+      deep: true,
+    },
+    isLoading(newIsLoading) {
+      if (!newIsLoading && this.processedData.length > 0) {
+        this.$nextTick(() => {
+          this.drawChart();
+        });
+      }
+    },
+  },
+};
 </script>
 
 <style scoped>

@@ -8,54 +8,55 @@
   </div>
 </template>
 
-<script lang="ts">
-import { defineComponent, ref, onMounted, watch, computed } from 'vue';
+<script>
 import * as d3 from 'd3';
 import { useEntityStore } from '../../stores/entityStore';
-import type { Entity } from '../../types/entity'; // Only Entity type needed from here
 
-interface IEntityTypeData {
-  type: string; // Entity type name e.g., "Persons", "Organizations"
-  count: number;
-}
-
-export default defineComponent({
+export default {
   name: 'EntityTypeDistribution',
-  setup() {
-    const chartContainer = ref<HTMLElement | null>(null);
-    const isLoading = ref(true);
-    const error = ref<string | null>(null);
-    const entityStore = useEntityStore();
-
-    const processedData = computed<IEntityTypeData[]>(() => {
-      if (entityStore.persons.length === 0 && entityStore.organizations.length === 0) { // Check if store is populated
+  data() {
+    return {
+      chartContainer: null,
+      isLoading: true,
+      error: null,
+      entityStore: useEntityStore(),
+    };
+  },
+  computed: {
+    processedData() {
+      // Check if store is populated
+      if (this.entityStore.persons.length === 0 && this.entityStore.organizations.length === 0) {
         // Could be loading or genuinely empty
       }
       return [
-        { type: 'Persons', count: entityStore.persons.length },
-        { type: 'Organizations', count: entityStore.organizations.length },
-        { type: 'Places', count: entityStore.places.length },
-        { type: 'Meetings', count: entityStore.meetings.length },
-        { type: 'Plans', count: entityStore.plans.length },
-        { type: 'Topics', count: entityStore.topics.length },
-        { type: 'Trips', count: entityStore.trips.length },
+        { type: 'Persons', count: this.entityStore.persons.length },
+        { type: 'Organizations', count: this.entityStore.organizations.length },
+        { type: 'Places', count: this.entityStore.places.length },
+        { type: 'Meetings', count: this.entityStore.meetings.length },
+        { type: 'Plans', count: this.entityStore.plans.length },
+        { type: 'Topics', count: this.entityStore.topics.length },
+        { type: 'Trips', count: this.entityStore.trips.length },
       ].filter(d => d.count > 0); // Optionally filter out zero-count types
-    });
-
-    function drawChart() {
-      if (!chartContainer.value || processedData.value.length === 0) {
-        if(chartContainer.value) d3.select(chartContainer.value).selectAll("*").remove();
-        return;
-      }
-      d3.select(chartContainer.value).selectAll("*").remove();
-
-      const data = processedData.value;
+    },
+  },
+    methods: {
+      drawChart() {
+        console.log("drawChart called."); // Added for debugging
+        const container = this.$refs.chartContainer;
+        if (!container || this.processedData.length === 0) {
+          if (container) d3.select(container).selectAll("*").remove();
+          console.log("drawChart returned early."); // Added for debugging
+          return;
+        }
+        d3.select(container).selectAll("*").remove();
+        
+        const data = this.processedData;
 
       const margin = { top: 20, right: 30, bottom: 90, left: 60 }; // Increased bottom margin for rotated labels
-      const width = chartContainer.value.clientWidth - margin.left - margin.right;
-      const height = chartContainer.value.clientHeight - margin.top - margin.bottom;
+      const width = container.clientWidth - margin.left - margin.right;
+      const height = container.clientHeight - margin.top - margin.bottom;
 
-      const svg = d3.select(chartContainer.value)
+      const svg = d3.select(container)
         .append("svg")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
@@ -76,8 +77,8 @@ export default defineComponent({
         .attr("transform", `translate(0,${height})`)
         .call(d3.axisBottom(x))
         .selectAll("text")
-          .attr("transform", "translate(-10,0)rotate(-45)")
-          .style("text-anchor", "end");
+        .attr("transform", "translate(-10,0)rotate(-45)")
+        .style("text-anchor", "end");
 
       // Y axis
       svg.append("g")
@@ -87,12 +88,12 @@ export default defineComponent({
       svg.selectAll(".bar")
         .data(data)
         .join("rect")
-          .attr("class", "bar")
-          .attr("x", d => x(d.type)!)
-          .attr("y", d => y(d.count))
-          .attr("width", x.bandwidth())
-          .attr("height", d => height - y(d.count))
-          .attr("fill", "#6366f1"); // Example color: Indigo
+        .attr("class", "bar")
+        .attr("x", d => x(d.type))
+        .attr("y", d => y(d.count))
+        .attr("width", x.bandwidth())
+        .attr("height", d => height - y(d.count))
+        .attr("fill", "#6366f1"); // Example color: Indigo
 
       // Tooltip (optional, as counts are usually clear on axes or labels)
       // For consistency, let's add a simple one
@@ -102,57 +103,62 @@ export default defineComponent({
 
       svg.selectAll(".bar")
         .on("mouseover", (event, d) => {
-          const typedD = d as IEntityTypeData;
           tooltip
             .classed("hidden", false)
-            .html(`Type: ${typedD.type}<br>Count: ${typedD.count}`);
+            .html(`Type: ${d.type}<br>Count: ${d.count}`);
         })
         .on("mousemove", (event) => {
           tooltip.style("left", (event.pageX + 10) + "px")
-                 .style("top", (event.pageY - 20) + "px");
+            .style("top", (event.pageY - 20) + "px");
         })
         .on("mouseout", () => {
           tooltip.classed("hidden", true);
         });
-    }
-
-    onMounted(async () => {
-      isLoading.value = true;
-      error.value = null;
-      try {
-        // entityStore.init() should be called by a parent component or App.vue
-        // We assume it's populated. If not, this chart will be empty or show loading.
-        // Check if data is already available, if not, entityStore.init() might be needed.
-        if (entityStore.persons.length === 0 && entityStore.organizations.length === 0) { // Basic check
-            // Potentially call entityStore.init() if not managed globally
-            // await entityStore.init(); // Uncomment if this component is responsible for init
-        }
-      } catch (e) {
-        console.error("Error initializing entity type distribution data:", e);
-        error.value = (e as Error).message || "An unknown error occurred";
-      } finally {
-        isLoading.value = false; // Set to false even if init is not called here, relies on store reactivity
-      }
-    });
-
-    watch(processedData, () => {
-      if (!isLoading.value) drawChart();
-    }, { deep: true, immediate: true }); // Immediate true to draw on mount if data is ready
-
-     watch(isLoading, (newIsLoading) => {
-        if (!newIsLoading && processedData.value.length > 0) {
-            drawChart();
-        }
-    });
-
-    return {
-      chartContainer,
-      isLoading,
-      error,
-      processedData,
-    };
+    },
   },
-});
+  mounted() {
+    this.isLoading = true;
+    this.error = null;
+    try {
+      // entityStore.init() should be called by a parent component or App.vue
+      // We assume it's populated. If not, this chart will be empty or show loading.
+      // Check if data is already available, if not, entityStore.init() might be needed.
+      if (this.entityStore.persons.length === 0 && this.entityStore.organizations.length === 0) { // Basic check
+        // Potentially call entityStore.init() if not managed globally
+        // await this.entityStore.init(); // Uncomment if this component is responsible for init
+      }
+    } catch (e) {
+      console.error("Error initializing entity type distribution data:", e);
+      this.error = e.message || "An unknown error occurred";
+    } finally {
+      this.isLoading = false; // Set to false even if init is not called here, relies on store reactivity
+    }
+  },
+    watch: {
+      processedData: {
+        handler() {
+          console.log(this.processedData);
+          // Only draw if not currently loading, to prevent premature drawing with empty data
+          if (!this.isLoading && this.processedData.length > 0) {
+          this.$nextTick(() => {
+            this.drawChart();
+          });
+        }
+      },
+      deep: true,
+      // Removed immediate: true, as isLoading watcher will handle initial draw
+    },
+    isLoading(newIsLoading) {
+      // Draw chart when loading completes and data is available
+      if (!newIsLoading && this.processedData.length > 0) {
+        console.log("Loading complete, drawing chart.");
+        this.$nextTick(() => {
+          this.drawChart();
+        });
+      }
+    },
+  },
+};
 </script>
 
 <style scoped>
