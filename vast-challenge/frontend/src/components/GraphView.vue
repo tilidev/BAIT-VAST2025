@@ -1,14 +1,14 @@
 <template>
-  <div v-if="isReady" class="flex">
-    <AdjacencyMatrix class="flex-auto" :data="sentimentMatrixData" :rowLabels="personLabels" :colLabels="topicLabels"
+  <div  v-if="isReady" class="w-full h-full" ref="el">
+    <AdjacencyMatrix class="flex-auto" :data="sentimentMatrixData" :height="height" :width="width" :rowLabels="personLabels" :colLabels="topicLabels"
       :colorScale="sentimentColorScale" :cellFilter="filterSentimentCells('jo')"
       :tooltipFormatter="sentimentTooltipFormatter" />
-    <AdjacencyMatrix class="flex-auto" :data="sentimentMatrixData" :rowLabels="personLabels" :colLabels="topicLabels"
+    <!-- <AdjacencyMatrix class="flex-auto" :data="sentimentMatrixData" :rowLabels="personLabels" :colLabels="topicLabels"
       :colorScale="sentimentColorScale" :cellFilter="filterSentimentCells('tr')"
       :tooltipFormatter="sentimentTooltipFormatter" />
     <AdjacencyMatrix class="flex-auto" :data="sentimentMatrixData" :rowLabels="personLabels" :colLabels="topicLabels"
       :colorScale="sentimentColorScale" :cellFilter="filterSentimentCells('fi')"
-      :tooltipFormatter="sentimentTooltipFormatter" />
+      :tooltipFormatter="sentimentTooltipFormatter" /> -->
   </div>
   <div v-else>
     Loading...
@@ -16,7 +16,8 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { defineComponent, useTemplateRef } from 'vue';
+import { useElementSize } from '@vueuse/core'
 import { useGraphStore } from '../stores/graphStore';
 import AdjacencyMatrix from './AdjacencyMatrix.vue';
 import type { MatrixCell } from '../types/matrixTypes';
@@ -26,6 +27,16 @@ export default defineComponent({
   name: 'GraphView',
   components: {
     AdjacencyMatrix,
+  },
+  setup() {
+    const el = useTemplateRef('el')
+    const { width, height } = useElementSize(el)
+
+    return {
+      el,
+      width,
+      height,
+    }
   },
   data() {
     return {
