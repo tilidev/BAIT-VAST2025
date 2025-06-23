@@ -64,6 +64,10 @@ export default {
       type: Boolean,
       default: false,
     },
+    rotateColLabels: {
+      type: Boolean,
+      default: true,
+    },
   },
   data() {
     return {
@@ -253,9 +257,13 @@ export default {
         .data(colLabels)
         .join("g")
         .attr("class", "column-label")
-        .attr("transform", d => `translate(${x(d) + x.bandwidth() / 2},0) rotate(-90)`)
+        .attr("transform", d => {
+          const xTranslation = x(d) + x.bandwidth() / 2;
+          const yTranslation = -8 
+          return this.$props.rotateColLabels ? `translate(${xTranslation},${yTranslation}) rotate(-90)` : `translate(${xTranslation},${yTranslation})`;
+        })
         .append("text")
-        .attr("x", 6)
+        .attr("x", 0)
         .attr("y", 0)
         .attr("dy", ".32em")
         .attr("text-anchor", "start")
