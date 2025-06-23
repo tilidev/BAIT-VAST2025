@@ -33,7 +33,6 @@
             <DatasetNodeComparison />
             <TopicSentimentOverview />
             <IndustrySentimentBreakdown />
-            <TopicCoverageByDataset />
             <EntityActivityCard :entity-id="exampleEntityId" />
             <PersonSentimentAcrossDatasets :person-id="examplePersonId" />
             <EntitySentimentConsistencyMatrix />
@@ -60,7 +59,6 @@ import { useVisualizationDataStore } from './stores/visualizationDataStore';
 
 import PersonSentimentAcrossDatasets from './components/mini-visualizations/PersonSentimentAcrossDatasets.vue';
 import EntitySentimentConsistencyMatrix from './components/mini-visualizations/EntitySentimentConsistencyMatrix.vue';
-import TopicCoverageByDataset from './components/mini-visualizations/TopicCoverageByDataset.vue';
 import EntityTypeDistribution from './components/mini-visualizations/EntityTypeDistribution.vue';
 import IndustrySentimentBreakdown from './components/mini-visualizations/IndustrySentimentBreakdown.vue';
 import OverallSentimentDistribution from './components/mini-visualizations/OverallSentimentDistribution.vue';
