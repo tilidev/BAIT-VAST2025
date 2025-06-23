@@ -23,7 +23,8 @@
 
       <Card class="shadow-xl rounded-lg overflow-hidden mt-8">
         <template #title>
-          <h2 class="text-2xl font-bold text-center text-gray-800 dark:text-gray-100 py-3">Mini Visualizations Showcase</h2>
+          <h2 class="text-2xl font-bold text-center text-gray-800 dark:text-gray-100 py-3">Mini Visualizations Showcase
+          </h2>
         </template>
         <template #content>
           <div class="p-4 sm:p-6 mini-viz-grid">
@@ -53,11 +54,10 @@ import ThemeSwitcher from './components/ThemeSwitcher.vue'; // Import the new co
 // import EntityComponent from './components/EntityComponent.vue';
 import GraphView from './components/GraphView.vue';
 
-// Import Pinia Stores
 import { useEntityStore } from './stores/entityStore';
 import { useGraphStore } from './stores/graphStore';
+import { useVisualizationDataStore } from './stores/visualizationDataStore';
 
-// Import Mini Visualizations
 import PersonSentimentAcrossDatasets from './components/mini-visualizations/PersonSentimentAcrossDatasets.vue';
 import EntitySentimentConsistencyMatrix from './components/mini-visualizations/EntitySentimentConsistencyMatrix.vue';
 import TopicCoverageByDataset from './components/mini-visualizations/TopicCoverageByDataset.vue';
@@ -70,10 +70,12 @@ import TopicSentimentOverview from './components/mini-visualizations/TopicSentim
 
 const entityStore = useEntityStore();
 const graphStore = useGraphStore();
+const visualizationDataStore = useVisualizationDataStore();
 
 // Placeholder IDs for components that need them
-const examplePersonId = 'Person_1'; // Adjust if a known ID is available
-const exampleEntityId = 'Organization_1'; // Adjust if a known ID is available
+// TODO: will be changed to dynamic approach 
+const examplePersonId = 'Seal';
+const exampleEntityId = 'Teddy Goldstein';
 
 onMounted(async () => {
   try {
@@ -85,6 +87,9 @@ onMounted(async () => {
     }
     if (graphStore.sentimentPerTopic.length === 0) {
       await graphStore.init();
+    }
+    if (visualizationDataStore.datasetNodeCounts.length === 0 && visualizationDataStore.industrySentimentRawData.length === 0) {
+      await visualizationDataStore.init();
     }
   } catch (error) {
     console.error("Error initializing stores in App.vue:", error);
