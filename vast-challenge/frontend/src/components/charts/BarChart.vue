@@ -19,67 +19,73 @@ interface BarChartProps {
   yAxisLabelFormatter?: (d: any) => string;
   xLabelRotation?: number; // Degrees for x-axis label rotation
   showGridLines?: boolean;
+  showTicks?: boolean;
 }
 
 export default defineComponent({
   name: 'BarChart',
   props: {
-    data: {
-      type: Array,
-      required: true,
-    },
-    xKey: {
-      type: String,
-      required: true,
-    },
-    yKey: {
-      type: String,
-      required: true,
-    },
-    width: {
-      type: Number,
-      default: 400,
-    },
-    height: {
-      type: Number,
-      default: 300,
-    },
-    margin: {
-      type: Object,
-      default: () => ({ top: 20, right: 30, bottom: 40, left: 60 }),
-    },
-    colorScale: {
-      type: [Function, String],
-      required: true,
-    },
-    tooltipFormatter: {
-      type: Function,
-      default: (d: any) => `Value: ${d.value}`,
-    },
-    xAxisLabelFormatter: {
-      type: Function,
-      default: (d: any) => d.toString(),
-    },
-    yAxisLabelFormatter: {
-      type: Function,
-      default: (d: any) => d.toString(),
-    },
-    xLabelRotation: {
-      type: Number,
-      default: 0, // No rotation by default
-    },
-    showGridLines: {
-      type: Boolean,
-      default: false,
-    },
+      data: {
+        type: Array,
+        required: true,
+      },
+      xKey: {
+        type: String,
+        required: true,
+      },
+      yKey: {
+        type: String,
+        required: true,
+      },
+      width: {
+        type: Number,
+        default: 400,
+      },
+      height: {
+        type: Number,
+        default: 300,
+      },
+      margin: {
+        type: Object,
+        default: () => ({ top: 20, right: 30, bottom: 40, left: 60 }),
+      },
+      colorScale: {
+        type: [Function, String],
+        required: true,
+      },
+      tooltipFormatter: {
+        type: Function,
+        default: (d: any) => `Value: ${d.value}`,
+      },
+      xAxisLabelFormatter: {
+        type: Function,
+        default: (d: any) => d.toString(),
+      },
+      yAxisLabelFormatter: {
+        type: Function,
+        default: (d: any) => d.toString(),
+      },
+      xLabelRotation: {
+        type: Number,
+        default: 0, // No rotation by default
+      },
+      showGridLines: {
+        type: Boolean,
+        default: false,
+      },
+    showTicks: {
+       type: Boolean,
+       default: false
+      }
   },
   setup(props: BarChartProps) {
     const chartContainer = ref<HTMLElement | null>(null);
     let svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any> | null = null;
     let tooltip: d3.Selection<HTMLDivElement, unknown, HTMLElement, any> | null = null;
 
+      const { data, xKey, yKey, width, height, margin, colorScale, tooltipFormatter, xAxisLabelFormatter, yAxisLabelFormatter, xLabelRotation, showGridLines, showTicks } = props;
     function drawChart() {
-      if (!chartContainer.value || props.data.length === 0) {
+      if (!chartContainer.value || data.length === 0) {
         if (chartContainer.value) d3.select(chartContainer.value).selectAll("*").remove();
         if (tooltip) tooltip.remove();
         return;
@@ -89,7 +95,6 @@ export default defineComponent({
       d3.select(chartContainer.value).selectAll("*").remove();
       if (tooltip) tooltip.remove();
 
-      const { data, xKey, yKey, width, height, margin, colorScale, tooltipFormatter, xAxisLabelFormatter, yAxisLabelFormatter, xLabelRotation, showGridLines } = props;
 
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
@@ -98,7 +103,7 @@ export default defineComponent({
         .append("svg")
         .attr("width", width)
         .attr("height", height);
-      
+
       const svgGroup = svg.append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
@@ -113,7 +118,7 @@ export default defineComponent({
         .padding(0.2);
 
       const y = d3.scaleLinear()
-        .domain([0, d3.max(data, d => d[yKey]) || 10])
+        .domain([0, Math.max(d3.max(data, d => d[yKey]) || 0, 1)])
         .range([innerHeight, 0]);
 
       // X axis
@@ -126,19 +131,21 @@ export default defineComponent({
         .attr("class", "text-gray-600 text-xs"); // Tailwind classes for axis labels
 
       // Y axis
-      svgGroup.append("g")
-        .call(d3.axisLeft(y).tickFormat(yAxisLabelFormatter))
-        .selectAll("text")
-        .attr("class", "text-gray-600 text-xs"); // Tailwind classes for axis labels
+      if (showTicks) {
+        svgGroup.append("g")
+          .call(d3.axisLeft(y).tickFormat(yAxisLabelFormatter))
+          .selectAll("text")
+          .attr("class", "text-gray-600 text-xs");
+      }
 
       // Y-axis grid lines
       if (showGridLines) {
         svgGroup.append("g")
           .attr("class", "grid")
           .call(d3.axisLeft(y)
-              .ticks(5) // Adjust number of ticks as needed
-              .tickSize(-innerWidth)
-              .tickFormat(null) // Use null to suppress tick labels for grid lines
+            .ticks(5) // Adjust number of ticks as needed
+            .tickSize(-innerWidth)
+            .tickFormat(null) // Use null to suppress tick labels for grid lines
           )
           .selectAll("line")
           .attr("stroke", "#e5e7eb") // Tailwind gray-200
@@ -161,7 +168,7 @@ export default defineComponent({
             return colorScale(d[xKey]);
           }
           // This fallback should ideally not be reached if colorScale is required
-          return '#6366f1'; 
+          return '#6366f1';
         })
         .on("mouseover", (event, d) => {
           if (tooltip) {
