@@ -24,3 +24,15 @@ export interface EntityTopicSentiment {
   node_in_graph: GraphMembership[];
   topic_sentiments: TopicSentiment[];
 }
+
+export interface DatasetNodeCount {
+  dataset: GraphMembership;
+  nodeCount: number;
+}
+
+export interface IndustrySentimentRaw {
+  industry: string;
+  dataset: GraphMembership | 'all';
+  sentiment_positive: boolean;
+  agg_sentiment: number;
+}
