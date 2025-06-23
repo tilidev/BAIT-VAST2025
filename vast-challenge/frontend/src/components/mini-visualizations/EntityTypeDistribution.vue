@@ -4,30 +4,37 @@
     <div v-if="isLoading" class="text-center text-gray-500">Loading data...</div>
     <div v-else-if="error" class="text-center text-red-500">Error loading data: {{ error }}</div>
     <div v-else-if="processedData.length === 0" class="text-center text-gray-500">No entity data found.</div>
-    <div v-else ref="chartContainer" class="w-full h-80"></div>
+    <div v-else ref="chartContainer" class="w-full h-80">
+      <BarChart :data="processedData" xKey="type" yKey="count" :width="chartWidth" :height="chartHeight"
+        :margin="chartMargin" :tooltipFormatter="tooltipFormatter" :xAxisLabelFormatter="xAxisLabelFormatter"
+        :yAxisLabelFormatter="yAxisLabelFormatter" :xLabelRotation="45" :showGridLines="true" />
+    </div>
   </div>
 </template>
 
 <script>
-import * as d3 from 'd3';
 import { useEntityStore } from '../../stores/entityStore';
+import BarChart from '../charts/BarChart.vue';
+import * as d3 from 'd3';
 
 export default {
   name: 'EntityTypeDistribution',
+  components: {
+    BarChart,
+  },
   data() {
     return {
-      chartContainer: null,
-      isLoading: true,
+      // isLoading: true,
       error: null,
       entityStore: useEntityStore(),
+      chartContainer: null,
+      chartWidth: 400,
+      chartHeight: 300,
+      chartMargin: { top: 20, right: 30, bottom: 90, left: 60 },
     };
   },
   computed: {
     processedData() {
-      // Check if store is populated
-      if (this.entityStore.persons.length === 0 && this.entityStore.organizations.length === 0) {
-        // Could be loading or genuinely empty
-      }
       return [
         { type: 'Persons', count: this.entityStore.persons.length },
         { type: 'Organizations', count: this.entityStore.organizations.length },
@@ -36,133 +43,23 @@ export default {
         { type: 'Plans', count: this.entityStore.plans.length },
         { type: 'Topics', count: this.entityStore.topics.length },
         { type: 'Trips', count: this.entityStore.trips.length },
-      ].filter(d => d.count > 0); // Optionally filter out zero-count types
+      ].filter(d => d.count > 0);
     },
   },
-    methods: {
-      drawChart() {
-        console.log("drawChart called."); // Added for debugging
-        const container = this.$refs.chartContainer;
-        if (!container || this.processedData.length === 0) {
-          if (container) d3.select(container).selectAll("*").remove();
-          console.log("drawChart returned early."); // Added for debugging
-          return;
-        }
-        d3.select(container).selectAll("*").remove();
-        
-        const data = this.processedData;
-
-      const margin = { top: 20, right: 30, bottom: 90, left: 60 }; // Increased bottom margin for rotated labels
-      const width = container.clientWidth - margin.left - margin.right;
-      const height = container.clientHeight - margin.top - margin.bottom;
-
-      const svg = d3.select(container)
-        .append("svg")
-        .attr("width", width + margin.left + margin.right)
-        .attr("height", height + margin.top + margin.bottom)
-        .append("g")
-        .attr("transform", `translate(${margin.left},${margin.top})`);
-
-      const x = d3.scaleBand()
-        .domain(data.map(d => d.type))
-        .range([0, width])
-        .padding(0.2);
-
-      const y = d3.scaleLinear()
-        .domain([0, d3.max(data, d => d.count) || 10])
-        .range([height, 0]);
-
-      // X axis
-      svg.append("g")
-        .attr("transform", `translate(0,${height})`)
-        .call(d3.axisBottom(x))
-        .selectAll("text")
-        .attr("transform", "translate(-10,0)rotate(-45)")
-        .style("text-anchor", "end");
-
-      // Y axis
-      svg.append("g")
-        .call(d3.axisLeft(y).ticks(Math.min(10, d3.max(data, d => d.count) || 10)).tickFormat(d3.format("d")));
-
-      // Bars
-      svg.selectAll(".bar")
-        .data(data)
-        .join("rect")
-        .attr("class", "bar")
-        .attr("x", d => x(d.type))
-        .attr("y", d => y(d.count))
-        .attr("width", x.bandwidth())
-        .attr("height", d => height - y(d.count))
-        .attr("fill", "#6366f1"); // Example color: Indigo
-
-      // Tooltip (optional, as counts are usually clear on axes or labels)
-      // For consistency, let's add a simple one
-      const tooltip = d3.select("body").append("div")
-        .attr("class", "tooltip absolute hidden p-2 bg-white border rounded shadow-lg text-sm")
-        .style("pointer-events", "none");
-
-      svg.selectAll(".bar")
-        .on("mouseover", (event, d) => {
-          tooltip
-            .classed("hidden", false)
-            .html(`Type: ${d.type}<br>Count: ${d.count}`);
-        })
-        .on("mousemove", (event) => {
-          tooltip.style("left", (event.pageX + 10) + "px")
-            .style("top", (event.pageY - 20) + "px");
-        })
-        .on("mouseout", () => {
-          tooltip.classed("hidden", true);
-        });
+  methods: {
+    tooltipFormatter(d) {
+      return `<div class="font-semibold text-blue-700">Type: ${d.type}</div><div>Count: ${d.count}</div>`;
     },
-  },
-  mounted() {
-    this.isLoading = true;
-    this.error = null;
-    try {
-      // entityStore.init() should be called by a parent component or App.vue
-      // We assume it's populated. If not, this chart will be empty or show loading.
-      // Check if data is already available, if not, entityStore.init() might be needed.
-      if (this.entityStore.persons.length === 0 && this.entityStore.organizations.length === 0) { // Basic check
-        // Potentially call entityStore.init() if not managed globally
-        // await this.entityStore.init(); // Uncomment if this component is responsible for init
-      }
-    } catch (e) {
-      console.error("Error initializing entity type distribution data:", e);
-      this.error = e.message || "An unknown error occurred";
-    } finally {
-      this.isLoading = false; // Set to false even if init is not called here, relies on store reactivity
-    }
-  },
-    watch: {
-      processedData: {
-        handler() {
-          console.log(this.processedData);
-          // Only draw if not currently loading, to prevent premature drawing with empty data
-          if (!this.isLoading && this.processedData.length > 0) {
-          this.$nextTick(() => {
-            this.drawChart();
-          });
-        }
-      },
-      deep: true,
-      // Removed immediate: true, as isLoading watcher will handle initial draw
+    xAxisLabelFormatter(d) {
+      return d;
     },
-    isLoading(newIsLoading) {
-      // Draw chart when loading completes and data is available
-      if (!newIsLoading && this.processedData.length > 0) {
-        console.log("Loading complete, drawing chart.");
-        this.$nextTick(() => {
-          this.drawChart();
-        });
-      }
+    yAxisLabelFormatter(d) {
+      return d3.format("d")(d);
     },
   },
 };
 </script>
 
 <style scoped>
-.tooltip {
-  z-index: 50;
-}
+/* No specific styles needed here as BarChart handles its own rendering */
 </style>

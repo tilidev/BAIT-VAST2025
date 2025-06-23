@@ -17,38 +17,31 @@
   </div>
 </template>
 
-<script lang="ts">
-import { defineComponent, ref, onMounted, watch, computed } from 'vue';
+<script>
 import * as d3 from 'd3';
 import { useGraphStore } from '../../stores/graphStore';
-import type { EntityTopicSentiment, TopicSentiment } from '../../types/entity';
 
-interface ITopicAverageSentiment {
-  topicId: string;
-  averageSentiment: number;
-  sentimentCount: number; // Total number of sentiment records for this topic
-}
-
-type SortOrder = "avgSentimentDesc" | "avgSentimentAsc" | "topicId" | "sentimentCountDesc";
-
-export default defineComponent({
+export default {
   name: 'TopicSentimentOverview',
-  setup() {
-    const chartContainer = ref<HTMLElement | null>(null);
-    const isLoading = ref(true);
-    const error = ref<string | null>(null);
-    const graphStore = useGraphStore();
-    const sortOrder = ref<SortOrder>('avgSentimentDesc');
-
-    const processedData = computed<ITopicAverageSentiment[]>(() => {
-      if (!graphStore.sentimentPerTopic || graphStore.sentimentPerTopic.length === 0) {
+  data() {
+    return {
+      chartContainer: null,
+      isLoading: true,
+      error: null,
+      graphStore: useGraphStore(),
+      sortOrder: 'avgSentimentDesc',
+    };
+  },
+  computed: {
+    processedData() {
+      if (!this.graphStore.sentimentPerTopic || this.graphStore.sentimentPerTopic.length === 0) {
         return [];
       }
 
-      const topicSentimentsMap: Record<string, { sum: number; count: number }> = {};
+      const topicSentimentsMap = {};
 
-      graphStore.sentimentPerTopic.forEach((entity: EntityTopicSentiment) => {
-        entity.topic_sentiments.forEach((ts: TopicSentiment) => {
+      this.graphStore.sentimentPerTopic.forEach((entity) => {
+        entity.topic_sentiments.forEach((ts) => {
           if (ts.sentiment === null || ts.sentiment === undefined) return;
 
           if (!topicSentimentsMap[ts.topic_id]) {
@@ -66,7 +59,7 @@ export default defineComponent({
       }));
 
       // Sorting
-      switch (sortOrder.value) {
+      switch (this.sortOrder) {
         case 'avgSentimentDesc':
           result.sort((a, b) => b.averageSentiment - a.averageSentiment);
           break;
@@ -81,30 +74,29 @@ export default defineComponent({
           break;
       }
       return result.slice(0, 20); // Display top 20 for manageability
-    });
-    
-    const chartHeight = computed(() => {
+    },
+    chartHeight() {
         // Adjust height based on number of items, e.g., 30px per item + margins
-        return Math.max(300, processedData.value.length * 30 + 80); 
-    });
-
-
-    function drawChart() {
-      if (!chartContainer.value || processedData.value.length === 0) {
-        if(chartContainer.value) d3.select(chartContainer.value).selectAll("*").remove();
+        return Math.max(300, this.processedData.length * 30 + 80); 
+    },
+  },
+  methods: {
+    drawChart() {
+      if (!this.$refs.chartContainer || this.processedData.length === 0) {
+        if(this.$refs.chartContainer) d3.select(this.$refs.chartContainer).selectAll("*").remove();
         return;
       }
-      d3.select(chartContainer.value).selectAll("*").remove();
+      d3.select(this.$refs.chartContainer).selectAll("*").remove();
 
-      const data = processedData.value;
+      const data = this.processedData;
 
       const margin = { top: 20, right: 50, bottom: 40, left: 150 }; // Increased left margin for topic IDs
-      const width = chartContainer.value.clientWidth - margin.left - margin.right;
+      const width = this.$refs.chartContainer.clientWidth - margin.left - margin.right;
       // Height is now dynamic based on chartHeight computed property
-      const height = chartContainer.value.clientHeight - margin.top - margin.bottom;
+      const height = this.$refs.chartContainer.clientHeight - margin.top - margin.bottom;
 
 
-      const svg = d3.select(chartContainer.value)
+      const svg = d3.select(this.$refs.chartContainer)
         .append("svg")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
@@ -139,7 +131,7 @@ export default defineComponent({
         .call(d3.axisBottom(x)
             .ticks(10) // More ticks for grid lines
             .tickSize(-height)
-            .tickFormat("" as any)
+            .tickFormat("")
         )
         .selectAll("line")
         .attr("stroke-opacity", 0.1);
@@ -159,7 +151,7 @@ export default defineComponent({
         .data(data)
         .join("rect")
           .attr("class", "bar")
-          .attr("y", d => y(d.topicId)!)
+          .attr("y", d => y(d.topicId))
           .attr("x", d => d.averageSentiment < 0 ? x(d.averageSentiment) : x(0))
           .attr("width", d => Math.abs(x(d.averageSentiment) - x(0)))
           .attr("height", y.bandwidth())
@@ -172,7 +164,7 @@ export default defineComponent({
 
       svg.selectAll(".bar")
         .on("mouseover", (event, d) => {
-          const typedD = d as ITopicAverageSentiment;
+          const typedD = d;
           tooltip
             .classed("hidden", false)
             .html(`Topic: ${typedD.topicId}<br>Avg. Sentiment: ${typedD.averageSentiment.toFixed(2)}<br>Records: ${typedD.sentimentCount}`);
@@ -184,50 +176,57 @@ export default defineComponent({
         .on("mouseout", () => {
           tooltip.classed("hidden", true);
         });
-    }
-
-    onMounted(async () => {
-      isLoading.value = true;
-      error.value = null;
-      try {
-        if (graphStore.sentimentPerTopic.length === 0) {
-          await graphStore.init();
-        }
-      } catch (e) {
-        console.error("Error initializing topic sentiment overview:", e);
-        error.value = (e as Error).message || "An unknown error occurred";
-      } finally {
-        isLoading.value = false;
+    },
+  },
+  async mounted() {
+    this.isLoading = true;
+    this.error = null;
+    try {
+      if (this.graphStore.sentimentPerTopic.length === 0) {
+        await this.graphStore.init();
       }
-    });
-
-    watch([processedData, sortOrder, chartHeight], () => { // Watch chartHeight as well
-      if (!isLoading.value) {
-        // Ensure chart container is ready for new height
-        requestAnimationFrame(() => { // Wait for next frame for DOM update
-            drawChart();
+    } catch (e) {
+      console.error("Error initializing topic sentiment overview:", e);
+      this.error = e.message || "An unknown error occurred";
+    } finally {
+      this.isLoading = false;
+    }
+  },
+  watch: {
+    processedData: {
+      handler() { // Watch chartHeight as well
+        if (!this.isLoading) {
+          // Ensure chart container is ready for new height
+          requestAnimationFrame(() => { // Wait for next frame for DOM update
+              this.drawChart();
+          });
+        }
+      },
+      deep: true,
+    },
+    sortOrder() {
+      if (!this.isLoading) {
+        requestAnimationFrame(() => {
+            this.drawChart();
         });
       }
-    }, { deep: true });
-
-    watch(isLoading, (newIsLoading) => {
-        if (!newIsLoading && processedData.value.length > 0) {
+    },
+    chartHeight() {
+      if (!this.isLoading) {
+        requestAnimationFrame(() => {
+            this.drawChart();
+        });
+      }
+    },
+    isLoading(newIsLoading) {
+        if (!newIsLoading && this.processedData.length > 0) {
              requestAnimationFrame(() => {
-                drawChart();
+                this.drawChart();
             });
         }
-    });
-
-    return {
-      chartContainer,
-      isLoading,
-      error,
-      processedData,
-      sortOrder,
-      chartHeight
-    };
+    },
   },
-});
+};
 </script>
 
 <style scoped>

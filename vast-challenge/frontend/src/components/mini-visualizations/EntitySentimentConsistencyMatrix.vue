@@ -10,7 +10,6 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, watch, computed } from 'vue';
 import * as d3 from 'd3';
 import { useGraphStore } from '../../stores/graphStore';
 import type { EntityTopicSentiment, TopicSentiment, GraphMembership, Entity } from '../../types/entity';
@@ -23,7 +22,7 @@ interface IMatrixCell {
   entityType: Entity;
 }
 
-export default defineComponent({
+export default {
   name: 'EntitySentimentConsistencyMatrix',
   props: {
     entityTypesToShow: {
@@ -35,22 +34,24 @@ export default defineComponent({
       default: 1
     }
   },
-  setup(props) {
-    const chartContainer = ref<HTMLElement | null>(null);
-    const isLoading = ref(true);
-    const error = ref<string | null>(null);
-    const graphStore = useGraphStore();
-
-    const datasets: GraphMembership[] = ['jo', 'fi', 'tr'];
-
-    const matrixData = computed<IMatrixCell[]>(() => {
-      if (!graphStore.sentimentPerTopic || graphStore.sentimentPerTopic.length === 0) {
+  data() {
+    return {
+      chartContainer: null as HTMLElement | null,
+      isLoading: true,
+      error: null as string | null,
+      graphStore: useGraphStore(),
+      datasets: ['jo', 'fi', 'tr'] as GraphMembership[],
+    };
+  },
+  computed: {
+    matrixData(): IMatrixCell[] {
+      if (!this.graphStore.sentimentPerTopic || this.graphStore.sentimentPerTopic.length === 0) {
         return [];
       }
 
       const result: IMatrixCell[] = [];
-      const entities = graphStore.sentimentPerTopic.filter(
-        (e: EntityTopicSentiment) => props.entityTypesToShow.includes(e.entity_type)
+      const entities = this.graphStore.sentimentPerTopic.filter(
+        (e: EntityTopicSentiment) => this.entityTypesToShow.includes(e.entity_type)
       );
 
       entities.forEach((entity: EntityTopicSentiment) => {
@@ -81,8 +82,8 @@ export default defineComponent({
           });
         });
 
-        datasets.forEach(dataset => {
-          if (sentimentsByDataset[dataset].count >= props.minSentimentCount) {
+        this.datasets.forEach(dataset => {
+          if (sentimentsByDataset[dataset].count >= this.minSentimentCount) {
             result.push({
               rowId: entity.entity_id,
               colId: dataset,
@@ -102,40 +103,41 @@ export default defineComponent({
         });
       });
       return result;
-    });
-
-    const rowLabels = computed(() => {
-      return Array.from(new Set(matrixData.value.map(d => d.rowId))).sort();
-    });
-
-    const colLabels = computed(() => datasets);
-
-    function drawChart() {
-      if (!chartContainer.value || matrixData.value.length === 0 || rowLabels.value.length === 0) {
-         if(chartContainer.value) d3.select(chartContainer.value).selectAll("*").remove();
+    },
+    rowLabels(): string[] {
+      return Array.from(new Set(this.matrixData.map(d => d.rowId as string))).sort();
+    },
+    colLabels(): GraphMembership[] {
+      return this.datasets;
+    },
+  },
+  methods: {
+    drawChart() {
+      if (!this.$refs.chartContainer || this.matrixData.length === 0 || this.rowLabels.length === 0) {
+         if(this.$refs.chartContainer) d3.select(this.$refs.chartContainer as HTMLElement).selectAll("*").remove();
         return;
       }
-      d3.select(chartContainer.value).selectAll("*").remove();
+      d3.select(this.$refs.chartContainer as HTMLElement).selectAll("*").remove();
 
-      const data = matrixData.value;
+      const data = this.matrixData;
       
       const margin = { top: 50, right: 50, bottom: 100, left: 150 }; // Adjusted for labels
-      const containerWidth = chartContainer.value.clientWidth;
-      const containerHeight = chartContainer.value.clientHeight || 500; // Fallback height
+      const containerWidth = (this.$refs.chartContainer as HTMLElement).clientWidth;
+      const containerHeight = (this.$refs.chartContainer as HTMLElement).clientHeight || 500; // Fallback height
 
       const width = containerWidth - margin.left - margin.right;
       const height = containerHeight - margin.top - margin.bottom;
 
-      const svg = d3.select(chartContainer.value)
+      const svg = d3.select(this.$refs.chartContainer as HTMLElement)
         .append("svg")
         .attr("width", containerWidth)
         .attr("height", containerHeight)
         .append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
-      const x = d3.scaleBand()
+      const x = d3.scaleBand<GraphMembership>()
         .range([0, width])
-        .domain(colLabels.value)
+        .domain(this.colLabels)
         .padding(0.05);
 
       svg.append("g")
@@ -144,9 +146,9 @@ export default defineComponent({
         .call(d3.axisBottom(x).tickSize(0))
         .select(".domain").remove();
 
-      const y = d3.scaleBand()
+      const y = d3.scaleBand<string>()
         .range([height, 0])
-        .domain(rowLabels.value)
+        .domain(this.rowLabels)
         .padding(0.05);
 
       svg.append("g")
@@ -174,7 +176,7 @@ export default defineComponent({
         .style("z-index", "100"); // Ensure tooltip is on top
 
       svg.selectAll()
-        .data(data, (d: any) => d.rowId + ':' + d.colId)
+        .data(data, (d: IMatrixCell) => d.rowId + ':' + d.colId)
         .join("rect")
           .attr("x", d => x(d.colId)!)
           .attr("y", d => y(d.rowId)!)
@@ -210,42 +212,48 @@ export default defineComponent({
         .style("font-size", "16px")
         .style("font-weight", "bold")
         .text("Entity Sentiment by Dataset");
-    }
-
-    onMounted(async () => {
-      isLoading.value = true;
-      error.value = null;
-      try {
-        if (graphStore.sentimentPerTopic.length === 0) {
-          await graphStore.init();
-        }
-      } catch (e) {
-        console.error("Error initializing matrix data:", e);
-        error.value = (e as Error).message || "An unknown error occurred";
-      } finally {
-        isLoading.value = false;
-      }
-    });
-
-    watch([matrixData, () => props.entityTypesToShow, () => props.minSentimentCount], () => {
-       if (!isLoading.value) drawChart();
-    }, { deep: true });
-    
-    watch(isLoading, (newIsLoading) => {
-        if (!newIsLoading && matrixData.value.length > 0) {
-            drawChart();
-        }
-    });
-
-
-    return {
-      chartContainer,
-      isLoading,
-      error,
-      matrixData, // For template debugging if needed
-    };
+    },
   },
-});
+  async mounted() {
+    this.isLoading = true;
+    this.error = null;
+    try {
+      if (this.graphStore.sentimentPerTopic.length === 0) {
+        await this.graphStore.init();
+      }
+    } catch (e) {
+      console.error("Error initializing matrix data:", e);
+      this.error = (e as Error).message || "An unknown error occurred";
+    } finally {
+      this.isLoading = false;
+    }
+  },
+  watch: {
+    matrixData: {
+      handler() {
+        if (!this.isLoading) this.drawChart();
+      },
+      deep: true,
+    },
+    entityTypesToShow: {
+      handler() {
+        if (!this.isLoading) this.drawChart();
+      },
+      deep: true,
+    },
+    minSentimentCount: {
+      handler() {
+        if (!this.isLoading) this.drawChart();
+      },
+      immediate: true,
+    },
+    isLoading(newIsLoading) {
+        if (!newIsLoading && this.matrixData.length > 0) {
+            this.drawChart();
+        }
+    },
+  },
+};
 </script>
 
 <style scoped>
