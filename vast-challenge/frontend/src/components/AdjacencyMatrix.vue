@@ -60,6 +60,10 @@ export default {
       type: Function,
       default: undefined,
     },
+    cellRounded: {
+      type: Boolean,
+      default: false,
+    },
   },
   data() {
     return {
@@ -181,6 +185,8 @@ export default {
         .attr("class", "cell")
         .attr("x", d => x(d.col))
         .attr("y", d => y(d.row))
+        .attr("rx", d => this.$props.cellRounded ? 3 : 0)
+        .attr("ry", d => this.$props.cellRounded ? 3 : 0)
         .attr("width", x.bandwidth())
         .attr("height", y.bandwidth())
         .style("fill", d => {
