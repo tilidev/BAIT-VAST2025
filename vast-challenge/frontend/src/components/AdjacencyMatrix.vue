@@ -239,6 +239,7 @@ export default {
         .attr("y", d => y(d) + y.bandwidth() / 2)
         .attr("dy", ".32em")
         .attr("text-anchor", "end")
+        .style("font-size", "10px") // Smaller font size for row labels
         .text(d => rowLabelFormatter ? rowLabelFormatter(d) : d.toString());
 
       // Column labels
@@ -252,6 +253,7 @@ export default {
         .attr("y", 0)
         .attr("dy", ".32em")
         .attr("text-anchor", "start")
+        .style("font-size", "10px") // Smaller font size for column labels
         .text(d => colLabelFormatter ? colLabelFormatter(d) : d.toString());
     },
   },
