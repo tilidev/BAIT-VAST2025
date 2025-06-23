@@ -1,35 +1,28 @@
 <template>
-  <Panel header="Dynamic ID Selection" class="shadow-xl rounded-lg overflow-hidden mt-8">
-    <template #header>
-      <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-100">Select Entity and Person</h2>
-    </template>
-    <div class="p-4 sm:p-6 flex gap-4">
-      <div>
-        <label for="person-dropdown" class="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-100">Select
-          Person:</label>
-        <Dropdown id="person-dropdown" :modelValue="selectedPersonId" @update:modelValue="updatePersonId" :options="personOptions" optionLabel="label"
-          optionValue="value" placeholder="Select a Person"
-          class="w-full md:w-20rem" />
-      </div>
-      <div>
-        <label for="entity-dropdown" class="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-100">Select
-          Entity:</label>
-        <Dropdown id="entity-dropdown" :modelValue="selectedEntityId" @update:modelValue="updateEntityId" :options="organizationOptions"
-          optionLabel="label" optionValue="value" placeholder="Select an Entity"
-          class="w-full md:w-20rem" />
-      </div>
+  <div class="flex flex-col space-y-4">
+    <div>
+      <label for="person-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Select
+        Person:</label>
+      <Select id="person-select" :modelValue="selectedPersonId" @update:modelValue="updatePersonId" :options="personOptions" optionLabel="label"
+        optionValue="value" placeholder="Select a Person"
+        class="w-full" />
     </div>
-  </Panel>
+    <div>
+      <label for="entity-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Select
+        Entity:</label>
+      <Select id="entity-select" :modelValue="selectedEntityId" @update:modelValue="updateEntityId" :options="organizationOptions"
+        optionLabel="label" optionValue="value" placeholder="Select an Entity"
+        class="w-full" />
+    </div>
+  </div>
 </template>
 
 <script>
-import Panel from 'primevue/panel';
-import Dropdown from 'primevue/dropdown';
+import Select from 'primevue/select'; // Use Select instead of Dropdown
 
 export default {
   components: {
-    Panel,
-    Dropdown,
+    Select,
   },
   props: {
     selectedPersonId: {

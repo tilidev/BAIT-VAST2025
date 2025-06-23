@@ -1,99 +1,95 @@
 <template>
-  <div>
-    <div class="container mx-auto">
-      <div class="flex justify-end mb-4">
-        <ThemeSwitcher />
-      </div>
-      <Card class="shadow-xl rounded-lg overflow-hidden">
-        <template #title>
-          <h1 class="text-3xl font-bold text-center text-gray-800 dark:text-gray-100 py-4">Main Application</h1>
-        </template>
-        <template #content>
-          <GraphView></GraphView>
-        </template>
-      </Card>
+  <div class="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex">
+    <Sidebar :sidebar-expanded="sidebarExpanded" :active-tab="activeTab" :selected-person-id="selectedPersonId"
+      :selected-entity-id="selectedEntityId" :person-options="personOptions" :organization-options="organizationOptions"
+      @toggle-sidebar="toggleSidebar" @update:selected-person-id="selectedPersonId = $event"
+      @update:selected-entity-id="selectedEntityId = $event" @update:active-tab="activeTab = $event" />
 
-      <IdSelectionPanel
-        :selected-person-id="selectedPersonId"
-        @update:selected-person-id="selectedPersonId = $event"
-        :selected-entity-id="selectedEntityId"
-        @update:selected-entity-id="selectedEntityId = $event"
-        :person-options="personOptions"
-        :organization-options="organizationOptions"
-      />
-      <MiniVizShowcase :selected-person-id="selectedPersonId" :selected-entity-id="selectedEntityId" />
-    </div>
+    <!-- Main Content Area -->
+    <main 
+      class="flex-grow p-4 overflow-auto transition-all duration-300 ease-in-out">
+      <OverviewTab v-if="activeTab === 'overview'" :selected-entity-id="selectedEntityId" />
+      <DetailedAnalysisTab v-else-if="activeTab === 'detailed-analysis'" :selected-person-id="selectedPersonId" />
+    </main>
   </div>
 </template>
 
-<script>
-import ExampleComponent from './components/ExampleComponent.vue';
+<script lang="ts">
+import { defineAsyncComponent, defineComponent, ref, computed } from 'vue';
 import Card from 'primevue/card';
-import ThemeSwitcher from './components/ThemeSwitcher.vue';
-import GraphView from './components/GraphView.vue';
-import MiniVizShowcase from './components/MiniVizShowcase.vue';
-import IdSelectionPanel from './components/IdSelectionPanel.vue';
+import Sidebar from './components/Sidebar.vue';
 
 import { useEntityStore } from './stores/entityStore';
 import { useGraphStore } from './stores/graphStore';
 import { useVisualizationDataStore } from './stores/visualizationDataStore';
 
-export default {
+const OverviewTab = defineAsyncComponent(() => import('./components/tabs/OverviewTab.vue'));
+const DetailedAnalysisTab = defineAsyncComponent(() => import('./components/tabs/DetailedAnalysisTab.vue'));
+
+export default defineComponent({
+  name: 'App',
   components: {
-    ExampleComponent,
     Card,
-    ThemeSwitcher,
-    GraphView,
-    MiniVizShowcase,
-    IdSelectionPanel,
+    Sidebar,
+    OverviewTab,
+    DetailedAnalysisTab,
   },
-  data() {
-    return {
-      selectedPersonId: '',
-      selectedEntityId: '',
+  setup() {
+    const selectedPersonId = ref('');
+    const selectedEntityId = ref('');
+    const activeTab = ref('overview');
+    const sidebarExpanded = ref(true);
+
+    const entityStore = useEntityStore();
+    const graphStore = useGraphStore();
+    const visualizationDataStore = useVisualizationDataStore();
+
+    const toggleSidebar = () => {
+      sidebarExpanded.value = !sidebarExpanded.value;
     };
-  },
-  computed: {
-    entityStore() {
-      return useEntityStore();
-    },
-    graphStore() {
-      return useGraphStore();
-    },
-    visualizationDataStore() {
-      return useVisualizationDataStore();
-    },
-    personOptions() {
-      return this.entityStore.persons.map(person => ({
+
+    const personOptions = computed(() => {
+      return entityStore.persons.map(person => ({
         label: person.name,
         value: person.id
       }));
-    },
-    organizationOptions() {
-      return this.entityStore.organizations.map(org => ({
+    });
+
+    const organizationOptions = computed(() => {
+      return entityStore.organizations.map(org => ({
         label: org.id,
         value: org.id
       }));
-    },
+    });
+
+    // Initialize stores
+    (async () => {
+      try {
+        if (entityStore.persons.length === 0) {
+          await entityStore.init();
+        }
+        if (graphStore.sentimentPerTopic.length === 0) {
+          await graphStore.init();
+        }
+        if (visualizationDataStore.datasetNodeCounts.length === 0 && visualizationDataStore.industrySentimentRawData.length === 0) {
+          await visualizationDataStore.init();
+        }
+      } catch (error) {
+        console.error("Error initializing stores in App.vue:", error);
+      }
+    })();
+
+    return {
+      selectedPersonId,
+      selectedEntityId,
+      activeTab,
+      sidebarExpanded,
+      toggleSidebar,
+      personOptions,
+      organizationOptions,
+    };
   },
-  async mounted() {
-    try {
-      if (this.entityStore.persons.length === 0) {
-        await this.entityStore.init();
-      }
-      if (this.graphStore.sentimentPerTopic.length === 0) {
-        await this.graphStore.init();
-      }
-      if (this.visualizationDataStore.datasetNodeCounts.length === 0 && this.visualizationDataStore.industrySentimentRawData.length === 0) {
-        await this.visualizationDataStore.init();
-      }
-    } catch (error) {
-      console.error("Error initializing stores in App.vue:", error);
-    }
-  },
-};
+});
 </script>
 
-<style>
-/* The mini-viz-grid style is now in MiniVizShowcase.vue */
-</style>
+<style></style>
