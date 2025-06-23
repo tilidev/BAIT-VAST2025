@@ -1,8 +1,5 @@
 <template>
-  <div> <!--
-    class="min-h-screen bg-gradient-to-br from-teal-100 via-sky-100 to-indigo-100 dark:from-gray-900 dark:via-slate-800 dark:to-neutral-900 p-4 sm:p-8 transition-colors duration-300">
-    -->
-
+  <div>
     <div class="container mx-auto">
       <div class="flex justify-end mb-4">
         <ThemeSwitcher />
@@ -15,8 +12,6 @@
           <div class="p-4 sm:p-6">
             <ExampleComponent />
           </div>
-          <!-- <GeoJsonMap></GeoJsonMap> -->
-          <!-- <EntityComponent></EntityComponent> -->
           <GraphView></GraphView>
         </template>
       </Card>
@@ -33,12 +28,34 @@
             <DatasetNodeComparison />
             <TopicSentimentOverview />
             <IndustrySentimentBreakdown />
-            <EntityActivityCard :entity-id="exampleEntityId" />
-            <PersonSentimentAcrossDatasets :person-id="examplePersonId" />
+            <EntityActivityCard :entity-id="selectedEntityId || ''" />
+            <PersonSentimentAcrossDatasets :person-id="selectedPersonId || ''" />
             <EntitySentimentConsistencyMatrix />
           </div>
         </template>
       </Card>
+
+      <Panel header="Dynamic ID Selection" class="shadow-xl rounded-lg overflow-hidden mt-8">
+        <template #header>
+          <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-100">Select Entity and Person</h2>
+        </template>
+        <div class="p-4 sm:p-6 flex gap-4">
+          <div>
+            <label for="person-dropdown" class="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-100">Select
+              Person:</label>
+            <Dropdown id="person-dropdown" v-model="selectedPersonId" :options="personOptions" optionLabel="label"
+              optionValue="value" placeholder="Select a Person"
+              class="w-full md:w-20rem" />
+          </div>
+          <div>
+            <label for="entity-dropdown" class="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-100">Select
+              Entity:</label>
+            <Dropdown id="entity-dropdown" v-model="selectedEntityId" :options="organizationOptions"
+              optionLabel="label" optionValue="value" placeholder="Select an Entity"
+              class="w-full md:w-20rem" />
+          </div>
+        </div>
+      </Panel>
 
     </div>
   </div>
@@ -47,10 +64,10 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
 import ExampleComponent from './components/ExampleComponent.vue';
-import Card from 'primevue/card'; // Import PrimeVue Card
-import ThemeSwitcher from './components/ThemeSwitcher.vue'; // Import the new component
-// import GeoJsonMap from './components/GeoJsonMap.vue';
-// import EntityComponent from './components/EntityComponent.vue';
+import Card from 'primevue/card';
+import ThemeSwitcher from './components/ThemeSwitcher.vue';
+import Dropdown from 'primevue/dropdown';
+import Panel from 'primevue/panel';
 import GraphView from './components/GraphView.vue';
 
 import { useEntityStore } from './stores/entityStore';
@@ -65,21 +82,31 @@ import OverallSentimentDistribution from './components/mini-visualizations/Overa
 import EntityActivityCard from './components/mini-visualizations/EntityActivityCard.vue';
 import DatasetNodeComparison from './components/mini-visualizations/DatasetNodeComparison.vue';
 import TopicSentimentOverview from './components/mini-visualizations/TopicSentimentOverview.vue';
+import { ref, computed } from 'vue';
 
 const entityStore = useEntityStore();
 const graphStore = useGraphStore();
 const visualizationDataStore = useVisualizationDataStore();
 
-// Placeholder IDs for components that need them
-// TODO: will be changed to dynamic approach 
-const examplePersonId = 'Seal';
-const exampleEntityId = 'Teddy Goldstein';
+const selectedPersonId = ref('');
+const selectedEntityId = ref('');
+
+const personOptions = computed(() => {
+  return entityStore.persons.map(person => ({
+    label: person.name,
+    value: person.id
+  }));
+});
+
+const organizationOptions = computed(() => {
+  return entityStore.organizations.map(org => ({
+    label: org.id,
+    value: org.id
+  }));
+});
 
 onMounted(async () => {
   try {
-    // Initialize stores if they haven't been already
-    // Check a basic property to see if init might be needed.
-    // A more robust check or global init in main.ts might be better.
     if (entityStore.persons.length === 0) {
       await entityStore.init();
     }
@@ -93,11 +120,9 @@ onMounted(async () => {
     console.error("Error initializing stores in App.vue:", error);
   }
 });
-
 </script>
 
 <style>
-/* Add global styles if needed, or ensure Tailwind base styles are included in main.ts/style.css */
 .mini-viz-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
