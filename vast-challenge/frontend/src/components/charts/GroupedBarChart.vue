@@ -100,7 +100,7 @@ export default defineComponent({
         .append("svg")
         .attr("width", width)
         .attr("height", height);
-      
+
       const svgGroup = svg.append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
@@ -144,9 +144,9 @@ export default defineComponent({
         svgGroup.append("g")
           .attr("class", "grid")
           .call(d3.axisLeft(y)
-              .ticks(5) // Adjust number of ticks as needed
-              .tickSize(-innerWidth)
-              .tickFormat(null) // Use null to suppress tick labels for grid lines
+            .ticks(5) // Adjust number of ticks as needed
+            .tickSize(-innerWidth)
+            .tickFormat(null) // Use null to suppress tick labels for grid lines
           )
           .selectAll("line")
           .attr("stroke", "#e5e7eb") // Tailwind gray-200
@@ -157,18 +157,18 @@ export default defineComponent({
       const group = svgGroup.selectAll(".group")
         .data(data)
         .join("g")
-          .attr("class", "group")
-          .attr("transform", d => `translate(${x0(d[groupKey])},0)`);
+        .attr("class", "group")
+        .attr("transform", d => `translate(${x0(d[groupKey])},0)`);
 
       group.selectAll("rect")
         .data(d => subGroupKeys.map(key => ({ key, value: (d as any)[key], group: d[groupKey] })))
         .join("rect")
-          .attr("x", d => x1(d.key)!)
-          .attr("y", d => y(d.value))
-          .attr("width", x1.bandwidth())
-          .attr("height", d => Math.abs(y(d.value) - y(yDomain ? yDomain[0] : 0))) // Handle negative values
-          .attr("fill", d => color(d.key));
-      
+        .attr("x", d => x1(d.key)!)
+        .attr("y", d => y(d.value))
+        .attr("width", x1.bandwidth())
+        .attr("height", d => Math.abs(y(d.value) - y(yDomain ? yDomain[0] : 0))) // Handle negative values
+        .attr("fill", d => color(d.key));
+
       // Tooltip
       group.selectAll("rect")
         .on("mouseover", (event, d) => {
@@ -181,7 +181,7 @@ export default defineComponent({
         .on("mousemove", (event) => {
           if (tooltip) {
             tooltip.style("left", (event.pageX + 10) + "px")
-                   .style("top", (event.pageY - 20) + "px");
+              .style("top", (event.pageY - 20) + "px");
           }
         })
         .on("mouseout", () => {
