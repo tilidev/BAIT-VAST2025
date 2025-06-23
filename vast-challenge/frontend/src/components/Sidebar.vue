@@ -48,7 +48,7 @@
         <IdSelectionPanel :selected-person-id="selectedPersonId"
           @update:selected-person-id="emit('update:selectedPersonId', $event)" :selected-entity-id="selectedEntityId"
           @update:selected-entity-id="emit('update:selectedEntityId', $event)" :person-options="personOptions"
-          :organization-options="organizationOptions" />
+          :organization-options="organizationOptions" :industry-options="industryOptions" />
       </div>
     </div>
 
@@ -105,6 +105,10 @@ export default defineComponent({
       required: true,
     },
     organizationOptions: {
+      type: Array as PropType<Option[]>,
+      required: true,
+    },
+    industryOptions: {
       type: Array as PropType<Option[]>,
       required: true,
     },

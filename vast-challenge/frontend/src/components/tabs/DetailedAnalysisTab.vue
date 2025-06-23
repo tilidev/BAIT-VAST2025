@@ -26,8 +26,7 @@
           <GraphView filterKey="fi" />
         </template>
       </Card>
-      <DatasetNodeComparison />
-      <IndustrySentimentBreakdown />
+      <IndustrySentimentBreakdown :industry="selectedIndustry" />
       <PersonSentimentAcrossDatasets :person-id="selectedPersonId || ''" />
       <EntitySentimentConsistencyMatrix />
     </div>
@@ -39,17 +38,19 @@ import { defineAsyncComponent, defineComponent, PropType } from 'vue';
 import Card from 'primevue/card';
 
 const GraphView = defineAsyncComponent(() => import('../GraphView.vue'));
-const DatasetNodeComparison = defineAsyncComponent(() => import('../mini-visualizations/DatasetNodeComparison.vue'));
 const IndustrySentimentBreakdown = defineAsyncComponent(() => import('../mini-visualizations/IndustrySentimentBreakdown.vue'));
 const PersonSentimentAcrossDatasets = defineAsyncComponent(() => import('../mini-visualizations/PersonSentimentAcrossDatasets.vue'));
 const EntitySentimentConsistencyMatrix = defineAsyncComponent(() => import('../mini-visualizations/EntitySentimentConsistencyMatrix.vue'));
+import Sidebar from '../Sidebar.vue';
+import IdSelectionPanel from '../IdSelectionPanel.vue';
 
 export default defineComponent({
   name: 'DetailedAnalysisTab',
   components: {
     Card,
     GraphView,
-    DatasetNodeComparison,
+    Sidebar,
+    IdSelectionPanel,
     IndustrySentimentBreakdown,
     PersonSentimentAcrossDatasets,
     EntitySentimentConsistencyMatrix,
@@ -58,6 +59,23 @@ export default defineComponent({
     selectedPersonId: {
       type: String,
       required: true,
+    },
+  },
+  data() {
+    return {
+      selectedIndustry: '',
+      industryOptions: [
+        { label: 'Technology', value: 'technology' },
+        { label: 'Finance', value: 'finance' },
+        { label: 'Healthcare', value: 'healthcare' },
+        { label: 'Energy', value: 'energy' },
+        { label: 'Consumer Goods', value: 'consumer goods' },
+      ],
+    };
+  },
+  methods: {
+    updateSelectedIndustry(value) {
+      this.selectedIndustry = value;
     },
   },
 });

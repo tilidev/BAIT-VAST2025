@@ -1,19 +1,10 @@
 <template>
   <div class="p-4 border rounded-lg shadow-md bg-white">
     <h3 class="text-lg font-semibold mb-3 text-gray-700">Industry Sentiment Breakdown</h3>
-    <div class="mb-4">
-      <label for="industrySelector" class="block text-sm font-medium text-gray-700">Select Industry:</label>
-      <select id="industrySelector" v-model="selectedIndustry"
-        class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-        <option disabled value="">Please select an industry</option>
-        <option v-for="industry in availableIndustries" :key="industry" :value="industry">{{
-          industry.charAt(0).toUpperCase() + industry.slice(1) }}</option>
-      </select>
-    </div>
     <div v-if="isLoading" class="text-center text-gray-500">Loading data...</div>
     <div v-else-if="error" class="text-center text-red-500">Error loading data: {{ error }}</div>
-    <div v-else-if="!selectedIndustry" class="text-center text-gray-500">Please select an industry.</div>
-    <div v-else-if="processedData.length === 0 && selectedIndustry" class="text-center text-gray-500">No sentiment data
+    <div v-else-if="!industry" class="text-center text-gray-500">Please select an industry.</div>
+    <div v-else-if="processedData.length === 0 && industry" class="text-center text-gray-500">No sentiment data
       found for this industry.</div>
     <div v-else ref="chartContainer" class="w-full h-72">
       <GroupedBarChart :data="processedData" groupKey="dataset"
@@ -36,9 +27,14 @@ export default {
   components: {
     GroupedBarChart,
   },
+  props: {
+    industry: {
+      type: String,
+      required: true,
+    },
+  },
   data() {
     return {
-      selectedIndustry: '',
       chartContainer: null,
       chartWidth: 400,
       chartHeight: 300,
@@ -57,11 +53,11 @@ export default {
       return Array.from(industries).sort();
     },
     processedData() {
-      if (!this.selectedIndustry || this.rawData.length === 0) {
+      if (!this.industry || this.rawData.length === 0) {
         return [];
       }
 
-      const filteredByIndustry = this.rawData.filter(item => item.industry === this.selectedIndustry);
+      const filteredByIndustry = this.rawData.filter(item => item.industry === this.industry);
 
       const breakdownByDataset = {};
       const datasetsOrder = ['jo', 'fi', 'tr', 'all'];

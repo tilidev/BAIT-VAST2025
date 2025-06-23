@@ -2,12 +2,12 @@
   <div class="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex">
     <Sidebar :sidebar-expanded="sidebarExpanded" :active-tab="activeTab" :selected-person-id="selectedPersonId"
       :selected-entity-id="selectedEntityId" :person-options="personOptions" :organization-options="organizationOptions"
-      @toggle-sidebar="toggleSidebar" @update:selected-person-id="selectedPersonId = $event"
-      @update:selected-entity-id="selectedEntityId = $event" @update:active-tab="activeTab = $event" />
+      :industry-options="industryOptions" @toggle-sidebar="toggleSidebar"
+      @update:selected-person-id="selectedPersonId = $event" @update:selected-entity-id="selectedEntityId = $event"
+      @update:active-tab="activeTab = $event" />
 
     <!-- Main Content Area -->
-    <main 
-      class="flex-grow p-4 overflow-auto transition-all duration-300 ease-in-out">
+    <main class="flex-grow p-4 overflow-auto transition-all duration-300 ease-in-out">
       <OverviewTab v-if="activeTab === 'overview'" :selected-entity-id="selectedEntityId" />
       <DetailedAnalysisTab v-else-if="activeTab === 'detailed-analysis'" :selected-person-id="selectedPersonId" />
     </main>
@@ -62,6 +62,13 @@ export default defineComponent({
       }));
     });
 
+    const industryOptions = computed(() => {
+      return [...new Set(visualizationDataStore.industrySentimentRawData.map((item: any) => item.industry))].map(industry => ({
+        label: (industry as string).charAt(0).toUpperCase() + (industry as string).slice(1),
+        value: industry
+      }));
+    });
+
     // Initialize stores
     (async () => {
       try {
@@ -87,6 +94,7 @@ export default defineComponent({
       toggleSidebar,
       personOptions,
       organizationOptions,
+      industryOptions
     };
   },
 });
