@@ -5,18 +5,20 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted, watch, nextTick } from 'vue';
 import * as d3 from 'd3';
+import { neutralBaseColor } from '../../utils/colors';
 
 interface HistogramProps {
-  data: number[]; // Raw numerical data for the histogram
-  bins?: number | number[]; // Number of bins or an array of thresholds
+  data: number[];
+  bins?: number | number[];
   width?: number;
   height?: number;
   margin?: { top: number; right: number; bottom: number; left: number };
-  color?: string; // Single color for the bars
+  color?: string;
   tooltipFormatter?: (d: d3.Bin<number, number>) => string;
   xAxisLabelFormatter?: (d: any) => string;
   yAxisLabelFormatter?: (d: any) => string;
   showGridLines?: boolean;
+  showTicks?: boolean;
 }
 
 export default defineComponent({
@@ -29,7 +31,7 @@ export default defineComponent({
     },
     bins: {
       type: [Number, Array],
-      default: 10, // Default to 10 bins
+      default: 10,
     },
     width: {
       type: Number,
@@ -45,7 +47,7 @@ export default defineComponent({
     },
     color: {
       type: String,
-      default: '#6366f1', // Default bar color (Tailwind indigo-500)
+      default: neutralBaseColor,
     },
     tooltipFormatter: {
       type: Function,
@@ -60,6 +62,10 @@ export default defineComponent({
       default: (d: any) => d.toString(),
     },
     showGridLines: {
+      type: Boolean,
+      default: false,
+    },
+    showTicks: {
       type: Boolean,
       default: false,
     },
@@ -80,7 +86,7 @@ export default defineComponent({
       d3.select(chartContainer.value).selectAll("*").remove();
       if (tooltip) tooltip.remove();
 
-      const { data, bins, width, height, margin, color, tooltipFormatter, xAxisLabelFormatter, yAxisLabelFormatter, showGridLines } = props;
+      const { data, bins, width, height, margin, color, tooltipFormatter, xAxisLabelFormatter, yAxisLabelFormatter, showGridLines, showTicks } = props;
 
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
@@ -89,7 +95,7 @@ export default defineComponent({
         .append("svg")
         .attr("width", width)
         .attr("height", height);
-      
+
       const svgGroup = svg.append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
@@ -100,11 +106,10 @@ export default defineComponent({
 
       // Define the histogram layout
       const histogram = d3.histogram<number, number>()
-        .value(d => d) // We expect raw numbers in the data array
-        .domain(d3.extent(data) as [number, number]) // Domain of the data
-        .thresholds(typeof bins === 'number' ? d3.range(d3.min(data) || 0, (d3.max(data) || 0) + (d3.max(data) || 0 - d3.min(data) || 0) / bins, (d3.max(data) || 0 - d3.min(data) || 0) / bins) : bins); // Number of bins or custom thresholds
+        .value(d => d)
+        .domain(d3.extent(data) as [number, number])
+        .thresholds(typeof bins === 'number' ? d3.range(d3.min(data) || 0, (d3.max(data) || 0) + (d3.max(data) || 0 - d3.min(data) || 0) / bins, (d3.max(data) || 0 - d3.min(data) || 0) / bins) : bins);
 
-      // Generate bins
       const binnedData = histogram(data);
 
       // X scale for continuous values (bins)
@@ -125,22 +130,24 @@ export default defineComponent({
         .attr("class", "text-gray-600 text-xs"); // Tailwind classes for axis labels
 
       // Y axis
-      svgGroup.append("g")
-        .call(d3.axisLeft(y).tickFormat(yAxisLabelFormatter))
-        .selectAll("text")
-        .attr("class", "text-gray-600 text-xs"); // Tailwind classes for axis labels
+      if (showTicks) {
+        svgGroup.append("g")
+          .call(d3.axisLeft(y).tickFormat(yAxisLabelFormatter))
+          .selectAll("text")
+          .attr("class", "text-gray-600 text-xs"); // Tailwind classes for axis labels
+      }
 
       // Y-axis grid lines
       if (showGridLines) {
         svgGroup.append("g")
           .attr("class", "grid")
           .call(d3.axisLeft(y)
-              .ticks(5) // Adjust number of ticks as needed
-              .tickSize(-innerWidth)
-              .tickFormat(null) // Use null to suppress tick labels for grid lines
+            .ticks(5)
+            .tickSize(-innerWidth)
+            .tickFormat(null) // Use null to suppress tick labels for grid lines
           )
           .selectAll("line")
-          .attr("stroke", "#e5e7eb") // Tailwind gray-200
+          .attr("stroke", "#e5e7eb")
           .attr("stroke-dasharray", "2,2");
       }
 
