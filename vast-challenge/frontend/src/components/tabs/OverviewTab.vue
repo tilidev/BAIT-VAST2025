@@ -1,15 +1,16 @@
 <template>
   <div class="h-full">
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4">
-      <OverallSentimentDistribution />
-      <DatasetNodeComparison />
-      <TopicSentimentOverview class="col-span-2" />
+      <OverallSentimentDistribution :selected-entity-id="filterStore.selectedEntityId" />
+      <DatasetNodeComparison :selected-entity-id="filterStore.selectedEntityId" />
+      <TopicSentimentOverview class="col-span-2" :selected-entity-id="filterStore.selectedEntityId" />
     </div>
   </div>
 </template>
 
-<script lang="ts">
-import { defineAsyncComponent, defineComponent, PropType } from 'vue';
+<script>
+import { defineAsyncComponent, defineComponent } from 'vue';
+import { useFilterStore } from '../../stores/filterStore';
 
 const OverallSentimentDistribution = defineAsyncComponent(() => import('../mini-visualizations/OverallSentimentDistribution.vue'));
 const TopicSentimentOverview = defineAsyncComponent(() => import('../mini-visualizations/TopicSentimentOverview.vue'));
@@ -22,12 +23,11 @@ export default defineComponent({
     TopicSentimentOverview,
     DatasetNodeComparison,
   },
-  props: {
-    selectedEntityId: {
-      type: String,
-      required: true,
-    },
-  },
+  data() {
+    return {
+      filterStore: useFilterStore()
+    };
+  }
 });
 </script>
 

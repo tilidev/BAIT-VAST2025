@@ -1,27 +1,25 @@
 <template>
   <div class="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex">
-    <Sidebar :sidebar-expanded="sidebarExpanded" :active-tab="activeTab" :selected-person-id="selectedPersonId"
-      :selected-entity-id="selectedEntityId" :person-options="personOptions" :organization-options="organizationOptions"
-      :industry-options="industryOptions" @toggle-sidebar="toggleSidebar"
-      @update:selected-person-id="selectedPersonId = $event" @update:selected-entity-id="selectedEntityId = $event"
-      @update:active-tab="activeTab = $event" />
+    <Sidebar :sidebar-expanded="sidebarExpanded" :active-tab="activeTab" @toggleSidebar="toggleSidebar" @update:activeTab="setActiveTab"/>
 
     <!-- Main Content Area -->
     <main class="flex-grow p-4 overflow-auto transition-all duration-300 ease-in-out">
-      <OverviewTab v-if="activeTab === 'overview'" :selected-entity-id="selectedEntityId" />
-      <DetailedAnalysisTab v-else-if="activeTab === 'detailed-analysis'" :selected-person-id="selectedPersonId" />
+      <IdSelectionPanel />
+      <OverviewTab v-if="activeTab === 'overview'" />
+      <DetailedAnalysisTab v-else-if="activeTab === 'detailed-analysis'" />
     </main>
   </div>
 </template>
 
-<script lang="ts">
-import { defineAsyncComponent, defineComponent, ref, computed } from 'vue';
+<script>
+import { defineAsyncComponent, defineComponent } from 'vue';
 import Card from 'primevue/card';
 import Sidebar from './components/Sidebar.vue';
 
 import { useEntityStore } from './stores/entityStore';
 import { useGraphStore } from './stores/graphStore';
 import { useVisualizationDataStore } from './stores/visualizationDataStore';
+import { useFilterStore } from './stores/filterStore';
 
 const OverviewTab = defineAsyncComponent(() => import('./components/tabs/OverviewTab.vue'));
 const DetailedAnalysisTab = defineAsyncComponent(() => import('./components/tabs/DetailedAnalysisTab.vue'));
@@ -34,69 +32,41 @@ export default defineComponent({
     OverviewTab,
     DetailedAnalysisTab,
   },
-  setup() {
-    const selectedPersonId = ref('');
-    const selectedEntityId = ref('');
-    const activeTab = ref('overview');
-    const sidebarExpanded = ref(true);
-
-    const entityStore = useEntityStore();
-    const graphStore = useGraphStore();
-    const visualizationDataStore = useVisualizationDataStore();
-
-    const toggleSidebar = () => {
-      sidebarExpanded.value = !sidebarExpanded.value;
+  data() {
+    return {
+      activeTab: 'overview',
+      sidebarExpanded: true,
+      entityStore: useEntityStore(),
+      graphStore: useGraphStore(),
+      visualizationDataStore: useVisualizationDataStore(),
+      filterStore: useFilterStore()
     };
-
-    const personOptions = computed(() => {
-      return entityStore.persons.map(person => ({
-        label: person.name,
-        value: person.id
-      }));
-    });
-
-    const organizationOptions = computed(() => {
-      return entityStore.organizations.map(org => ({
-        label: org.id,
-        value: org.id
-      }));
-    });
-
-    const industryOptions = computed(() => {
-      return [...new Set(visualizationDataStore.industrySentimentRawData.map((item: any) => item.industry))].map(industry => ({
-        label: (industry as string).charAt(0).toUpperCase() + (industry as string).slice(1),
-        value: industry
-      }));
-    });
-
-    // Initialize stores
+  },
+  methods: {
+    toggleSidebar() {
+      this.sidebarExpanded = !this.sidebarExpanded;
+    },
+    setActiveTab(tab) {
+      this.activeTab = tab;
+    }
+  },
+  mounted() {
     (async () => {
       try {
-        if (entityStore.persons.length === 0) {
-          await entityStore.init();
+        if (this.entityStore.persons.length === 0) {
+          await this.entityStore.init();
         }
-        if (graphStore.sentimentPerTopic.length === 0) {
-          await graphStore.init();
+        if (this.graphStore.sentimentPerTopic.length === 0) {
+          await this.graphStore.init();
         }
-        if (visualizationDataStore.datasetNodeCounts.length === 0 && visualizationDataStore.industrySentimentRawData.length === 0) {
-          await visualizationDataStore.init();
+        if (this.visualizationDataStore.datasetNodeCounts.length === 0 && this.visualizationDataStore.industrySentimentRawData.length === 0) {
+          await this.visualizationDataStore.init();
         }
       } catch (error) {
         console.error("Error initializing stores in App.vue:", error);
       }
     })();
-
-    return {
-      selectedPersonId,
-      selectedEntityId,
-      activeTab,
-      sidebarExpanded,
-      toggleSidebar,
-      personOptions,
-      organizationOptions,
-      industryOptions
-    };
-  },
+  }
 });
 </script>
 

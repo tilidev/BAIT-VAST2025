@@ -19,7 +19,7 @@
     <nav
       :class="[sidebarExpanded ? 'flex-row space-x-2' : 'flex-col space-y-4', { 'justify-center': !sidebarExpanded }]"
       class="mb-6 flex">
-      <button @click="emit('update:activeTab', 'overview')"
+      <button @click="setActiveTab('overview')"
         :class="{ 'bg-blue-500 text-white': activeTab === 'overview', 'hover:bg-gray-200 dark:hover:bg-gray-700': activeTab !== 'overview', 'w-full': sidebarExpanded }"
         class="p-2 rounded-md transition-colors duration-200 flex items-center">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" :class="{ 'mr-2': sidebarExpanded }" fill="none"
@@ -29,7 +29,7 @@
         </svg>
         <span v-if="sidebarExpanded">Overview</span>
       </button>
-      <button @click="emit('update:activeTab', 'detailed-analysis')"
+      <button @click="setActiveTab('detailed-analysis')"
         :class="{ 'bg-blue-500 text-white': activeTab === 'detailed-analysis', 'hover:bg-gray-200 dark:hover:bg-gray-700': activeTab !== 'detailed-analysis', 'w-full': sidebarExpanded }"
         class="p-2 rounded-md transition-colors duration-200 flex items-center">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" :class="{ 'mr-2': sidebarExpanded }" fill="none"
@@ -45,10 +45,7 @@
     <div v-if="sidebarExpanded" class="space-y-4 mb-6">
       <h3 class="text-lg font-semibold mb-2">Controls</h3>
       <div class="p-2 border border-gray-300 dark:border-gray-600 rounded-md">
-        <IdSelectionPanel :selected-person-id="selectedPersonId"
-          @update:selected-person-id="emit('update:selectedPersonId', $event)" :selected-entity-id="selectedEntityId"
-          @update:selected-entity-id="emit('update:selectedEntityId', $event)" :person-options="personOptions"
-          :organization-options="organizationOptions" :industry-options="industryOptions" />
+        <IdSelectionPanel />
       </div>
     </div>
 
@@ -67,63 +64,39 @@
   </aside>
 </template>
 
-<script lang="ts">
-import { defineComponent, PropType } from 'vue';
+<script>
+import { defineComponent } from 'vue';
 import ThemeSwitcher from './ThemeSwitcher.vue';
 import IdSelectionPanel from './IdSelectionPanel.vue';
-
-interface Option {
-  label: string;
-  value: string;
-}
+import { useFilterStore } from '../stores/filterStore';
 
 export default defineComponent({
   name: 'Sidebar',
   components: {
     ThemeSwitcher,
-    IdSelectionPanel,
+    IdSelectionPanel
   },
   props: {
     sidebarExpanded: {
       type: Boolean,
       required: true,
     },
-    activeTab: {
-      type: String,
-      required: true,
-    },
-    selectedPersonId: {
-      type: String,
-      required: true,
-    },
-    selectedEntityId: {
-      type: String,
-      required: true,
-    },
-    personOptions: {
-      type: Array as PropType<Option[]>,
-      required: true,
-    },
-    organizationOptions: {
-      type: Array as PropType<Option[]>,
-      required: true,
-    },
-    industryOptions: {
-      type: Array as PropType<Option[]>,
-      required: true,
-    },
   },
-  emits: ['toggleSidebar', 'update:selectedPersonId', 'update:selectedEntityId', 'update:activeTab'],
-  setup(props, { emit }) {
-    const toggleSidebar = () => {
-      emit('toggleSidebar');
-    };
-
+  emits: ['toggleSidebar', 'update:activeTab'],
+  data() {
     return {
-      toggleSidebar,
-      emit,
+      filterStore: useFilterStore(),
+      activeTab: 'overview'
     };
   },
+  methods: {
+    toggleSidebar() {
+      this.$emit('toggleSidebar');
+    },
+    setActiveTab(tab) {
+      this.$emit('update:activeTab', tab);
+    }
+  }
 });
 </script>
 

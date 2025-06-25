@@ -26,57 +26,36 @@
           <GraphView filterKey="fi" />
         </template>
       </Card>
-      <IndustrySentimentBreakdown :industry="selectedIndustry" />
-      <PersonSentimentAcrossDatasets :person-id="selectedPersonId || ''" />
+      <IndustrySentimentBreakdown :industry="filterStore.selectedIndustry" />
+      <PersonSentimentAcrossDatasets :person-id="filterStore.selectedPersonId || ''" />
       <EntitySentimentConsistencyMatrix />
     </div>
   </div>
 </template>
 
-<script lang="ts">
-import { defineAsyncComponent, defineComponent, PropType } from 'vue';
+<script>
+import { defineAsyncComponent, defineComponent } from 'vue';
 import Card from 'primevue/card';
+import { useFilterStore } from '../../stores/filterStore';
 
 const GraphView = defineAsyncComponent(() => import('../GraphView.vue'));
 const IndustrySentimentBreakdown = defineAsyncComponent(() => import('../mini-visualizations/IndustrySentimentBreakdown.vue'));
 const PersonSentimentAcrossDatasets = defineAsyncComponent(() => import('../mini-visualizations/PersonSentimentAcrossDatasets.vue'));
 const EntitySentimentConsistencyMatrix = defineAsyncComponent(() => import('../mini-visualizations/EntitySentimentConsistencyMatrix.vue'));
-import Sidebar from '../Sidebar.vue';
-import IdSelectionPanel from '../IdSelectionPanel.vue';
 
 export default defineComponent({
   name: 'DetailedAnalysisTab',
   components: {
     Card,
     GraphView,
-    Sidebar,
-    IdSelectionPanel,
     IndustrySentimentBreakdown,
     PersonSentimentAcrossDatasets,
     EntitySentimentConsistencyMatrix,
   },
-  props: {
-    selectedPersonId: {
-      type: String,
-      required: true,
-    },
-  },
   data() {
     return {
-      selectedIndustry: '',
-      industryOptions: [
-        { label: 'Technology', value: 'technology' },
-        { label: 'Finance', value: 'finance' },
-        { label: 'Healthcare', value: 'healthcare' },
-        { label: 'Energy', value: 'energy' },
-        { label: 'Consumer Goods', value: 'consumer goods' },
-      ],
+      filterStore: useFilterStore(),
     };
-  },
-  methods: {
-    updateSelectedIndustry(value) {
-      this.selectedIndustry = value;
-    },
   },
 });
 </script>
