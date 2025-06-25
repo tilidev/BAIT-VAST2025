@@ -65,3 +65,15 @@ export async function fetchSentiment(): Promise<any> {
     throw error;
   }
 }
+
+export async function fetchIndustryInterestAlignment(weight: boolean = false): Promise<any> {
+  try {
+    const res = await api.get<any>(`/industry-interest-alignment`, {
+      params: { weight },
+    });
+    return res.data;
+  } catch (error) {
+    console.error('Error fetching industry interest alignment data:', error);
+    throw error;
+  }
+}
