@@ -42,8 +42,6 @@ export default {
   },
   methods: {
     colorScale(s) {
-      console.log(this.processedData);
-
       return neutralBaseColor;
     },
     tooltipFormatter(d) {
