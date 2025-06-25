@@ -114,7 +114,9 @@ async def full_graph_no_roadmap(driver: AsyncDriver):
 
 async def nodes_only_in(driver: AsyncDriver, dataset: str):
     query = "match (n:!ROADMAP_PLACE {in_graph: $in_graph_arr}) return n"
-    in_graph_arr = ['jo']
+    in_graph_arr = []
+    if dataset != "jo":
+        in_graph_arr.append("jo")
     in_graph_arr.append(dataset)
     nodes = (await query_graph(driver, query, {'in_graph_arr': in_graph_arr}))._nodes
     return nodes
@@ -123,7 +125,9 @@ async def nodes_only_in(driver: AsyncDriver, dataset: str):
 async def links_only_in(driver: AsyncDriver, dataset: str):
     query = "match (n)-[r {in_graph: $in_graph_arr}]->(m) return n, r, m"
     # we want to return nodes so that the Graph object can reference them
-    in_graph_arr = ['jo']
+    in_graph_arr = []
+    if dataset != "jo":
+        in_graph_arr.append("jo")
     in_graph_arr.append(dataset)
     links = (await query_graph(driver, query, {'in_graph_arr': in_graph_arr}))._relationships
     return links
@@ -186,7 +190,7 @@ async def entity_topic_participation(driver: AsyncDriver):
         entity_topic_sentiments[eid]["topic_sentiments"].append({
             "topic_id": row["topic_id"],
             "sentiment": row["sentiment"],
-            "reason" : row["reason"],
+            "reason": row["reason"],
             "sentiment_recorded_in": row["sentiment_recorded_in"],
             "topic_industry": row["topic_industry"] if row["topic_industry"] != [] else ['misc']
         })

@@ -1,40 +1,73 @@
 <template>
-  <div> <!--
-    class="min-h-screen bg-gradient-to-br from-teal-100 via-sky-100 to-indigo-100 dark:from-gray-900 dark:via-slate-800 dark:to-neutral-900 p-4 sm:p-8 transition-colors duration-300">
-    -->
+  <div class="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex">
+    <Sidebar :sidebar-expanded="sidebarExpanded" :active-tab="activeTab" @toggleSidebar="toggleSidebar" @update:activeTab="setActiveTab"/>
 
-    <div class="container mx-auto">
-      <div class="flex justify-end mb-4">
-        <ThemeSwitcher />
-      </div>
-      <Card class="shadow-xl rounded-lg overflow-hidden">
-        <template #title>
-          <h1 class="text-3xl font-bold text-center text-gray-800 dark:text-gray-100 py-4">Main Application</h1>
-        </template>
-        <template #content>
-          <div class="p-4 sm:p-6">
-            <ExampleComponent />
-          </div>
-          <!-- <GeoJsonMap></GeoJsonMap> -->
-          <!-- <EntityComponent></EntityComponent> -->
-          <GraphView></GraphView>
-          <IndustrySimilarityHeatmap></IndustrySimilarityHeatmap>
-        </template>
-      </Card>
-    </div>
+    <!-- Main Content Area -->
+    <main class="flex-grow p-4 overflow-auto transition-all duration-300 ease-in-out">
+      <IdSelectionPanel />
+      <OverviewTab v-if="activeTab === 'overview'" />
+      <DetailedAnalysisTab v-else-if="activeTab === 'detailed-analysis'" />
+    </main>
   </div>
 </template>
 
-<script setup>
-import ExampleComponent from './components/ExampleComponent.vue';
-import Card from 'primevue/card'; // Import PrimeVue Card
-import ThemeSwitcher from './components/ThemeSwitcher.vue'; // Import the new component
-import GeoJsonMap from './components/GeoJsonMap.vue';
-import EntityComponent from './components/EntityComponent.vue';
-import GraphView from './components/GraphView.vue';
-import IndustrySimilarityHeatmap from './components/IndustrySimilarityHeatmap.vue';
+<script>
+import { defineAsyncComponent, defineComponent } from 'vue';
+import Card from 'primevue/card';
+import Sidebar from './components/Sidebar.vue';
+
+import { useEntityStore } from './stores/entityStore';
+import { useGraphStore } from './stores/graphStore';
+import { useVisualizationDataStore } from './stores/visualizationDataStore';
+import { useFilterStore } from './stores/filterStore';
+
+const OverviewTab = defineAsyncComponent(() => import('./components/tabs/OverviewTab.vue'));
+const DetailedAnalysisTab = defineAsyncComponent(() => import('./components/tabs/DetailedAnalysisTab.vue'));
+
+export default defineComponent({
+  name: 'App',
+  components: {
+    Card,
+    Sidebar,
+    OverviewTab,
+    DetailedAnalysisTab,
+  },
+  data() {
+    return {
+      activeTab: 'overview',
+      sidebarExpanded: true,
+      entityStore: useEntityStore(),
+      graphStore: useGraphStore(),
+      visualizationDataStore: useVisualizationDataStore(),
+      filterStore: useFilterStore()
+    };
+  },
+  methods: {
+    toggleSidebar() {
+      this.sidebarExpanded = !this.sidebarExpanded;
+    },
+    setActiveTab(tab) {
+      this.activeTab = tab;
+    }
+  },
+  mounted() {
+    (async () => {
+      try {
+        if (this.entityStore.persons.length === 0) {
+          await this.entityStore.init();
+        }
+        if (this.graphStore.sentimentPerTopic.length === 0) {
+          await this.graphStore.init();
+        }
+        if (this.visualizationDataStore.datasetNodeCounts.length === 0 && this.visualizationDataStore.industrySentimentRawData.length === 0) {
+          await this.visualizationDataStore.init();
+        }
+      } catch (error) {
+        console.error("Error initializing stores in App.vue:", error);
+      }
+    })();
+  }
+});
 </script>
 
-<style>
-/* Add global styles if needed, or ensure Tailwind base styles are included in main.ts/style.css */
-</style>
+<style></style>
