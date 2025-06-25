@@ -1,18 +1,15 @@
 <template>
-  <div class="industry-similarity-heatmap">
+  <div class="flex">
     <div class="mb-4 flex items-center">
       <ToggleSwitch v-model="useWeightedMean" @change="fetchData" inputId="weighted-mean-toggle" />
       <label for="weighted-mean-toggle" class="ml-2 text-gray-700">Use Weighted Mean</label>
     </div>
-    <div v-if="isReady" class="flex">
+    <div v-if="isReady">
       <AdjacencyMatrix
         class="flex-auto"
         :data="matrixData"
         :rowLabels="industryLabels"
         :colLabels="industryLabels"
-        :width="500"
-        :height="500"
-        :margin="{ top: 150, right: 0, bottom: 10, left: 150 }"
         :colorScale="colorScale"
         :tooltipFormatter="tooltipFormatter"
       />
@@ -106,5 +103,4 @@ export default defineComponent({
 </script>
 
 <style scoped>
-/* Add any specific styles for the heatmap wrapper here */
 </style>
