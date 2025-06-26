@@ -9,11 +9,11 @@
 
     <div class="dashboard">
       <div class="column">
-        <h3>Large Vessel</h3>
+        <h3>Large Vessel (Pro)</h3>
         <svg ref="svgLeft" :width="svgWidth" :height="svgHeight"></svg>
       </div>
       <div class="column">
-        <h3>Tourism</h3>
+        <h3>Tourism (Pro)</h3>
         <svg ref="svgRight" :width="svgWidth" :height="svgHeight"></svg>
       </div>
     </div>
@@ -48,13 +48,10 @@ export default {
         const data = await res.json();
         this.allData = data;
 
-        // Collect all unique datasets
         const uniqueDatasets = new Set(data.map(d => d.dataset));
         this.datasets = ['all', ...uniqueDatasets];
 
-        // Prepare per-industry nodes
-        this.leftNodes = this.prepareNodes('large vessel');
-        this.rightNodes = this.prepareNodes('tourism');
+        this.splitNodesBySupportedSide();
 
         this.renderChart(this.leftNodes, this.$refs.svgLeft, d3.forceSimulation(), 'left');
         this.renderChart(this.rightNodes, this.$refs.svgRight, d3.forceSimulation(), 'right');
@@ -63,17 +60,39 @@ export default {
       }
     },
 
-    prepareNodes(industry) {
-      return this.allData
-        .filter(d => d.industry === industry)
-        .map(d => ({
-          radius: Math.max(5, Math.abs(d.agg_sentiment) * 20),
-          data: d
-        }));
-    },
+    // Core logic: route based on sentiment toward industry
+splitNodesBySupportedSide() {
+  this.leftNodes = [];
+  this.rightNodes = [];
+
+  this.allData.forEach(d => {
+    // ✅ Only include if it's about one of the two industries
+    if (d.industry !== 'tourism' && d.industry !== 'large vessel') return;
+
+    const isPositive = d.agg_sentiment >= 0;
+    const node = {
+      radius: Math.max(5, Math.abs(d.agg_sentiment) * 20),
+      data: d
+    };
+
+    // ✅ Routing based on polarity + target industry
+    if (
+      (d.industry === 'large vessel' && isPositive) ||
+      (d.industry === 'tourism' && !isPositive)
+    ) {
+      this.leftNodes.push(node);
+    } else {
+      this.rightNodes.push(node);
+    }
+  });
+},
 
     isActive(node) {
       return this.activeDataset === 'all' || node.data.dataset === this.activeDataset;
+    },
+
+    getGravityTargetY(node) {
+      return this.isActive(node) ? this.svgHeight : 0;
     },
 
     renderChart(nodes, svgRef, simulation, side) {
@@ -100,10 +119,10 @@ export default {
       simulation
         .nodes(nodes)
         .force('x', d3.forceX(this.svgWidth / 2).strength(0.05))
-        .force('y', d3.forceY().y(d => this.isActive(d) ? this.svgHeight : 0).strength(0.1))
+        .force('y', d3.forceY().y(d => this.getGravityTargetY(d)).strength(0.1))
         .force('collision', d3.forceCollide(d => d.radius + 2))
-        .alphaDecay(0.015) // slower movement decay
-        .alpha(0.7)        // strong initial energy
+        .alphaDecay(0.015)
+        .alpha(0.7)
         .on('tick', () => {
           group.attr('transform', d => {
             d.x = Math.max(d.radius, Math.min(this.svgWidth - d.radius, d.x));
@@ -118,9 +137,8 @@ export default {
 
     updateForces() {
       const updateSimulation = (sim, nodes, svgRef) => {
-        sim.force('y', d3.forceY()
-          .y(d => this.isActive(d) ? this.svgHeight : 0)
-          .strength(0.1))
+        sim
+          .force('y', d3.forceY().y(d => this.getGravityTargetY(d)).strength(0.1))
           .alphaDecay(0.015)
           .alpha(0.7)
           .restart();
