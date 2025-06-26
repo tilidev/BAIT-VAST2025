@@ -61,3 +61,12 @@ class IndustryProContraSentiment(BaseModel):
     industry: str
     agg_sentiment: float
     contributing_sentiments: list[TopicSentiment]
+
+
+class PersonalActivity(BaseModel):
+    num_plans: int
+    num_discussions: int
+    unique_meetings: list[str]
+    unique_topics: list[str]
+    plans: list[dict]
+    discussions: list[dict]
