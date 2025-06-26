@@ -60,32 +60,32 @@ export default {
       }
     },
 
-    // Core logic: route based on sentiment toward industry
-splitNodesBySupportedSide() {
-  this.leftNodes = [];
-  this.rightNodes = [];
+    splitNodesBySupportedSide() {
+      this.leftNodes = [];
+      this.rightNodes = [];
 
-  this.allData.forEach(d => {
-    // ✅ Only include if it's about one of the two industries
-    if (d.industry !== 'tourism' && d.industry !== 'large vessel') return;
+      const areaScale = d3.scaleSqrt().domain([0, 1]).range([5, 30]);
 
-    const isPositive = d.agg_sentiment >= 0;
-    const node = {
-      radius: Math.max(5, Math.abs(d.agg_sentiment) * 20),
-      data: d
-    };
+      this.allData.forEach(d => {
+        if (d.industry !== 'tourism' && d.industry !== 'large vessel') return;
+        if (d.agg_sentiment === 0) return;
 
-    // ✅ Routing based on polarity + target industry
-    if (
-      (d.industry === 'large vessel' && isPositive) ||
-      (d.industry === 'tourism' && !isPositive)
-    ) {
-      this.leftNodes.push(node);
-    } else {
-      this.rightNodes.push(node);
-    }
-  });
-},
+        const isPositive = d.agg_sentiment > 0;
+        const node = {
+          radius: areaScale(Math.abs(d.agg_sentiment)),
+          data: d
+        };
+
+        if (
+          (d.industry === 'large vessel' && isPositive) ||
+          (d.industry === 'tourism' && !isPositive)
+        ) {
+          this.leftNodes.push(node);
+        } else {
+          this.rightNodes.push(node);
+        }
+      });
+    },
 
     isActive(node) {
       return this.activeDataset === 'all' || node.data.dataset === this.activeDataset;
@@ -93,6 +93,15 @@ splitNodesBySupportedSide() {
 
     getGravityTargetY(node) {
       return this.isActive(node) ? this.svgHeight : 0;
+    },
+
+    getBubbleColor(node) {
+      const isActive = this.isActive(node);
+      const isNegative = node.data.agg_sentiment < 0;
+
+      if (!isActive) return 'grey';
+      if (isNegative) return 'orange';
+      return 'steelblue';
     },
 
     renderChart(nodes, svgRef, simulation, side) {
@@ -106,14 +115,22 @@ splitNodesBySupportedSide() {
 
       group.append('circle')
         .attr('r', d => d.radius)
-        .attr('fill', d => this.isActive(d) ? 'steelblue' : 'tomato');
+        .attr('fill', d => this.getBubbleColor(d));
 
-      group.append('text')
+      const text = group.append('text')
         .attr('text-anchor', 'middle')
-        .attr('dy', '0.35em')
         .style('pointer-events', 'none')
-        .style('font-size', '10px')
-        .style('fill', 'white')
+        .style('font-size', '9px')
+        .style('fill', 'white');
+
+      text.append('tspan')
+        .attr('x', 0)
+        .attr('dy', '-0.3em')
+        .text(d => d.data.entity_id);
+
+      text.append('tspan')
+        .attr('x', 0)
+        .attr('dy', '1.1em')
         .text(d => `${d.data.agg_sentiment.toFixed(2)} | ${d.data.dataset}`);
 
       simulation
@@ -145,7 +162,7 @@ splitNodesBySupportedSide() {
 
         d3.select(svgRef)
           .selectAll('circle')
-          .attr('fill', d => this.isActive(d) ? 'steelblue' : 'tomato');
+          .attr('fill', d => this.getBubbleColor(d));
       };
 
       if (this.leftSim) updateSimulation(this.leftSim, this.leftNodes, this.$refs.svgLeft);
