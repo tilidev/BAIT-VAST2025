@@ -10,15 +10,29 @@
         <input type="checkbox" v-model="excludeOrganizations" @change="onFilterToggle" />
         Exclude ENTITY_ORGANIZATION
       </label>
+
+      <label style="margin-left: 20px;">
+        Left Industry:
+        <select v-model="leftIndustry" @change="onFilterToggle">
+          <option v-for="ind in industries" :key="ind" :value="ind">{{ ind }}</option>
+        </select>
+      </label>
+
+      <label style="margin-left: 10px;">
+        Right Industry:
+        <select v-model="rightIndustry" @change="onFilterToggle">
+          <option v-for="ind in industries" :key="ind" :value="ind">{{ ind }}</option>
+        </select>
+      </label>
     </div>
 
     <div class="dashboard">
       <div class="column">
-        <h3>Large Vessel (Pro)</h3>
+        <h3>{{ leftIndustry }} (Pro)</h3>
         <svg ref="svgLeft" :width="svgWidth" :height="svgHeight"></svg>
       </div>
       <div class="column">
-        <h3>Tourism (Pro)</h3>
+        <h3>{{ rightIndustry }} (Pro)</h3>
         <svg ref="svgRight" :width="svgWidth" :height="svgHeight"></svg>
       </div>
     </div>
@@ -41,6 +55,9 @@ export default {
       rightSim: null,
       activeDataset: 'all',
       datasets: ['all'],
+      industries: [],
+      leftIndustry: 'large vessel',
+      rightIndustry: 'tourism',
       excludeOrganizations: false
     };
   },
@@ -55,7 +72,16 @@ export default {
         this.allData = data;
 
         const uniqueDatasets = new Set(data.map(d => d.dataset));
+        const uniqueIndustries = new Set(data.map(d => d.industry));
+
         this.datasets = ['all', ...uniqueDatasets];
+        this.industries = [...uniqueIndustries];
+        if (!this.industries.includes(this.leftIndustry)) {
+          this.leftIndustry = this.industries[0] || '';
+        }
+        if (!this.industries.includes(this.rightIndustry)) {
+          this.rightIndustry = this.industries[1] || '';
+        }
 
         this.splitNodesBySupportedSide();
         this.renderChart(this.leftNodes, this.$refs.svgLeft, d3.forceSimulation(), 'left');
@@ -78,9 +104,9 @@ export default {
       const areaScale = d3.scaleSqrt().domain([0, 1]).range([5, 30]);
 
       this.allData.forEach(d => {
-        if (d.industry !== 'tourism' && d.industry !== 'large vessel') return;
         if (d.agg_sentiment === 0) return;
         if (this.excludeOrganizations && d.entity_type === 'ENTITY_ORGANIZATION') return;
+        if (d.industry !== this.leftIndustry && d.industry !== this.rightIndustry) return;
 
         const isPositive = d.agg_sentiment > 0;
         const node = {
@@ -88,10 +114,11 @@ export default {
           data: d
         };
 
-        if (
-          (d.industry === 'large vessel' && isPositive) ||
-          (d.industry === 'tourism' && !isPositive)
-        ) {
+        // Determine the side it supports
+        const supportsLeft = (d.industry === this.leftIndustry && isPositive) ||
+                             (d.industry === this.rightIndustry && !isPositive);
+
+        if (supportsLeft) {
           this.leftNodes.push(node);
         } else {
           this.rightNodes.push(node);
