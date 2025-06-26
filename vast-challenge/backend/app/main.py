@@ -1,5 +1,6 @@
 from itertools import product
 import time
+from typing import Literal
 import pandas as pd
 from fastapi import Depends, FastAPI, HTTPException
 from contextlib import asynccontextmanager
@@ -7,7 +8,7 @@ from neo4j import AsyncDriver, AsyncGraphDatabase, basic_auth
 import os
 import numpy as np
 
-from .models import IndustryProContraSentiment, Entity, BaseGraphObject, EntityTopicSentiment, GraphMembership
+from .models import IndustryProContraSentiment, Entity, BaseGraphObject, EntityTopicSentiment, GraphMembership, PersonalActivity
 from .crud import dataset_specific_nodes_and_links, entity_topic_participation, graph_skeleton, personal_activity, query_and_results, retrieve_entities, retrieve_trips_by_person
 from .utils import cosine_similarity_with_nans, serialize_neo4j_entity
 
@@ -345,7 +346,7 @@ async def retrieve_industry_interest_alignment(weight: bool = False, driver: Asy
 
 
 @app.get("/person-activity-plans")
-async def retrieve_person_activity(person_id: str, driver: AsyncDriver = Depends(get_driver)):
+async def retrieve_person_activity(person_id: str, driver: AsyncDriver = Depends(get_driver)) -> dict[str, PersonalActivity]:
     plans, discussions = await personal_activity(driver, person_id)
     result = dict()
 
