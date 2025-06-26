@@ -26,13 +26,18 @@
       </label>
     </div>
 
-    <div class="dashboard">
-      <div class="column">
-        <h3>{{ leftIndustry }} (Pro)</h3>
+    <div class="scale-container">
+      <div class="column-wrapper left" :style="getColumnStyle('left')">
         <svg ref="svgLeft" :width="svgWidth" :height="svgHeight"></svg>
       </div>
-      <div class="column">
-        <h3>{{ rightIndustry }} (Pro)</h3>
+
+      <div
+        class="scale-base"
+        :style="{ transform: `translateX(-50%) rotate(${tippingAngle}deg)` }"
+      ></div>
+      <div class="pivot-dot"></div>
+
+      <div class="column-wrapper right" :style="getColumnStyle('right')">
         <svg ref="svgRight" :width="svgWidth" :height="svgHeight"></svg>
       </div>
     </div>
@@ -61,6 +66,20 @@ export default {
       excludeOrganizations: false
     };
   },
+  computed: {
+    tippingAngle() {
+      const leftSum = this.leftNodes
+        .filter(this.isActive)
+        .reduce((sum, n) => sum + n.data.agg_sentiment, 0);
+      const rightSum = this.rightNodes
+        .filter(this.isActive)
+        .reduce((sum, n) => sum + n.data.agg_sentiment, 0);
+      const total = leftSum + rightSum;
+      const relative = total === 0 ? 0 : (leftSum - rightSum) / total;
+      const scale = d3.scaleLinear().domain([-1, 1]).range([15, -15]);
+      return scale(relative);
+    }
+  },
   mounted() {
     this.fetchData();
   },
@@ -76,12 +95,6 @@ export default {
 
         this.datasets = ['all', ...uniqueDatasets];
         this.industries = [...uniqueIndustries];
-        if (!this.industries.includes(this.leftIndustry)) {
-          this.leftIndustry = this.industries[0] || '';
-        }
-        if (!this.industries.includes(this.rightIndustry)) {
-          this.rightIndustry = this.industries[1] || '';
-        }
 
         this.splitNodesBySupportedSide();
         this.renderChart(this.leftNodes, this.$refs.svgLeft, d3.forceSimulation(), 'left');
@@ -114,15 +127,12 @@ export default {
           data: d
         };
 
-        // Determine the side it supports
-        const supportsLeft = (d.industry === this.leftIndustry && isPositive) ||
-                             (d.industry === this.rightIndustry && !isPositive);
+        const supportsLeft =
+          (d.industry === this.leftIndustry && isPositive) ||
+          (d.industry === this.rightIndustry && !isPositive);
 
-        if (supportsLeft) {
-          this.leftNodes.push(node);
-        } else {
-          this.rightNodes.push(node);
-        }
+        if (supportsLeft) this.leftNodes.push(node);
+        else this.rightNodes.push(node);
       });
     },
 
@@ -137,7 +147,6 @@ export default {
     getBubbleColor(node) {
       const isActive = this.isActive(node);
       const isNegative = node.data.agg_sentiment < 0;
-
       if (!isActive) return 'grey';
       if (isNegative) return 'orange';
       return 'steelblue';
@@ -147,27 +156,32 @@ export default {
       const svg = d3.select(svgRef);
       svg.selectAll('*').remove();
 
-      const group = svg.selectAll('g')
+      const group = svg
+        .selectAll('g')
         .data(nodes)
         .enter()
         .append('g');
 
-      group.append('circle')
+      group
+        .append('circle')
         .attr('r', d => d.radius)
         .attr('fill', d => this.getBubbleColor(d));
 
-      const text = group.append('text')
+      const text = group
+        .append('text')
         .attr('text-anchor', 'middle')
         .style('pointer-events', 'none')
         .style('font-size', '9px')
         .style('fill', 'white');
 
-      text.append('tspan')
+      text
+        .append('tspan')
         .attr('x', 0)
         .attr('dy', '-0.3em')
         .text(d => d.data.entity_id);
 
-      text.append('tspan')
+      text
+        .append('tspan')
         .attr('x', 0)
         .attr('dy', '1.1em')
         .text(d => `${d.data.agg_sentiment.toFixed(2)} | ${d.data.dataset}`);
@@ -199,13 +213,19 @@ export default {
           .alpha(0.7)
           .restart();
 
-        d3.select(svgRef)
+        d3
+          .select(svgRef)
           .selectAll('circle')
           .attr('fill', d => this.getBubbleColor(d));
       };
 
       if (this.leftSim) updateSimulation(this.leftSim, this.leftNodes, this.$refs.svgLeft);
       if (this.rightSim) updateSimulation(this.rightSim, this.rightNodes, this.$refs.svgRight);
+    },
+
+    getColumnStyle(side) {
+      const tilt = this.tippingAngle;
+      return { transform: `rotate(${tilt / 2}deg)` };
     }
   },
   beforeDestroy() {
@@ -216,22 +236,53 @@ export default {
 </script>
 
 <style scoped>
-.dashboard {
-  display: flex;
-  gap: 20px;
-  justify-content: center;
-}
-.column {
-  flex: 1;
-  text-align: center;
-}
-svg {
-  background: #f9f9f9;
-}
 .controls {
   text-align: center;
   margin-bottom: 10px;
 }
+
+.scale-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  position: relative;
+  margin-top: 40px;
+}
+
+.column-wrapper {
+  width: 300px;
+  height: 500px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  transition: transform 0.6s ease;
+}
+
+.scale-base {
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  width: 700px;
+  height: 16px;
+  background: black;
+  border-radius: 6px;
+  transform-origin: center bottom;
+  transition: transform 0.6s ease;
+  z-index: 0;
+}
+
+.pivot-dot {
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  background: #222;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+}
+
 select {
   padding: 4px 8px;
 }
