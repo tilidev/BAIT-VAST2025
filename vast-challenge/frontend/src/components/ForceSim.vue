@@ -5,6 +5,11 @@
       <select v-model="activeDataset" @change="updateForces">
         <option v-for="ds in datasets" :key="ds" :value="ds">{{ ds }}</option>
       </select>
+
+      <label style="margin-left: 20px;">
+        <input type="checkbox" v-model="excludeOrganizations" @change="onFilterToggle" />
+        Exclude ENTITY_ORGANIZATION
+      </label>
     </div>
 
     <div class="dashboard">
@@ -35,7 +40,8 @@ export default {
       leftSim: null,
       rightSim: null,
       activeDataset: 'all',
-      datasets: ['all']
+      datasets: ['all'],
+      excludeOrganizations: false
     };
   },
   mounted() {
@@ -52,12 +58,17 @@ export default {
         this.datasets = ['all', ...uniqueDatasets];
 
         this.splitNodesBySupportedSide();
-
         this.renderChart(this.leftNodes, this.$refs.svgLeft, d3.forceSimulation(), 'left');
         this.renderChart(this.rightNodes, this.$refs.svgRight, d3.forceSimulation(), 'right');
       } catch (err) {
         console.error('Error loading data', err);
       }
+    },
+
+    onFilterToggle() {
+      this.splitNodesBySupportedSide();
+      this.renderChart(this.leftNodes, this.$refs.svgLeft, d3.forceSimulation(), 'left');
+      this.renderChart(this.rightNodes, this.$refs.svgRight, d3.forceSimulation(), 'right');
     },
 
     splitNodesBySupportedSide() {
@@ -69,6 +80,7 @@ export default {
       this.allData.forEach(d => {
         if (d.industry !== 'tourism' && d.industry !== 'large vessel') return;
         if (d.agg_sentiment === 0) return;
+        if (this.excludeOrganizations && d.entity_type === 'ENTITY_ORGANIZATION') return;
 
         const isPositive = d.agg_sentiment > 0;
         const node = {
