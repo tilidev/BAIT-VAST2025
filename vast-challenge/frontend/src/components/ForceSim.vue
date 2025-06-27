@@ -41,6 +41,37 @@
         <svg ref="svgRight" :width="svgWidth" :height="svgHeight" class="bubble-svg"></svg>
       </div>
     </div>
+
+    <div class="details-panel">
+    <div v-if="selectedEntity">
+    <div class="sticky-header">
+        <button @click="clearSelection" class="clear-btn">Clear Selection</button>
+        <h3>Details for {{ selectedEntity.entity_id }}</h3>
+        <p><strong>Type:</strong> {{ selectedEntity.entity_type }}</p>
+        <p><strong>Industry:</strong> {{ selectedEntity.industry }}</p>
+        <p><strong>Aggregated Sentiment:</strong> {{ selectedEntity.agg_sentiment.toFixed(2) }}</p>
+        <hr />
+        <h4>Contributing Sentiments</h4>
+    </div>
+
+    <ul class="sentiments-list">
+        <li v-for="(cs, i) in selectedEntity.contributing_sentiments" :key="i">
+        <p><strong>Topic:</strong> {{ cs.topic_id }}</p>
+        <p><strong>Sentiment:</strong>
+            <span :class="getSentimentColor(cs.sentiment)">
+            {{ cs.sentiment }}
+            </span>
+        </p>
+        <p><strong>Reason:</strong> {{ cs.reason }}</p>
+        <p><strong>Industries:</strong> {{ cs.topic_industry.join(', ') }}</p>
+        <p><strong>Datasets:</strong> {{ cs.sentiment_recorded_in.join(', ') }}</p>
+        </li>
+    </ul>
+    </div>
+      <div v-else>
+        <p class="placeholder-text">Click on a sentiment bubble for detailed inspection</p>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -63,7 +94,8 @@ export default {
       industries: [],
       leftIndustry: 'large vessel',
       rightIndustry: 'tourism',
-      excludeOrganizations: false
+      excludeOrganizations: false,
+      selectedEntity: null
     };
   },
   computed: {
@@ -94,6 +126,7 @@ export default {
       this.splitNodesBySupportedSide();
       if (this.leftSim) this.leftSim.stop();
       if (this.rightSim) this.rightSim.stop();
+      this.selectedEntity = null;
       this.renderChart(this.leftNodes, this.$refs.svgLeft, d3.forceSimulation(), 'left');
       this.renderChart(this.rightNodes, this.$refs.svgRight, d3.forceSimulation(), 'right');
     },
@@ -131,39 +164,50 @@ export default {
       if (this.leftSim) apply(this.leftSim, this.$refs.svgLeft);
       if (this.rightSim) apply(this.rightSim, this.$refs.svgRight);
     },
-    getEffectiveBottomY(side) {
-    const halfSpan = this.svgWidth / 2;        // 150px
-    const phi      = this.tippingAngle * Math.PI/180;
-    const shift    = Math.tan(phi) * halfSpan;   // vertical rise over ±150px
-    const pivotY   = this.svgHeight;           // your “true” pivot Y
 
-    // left container sits at x = pivotX – 150px
-    // right at             = pivotX + 150px
-    return side === 'left'
-        ? pivotY - shift
-        : pivotY + shift;
+    getEffectiveBottomY(side) {
+      const halfSpan = this.svgWidth / 2;
+      const phi = this.tippingAngle * Math.PI / 180;
+      const shift = Math.tan(phi) * halfSpan;
+      const pivotY = this.svgHeight;
+      return side === 'left' ? pivotY - shift : pivotY + shift;
     },
 
     getGravityTargetY(node) {
-    // 1) find the sloped floor’s y-intercept at the center of this column
-    const interceptY = this.getEffectiveBottomY(
+      const interceptY = this.getEffectiveBottomY(
         this.leftNodes.includes(node) ? 'left' : 'right'
-    );
-
-    // 2) convert full angle to radians
-    const phi = this.tippingAngle * (Math.PI / 180);
-
-    // 3) how far off-center is this bubble?
-    const x    = node.x != null ? node.x : this.svgWidth / 2;
-    const dx   = x - (this.svgWidth / 2);
-
-    // 4) standard “rise over run” along the rotated bar
-    return interceptY + dx * Math.tan(phi);
+      );
+      const phi = this.tippingAngle * (Math.PI / 180);
+      const x = node.x != null ? node.x : this.svgWidth / 2;
+      const dx = x - (this.svgWidth / 2);
+      return interceptY + dx * Math.tan(phi);
     },
 
     getBubbleColor(node) {
       if (!this.isActive(node)) return '#ccc';
       return node.data.agg_sentiment < 0 ? '#ff7f0e' : '#1f77b4';
+    },
+
+    getSentimentColor(value) {
+      if (value > 0) return 'positive';
+      if (value < 0) return 'negative';
+      return 'neutral';
+    },
+
+    clearSelection() {
+      this.selectedEntity = null;
+      this.highlightSelectedBubble(null);
+    },
+
+    highlightSelectedBubble(entityId) {
+      const updateStroke = svg => {
+        d3.select(svg)
+          .selectAll('circle')
+          .attr('stroke-width', d => d.data.entity_id === entityId ? 3 : 1)
+          .attr('stroke', d => d.data.entity_id === entityId ? '#000' : '#fff');
+      };
+      updateStroke(this.$refs.svgLeft);
+      updateStroke(this.$refs.svgRight);
     },
 
     renderChart(nodes, svgElem, simulation, side) {
@@ -175,7 +219,11 @@ export default {
            .attr('r', d => d.radius)
            .attr('fill', d => this.getBubbleColor(d))
            .attr('stroke', '#fff')
-           .attr('stroke-width', 1);
+           .attr('stroke-width', 1)
+           .on('click', (event, d) => {
+             this.selectedEntity = d.data;
+             this.highlightSelectedBubble(d.data.entity_id);
+           });
 
       group.append('text')
            .attr('text-anchor', 'middle')
@@ -202,17 +250,12 @@ export default {
           group.attr('transform', d => {
             d.x = Math.max(d.radius, Math.min(this.svgWidth - d.radius, d.x));
             if (this.isActive(d)) {
-            // get the sloped‐floor’s y *for the top of the bubble’s bottom*
-            const floorCenterY = this.getGravityTargetY(d);
-            const maxCenterY   = floorCenterY - d.radius;
-
-            // clamp the *center* y so that the *bottom* of the circle hits the floor
-            d.y = Math.min(maxCenterY, Math.max(d.radius, d.y));
+              const floorCenterY = this.getGravityTargetY(d);
+              const maxCenterY = floorCenterY - d.radius;
+              d.y = Math.min(maxCenterY, Math.max(d.radius, d.y));
             } else {
-            // inactive still float up smoothly
-            d.y = Math.max(d.radius, d.y);
+              d.y = Math.max(d.radius, d.y);
             }
-
             return `translate(${d.x},${d.y})`;
           });
         });
@@ -288,4 +331,63 @@ select {
   border-radius: 50%;
   transform: translateX(-50%);
 }
+.details-panel {
+  position: absolute;
+  top: 2rem;
+  right: 1rem;
+  width: 320px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 1rem;
+  background: #fefefe;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-family: Arial, sans-serif;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+.sentiments-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.sentiments-list li {
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #ddd;
+}
+.placeholder-text {
+  font-style: italic;
+  color: #777;
+}
+.positive {
+  color: green;
+}
+.negative {
+  color: red;
+}
+.neutral {
+  color: #555;
+}
+.clear-btn {
+  margin-bottom: 1rem;
+  background: #eee;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.clear-btn:hover {
+  background: #ddd;
+}
+.sticky-header {
+  position: sticky;
+  top: 0;
+  background: #fefefe;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid #ccc;
+  z-index: 2;
+}
+
 </style>
