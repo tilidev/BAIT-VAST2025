@@ -1,76 +1,84 @@
 <template>
-  <div>
-    <div class="controls">
-      <label>Active Dataset:</label>
-      <select v-model="activeDataset" @change="updateForces">
-        <option v-for="ds in datasets" :key="ds" :value="ds">{{ ds }}</option>
-      </select>
+  <div class="relative flex">
+    <!-- Main Content Column -->
+    <div class="flex-1">
+      <!-- Controls -->
+      <div class="flex flex-wrap justify-center gap-4 mb-4 font-sans">
+        <label class="flex items-center gap-2">
+          Active Dataset:
+          <select v-model="activeDataset" @change="updateForces" class="px-2 py-1 border rounded">
+            <option v-for="ds in datasets" :key="ds" :value="ds">{{ ds }}</option>
+          </select>
+        </label>
 
-      <label class="control-item">
-        <input type="checkbox" v-model="excludeOrganizations" @change="onFilterToggle" />
-        Exclude ENTITY_ORGANIZATION
-      </label>
+        <label class="flex items-center gap-2">
+          <input type="checkbox" v-model="excludeOrganizations" @change="onFilterToggle" />
+          Exclude ENTITY_ORGANIZATION
+        </label>
 
-      <label class="control-item">
-        Left Industry:
-        <select v-model="leftIndustry" @change="onFilterToggle">
-          <option v-for="ind in industries" :key="ind" :value="ind">{{ ind }}</option>
-        </select>
-      </label>
+        <label class="flex items-center gap-2">
+          Left Industry:
+          <select v-model="leftIndustry" @change="onFilterToggle" class="px-2 py-1 border rounded">
+            <option v-for="ind in industries" :key="ind" :value="ind">{{ ind }}</option>
+          </select>
+        </label>
 
-      <label class="control-item">
-        Right Industry:
-        <select v-model="rightIndustry" @change="onFilterToggle">
-          <option v-for="ind in industries" :key="ind" :value="ind">{{ ind }}</option>
-        </select>
-      </label>
-    </div>
-
-    <div class="scale-container">
-      <div class="column-wrapper left">
-        <svg ref="svgLeft" :width="svgWidth" :height="svgHeight" class="bubble-svg"></svg>
+        <label class="flex items-center gap-2">
+          Right Industry:
+          <select v-model="rightIndustry" @change="onFilterToggle" class="px-2 py-1 border rounded">
+            <option v-for="ind in industries" :key="ind" :value="ind">{{ ind }}</option>
+          </select>
+        </label>
       </div>
 
-      <div
-        class="scale-base"
-        :style="{ transform: `translateX(-50%) rotate(${tippingAngle}deg)` }"
-      ></div>
-      <div class="pivot-dot"></div>
+      <!-- Scale Visualization -->
+      <div class="flex justify-center items-end relative mt-8 pb-8">
+        <div class="w-[300px] h-[500px] overflow-visible">
+          <svg ref="svgLeft" :width="svgWidth" :height="svgHeight" class="overflow-visible"></svg>
+        </div>
 
-      <div class="column-wrapper right">
-        <svg ref="svgRight" :width="svgWidth" :height="svgHeight" class="bubble-svg"></svg>
+        <div class="absolute bottom-[-8px] left-1/2 w-[700px] h-4 bg-gray-800 rounded transform origin-bottom transition-transform duration-500 shadow-md" :style="{ transform: `translateX(-50%) rotate(${tippingAngle}deg)` }"></div>
+        <div class="absolute bottom-[-12px] left-1/2 w-6 h-6 bg-gray-600 border-2 border-gray-900 rounded-full transform -translate-x-1/2"></div>
+
+        <div class="w-[300px] h-[500px] overflow-visible">
+          <svg ref="svgRight" :width="svgWidth" :height="svgHeight" class="overflow-visible"></svg>
+        </div>
       </div>
     </div>
 
-    <div class="details-panel">
-    <div v-if="selectedEntity">
-    <div class="sticky-header">
-        <button @click="clearSelection" class="clear-btn">Clear Selection</button>
-        <h3>Details for {{ selectedEntity.entity_id }}</h3>
-        <p><strong>Type:</strong> {{ selectedEntity.entity_type }}</p>
-        <p><strong>Industry:</strong> {{ selectedEntity.industry }}</p>
-        <p><strong>Aggregated Sentiment:</strong> {{ selectedEntity.agg_sentiment.toFixed(2) }}</p>
-        <hr />
-        <h4>Contributing Sentiments</h4>
-    </div>
-
-    <ul class="sentiments-list">
-        <li v-for="(cs, i) in selectedEntity.contributing_sentiments" :key="i">
-        <p><strong>Topic:</strong> {{ cs.topic_id }}</p>
-        <p><strong>Sentiment:</strong>
-            <span :class="getSentimentColor(cs.sentiment)">
-            {{ cs.sentiment }}
-            </span>
-        </p>
-        <p><strong>Reason:</strong> {{ cs.reason }}</p>
-        <p><strong>Industries:</strong> {{ cs.topic_industry.join(', ') }}</p>
-        <p><strong>Datasets:</strong> {{ cs.sentiment_recorded_in.join(', ') }}</p>
-        </li>
-    </ul>
-    </div>
-      <div v-else>
-        <p class="placeholder-text">Click on a sentiment bubble for detailed inspection</p>
+    <!-- Detail Panel -->
+    <div class="w-80 h-[85vh] bg-white shadow-lg rounded-lg border border-gray-300 flex flex-col ml-4">
+      <div v-if="selectedEntity" class="sticky top-0 bg-white z-10 px-4 py-3 border-b">
+        <button @click="clearSelection" class="mb-2 px-2 py-1 text-sm border border-gray-400 rounded hover:bg-gray-100">Clear Selection</button>
+        <h3 class="text-lg font-semibold">{{ selectedEntity.entity_id }}</h3>
+        <p class="text-sm text-gray-700">Type: {{ selectedEntity.entity_type }}</p>
+        <p class="text-sm text-gray-700">Industry: {{ selectedEntity.industry }}</p>
+        <p class="text-sm text-gray-700 mb-2">Aggregated Sentiment: {{ selectedEntity.agg_sentiment.toFixed(2) }}</p>
+        <h4 class="font-semibold text-sm">Contributing Sentiments</h4>
       </div>
+
+      <div v-if="selectedEntity" class="flex-1 overflow-y-auto px-4 py-2">
+        <ul class="space-y-4 text-sm">
+          <li v-for="(cs, i) in selectedEntity.contributing_sentiments" :key="i" class="border-b pb-2">
+            <p><strong>Topic:</strong> {{ cs.topic_id }}</p>
+            <p><strong>Sentiment:</strong>
+              <span
+                :class="[
+                    'px-2 py-0.5 rounded text-white text-xs font-semibold',
+                    cs.sentiment > 0 ? 'bg-green-500' :
+                    cs.sentiment < 0 ? 'bg-red-500' : 'bg-gray-400'
+                ]">
+                {{ cs.sentiment }}
+              </span>
+            </p>
+            <p><strong>Reason:</strong> {{ cs.reason }}</p>
+            <p><strong>Industries:</strong> {{ cs.topic_industry.join(', ') }}</p>
+            <p><strong>Datasets:</strong> {{ cs.sentiment_recorded_in.join(', ') }}</p>
+          </li>
+        </ul>
+      </div>
+
+      <div v-else class="p-4 text-sm italic text-gray-600">Click on a sentiment bubble for detailed inspection</div>
     </div>
   </div>
 </template>
@@ -272,122 +280,4 @@ export default {
 </script>
 
 <style scoped>
-.controls {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
-  font-family: Arial, sans-serif;
-}
-.control-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-select {
-  padding: 0.3rem 0.6rem;
-  border-radius: 4px;
-  border: 1px solid #ccc;
-  font-size: 0.9rem;
-}
-.scale-container {
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
-  position: relative;
-  margin-top: 2rem;
-  overflow: visible;
-  padding-bottom: 1rem;
-}
-.column-wrapper {
-  width: 300px;
-  height: 500px;
-  overflow: visible;
-}
-.bubble-svg {
-  overflow: visible;
-}
-.scale-base {
-  position: absolute;
-  bottom: -8px;
-  left: 50%;
-  width: 700px;
-  height: 16px;
-  background: #333;
-  border-radius: 8px;
-  transform-origin: center bottom;
-  transition: transform 0.6s ease;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-}
-.pivot-dot {
-  position: absolute;
-  bottom: -12px;
-  left: 50%;
-  width: 24px;
-  height: 24px;
-  background: #555;
-  border: 2px solid #222;
-  border-radius: 50%;
-  transform: translateX(-50%);
-}
-.details-panel {
-  position: absolute;
-  top: 2rem;
-  right: 1rem;
-  width: 320px;
-  max-height: 85vh;
-  overflow-y: auto;
-  padding: 1rem;
-  background: #fefefe;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  font-family: Arial, sans-serif;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-}
-.sentiments-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.sentiments-list li {
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid #ddd;
-}
-.placeholder-text {
-  font-style: italic;
-  color: #777;
-}
-.positive {
-  color: green;
-}
-.negative {
-  color: red;
-}
-.neutral {
-  color: #555;
-}
-.clear-btn {
-  margin-bottom: 1rem;
-  background: #eee;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  padding: 0.3rem 0.6rem;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-.clear-btn:hover {
-  background: #ddd;
-}
-.sticky-header {
-  position: sticky;
-  top: 0;
-  background: #fefefe;
-  padding-bottom: 0.5rem;
-  margin-bottom: 0.5rem;
-  border-bottom: 1px solid #ccc;
-  z-index: 2;
-}
-
 </style>
