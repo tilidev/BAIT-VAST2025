@@ -81,7 +81,9 @@ export default {
   methods: {
     async fetchData() {
       const res = await fetch('/api/industry-pro-contra-sentiments');
-      this.allData = await res.json();
+      const data = await res.json();
+      // filter out entries exactly equal to zero
+      this.allData = data.filter(d => d.agg_sentiment !== 0);
       this.datasets = ['all', ...new Set(this.allData.map(d => d.dataset))];
       this.industries = [...new Set(this.allData.map(d => d.industry))];
       this.splitNodesBySupportedSide();
@@ -89,12 +91,11 @@ export default {
       this.renderChart(this.rightNodes, this.$refs.svgRight, d3.forceSimulation(), 'right');
     },
 
-    // FULL reset + rebuild on org/industry filters
     onFilterToggle() {
       this.splitNodesBySupportedSide();
-      if (this.leftSim)  this.leftSim.stop();
+      if (this.leftSim) this.leftSim.stop();
       if (this.rightSim) this.rightSim.stop();
-      this.renderChart(this.leftNodes,  this.$refs.svgLeft,  d3.forceSimulation(), 'left');
+      this.renderChart(this.leftNodes, this.$refs.svgLeft, d3.forceSimulation(), 'left');
       this.renderChart(this.rightNodes, this.$refs.svgRight, d3.forceSimulation(), 'right');
     },
 
@@ -103,12 +104,13 @@ export default {
       this.leftNodes = [];
       this.rightNodes = [];
       this.allData.forEach(d => {
+        // skip exactly zero
         if (d.agg_sentiment === 0) return;
         if (this.excludeOrganizations && d.entity_type === 'ENTITY_ORGANIZATION') return;
         if (![this.leftIndustry, this.rightIndustry].includes(d.industry)) return;
         const node = { radius: areaScale(Math.abs(d.agg_sentiment)), data: d };
         const supportsLeft = (d.industry === this.leftIndustry && d.agg_sentiment > 0) ||
-                              (d.industry === this.rightIndustry && d.agg_sentiment < 0);
+                             (d.industry === this.rightIndustry && d.agg_sentiment < 0);
         if (supportsLeft) this.leftNodes.push(node);
         else this.rightNodes.push(node);
       });
@@ -118,7 +120,6 @@ export default {
       return this.activeDataset === 'all' || node.data.dataset === this.activeDataset;
     },
 
-    // Only update forces + colours on dataset change
     updateForces() {
       const apply = (sim, svgElem) => {
         sim
@@ -131,11 +132,10 @@ export default {
           .alphaDecay(0.015)
           .restart();
 
-        d3.select(svgElem)
-          .selectAll('circle')
+        d3.select(svgElem).selectAll('circle')
           .attr('fill', d => this.getBubbleColor(d));
       };
-      if (this.leftSim)  apply(this.leftSim,  this.$refs.svgLeft);
+      if (this.leftSim) apply(this.leftSim, this.$refs.svgLeft);
       if (this.rightSim) apply(this.rightSim, this.$refs.svgRight);
     },
 
@@ -163,7 +163,10 @@ export default {
       const svg = d3.select(svgElem);
       const group = svg.selectAll('g').data(nodes).enter().append('g');
 
-      group.append('circle').attr('r', d => d.radius).attr('fill', d => this.getBubbleColor(d));
+      group.append('circle')
+           .attr('r', d => d.radius)
+           .attr('fill', d => this.getBubbleColor(d));
+
       group.append('text')
            .attr('text-anchor', 'middle')
            .style('pointer-events', 'none')
@@ -176,19 +179,24 @@ export default {
            .append('tspan')
              .attr('x', 0)
              .attr('dy', '1.1em')
-             .text(d => `${d.data.agg_sentiment.toFixed(0)} | ${d.data.dataset}`);
+             .text(d => `${d.data.agg_sentiment.toFixed(2)} | ${d.data.dataset}`);
 
-      simulation.nodes(nodes)
+      simulation
+        .nodes(nodes)
         .force('x', d3.forceX(this.svgWidth / 2).strength(0.05))
-        .force('y', d3.forceY().y(d => this.getGravityTargetY(d)).strength(0.1))
+        .force('y', d3.forceY().y(d => this.isActive(d) ? this.getGravityTargetY(d) : d.radius).strength(0.1))
         .force('collision', d3.forceCollide(d => d.radius + 2))
         .alpha(0.7)
         .alphaDecay(0.015)
         .on('tick', () => {
           group.attr('transform', d => {
-            const floorY = this.isActive(d) ? this.getGravityTargetY(d) : d.radius;
             d.x = Math.max(d.radius, Math.min(this.svgWidth - d.radius, d.x));
-            d.y = Math.min(floorY, Math.max(d.radius, d.y));
+            if (this.isActive(d)) {
+              const floorY = this.getGravityTargetY(d);
+              d.y = Math.min(floorY, Math.max(d.radius, d.y));
+            } else {
+              d.y = Math.max(d.radius, d.y);
+            }
             return `translate(${d.x},${d.y})`;
           });
         });
@@ -198,7 +206,7 @@ export default {
     }
   },
   beforeDestroy() {
-    if (this.leftSim)  this.leftSim.stop();
+    if (this.leftSim) this.leftSim.stop();
     if (this.rightSim) this.rightSim.stop();
   }
 };
