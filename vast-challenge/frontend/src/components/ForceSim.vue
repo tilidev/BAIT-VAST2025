@@ -88,10 +88,16 @@ export default {
       this.renderChart(this.leftNodes, this.$refs.svgLeft, d3.forceSimulation(), 'left');
       this.renderChart(this.rightNodes, this.$refs.svgRight, d3.forceSimulation(), 'right');
     },
+
+    // FULL reset + rebuild on org/industry filters
     onFilterToggle() {
       this.splitNodesBySupportedSide();
-      this.updateForces();
+      if (this.leftSim)  this.leftSim.stop();
+      if (this.rightSim) this.rightSim.stop();
+      this.renderChart(this.leftNodes,  this.$refs.svgLeft,  d3.forceSimulation(), 'left');
+      this.renderChart(this.rightNodes, this.$refs.svgRight, d3.forceSimulation(), 'right');
     },
+
     splitNodesBySupportedSide() {
       const areaScale = d3.scaleSqrt().domain([0, 1]).range([5, 30]);
       this.leftNodes = [];
@@ -107,13 +113,37 @@ export default {
         else this.rightNodes.push(node);
       });
     },
+
     isActive(node) {
       return this.activeDataset === 'all' || node.data.dataset === this.activeDataset;
     },
+
+    // Only update forces + colours on dataset change
+    updateForces() {
+      const apply = (sim, svgElem) => {
+        sim
+          .force('y',
+            d3.forceY()
+              .y(d => this.isActive(d) ? this.getGravityTargetY(d) : d.radius)
+              .strength(0.1)
+          )
+          .alpha(0.7)
+          .alphaDecay(0.015)
+          .restart();
+
+        d3.select(svgElem)
+          .selectAll('circle')
+          .attr('fill', d => this.getBubbleColor(d));
+      };
+      if (this.leftSim)  apply(this.leftSim,  this.$refs.svgLeft);
+      if (this.rightSim) apply(this.rightSim, this.$refs.svgRight);
+    },
+
     getEffectiveBottomY(side) {
       const shift = (this.tippingAngle / 15) * 50;
       return side === 'left' ? this.svgHeight - shift : this.svgHeight + shift;
     },
+
     getGravityTargetY(node) {
       const side = this.leftNodes.includes(node) ? 'left' : 'right';
       const phi = (this.tippingAngle / 2) * (Math.PI / 180);
@@ -122,17 +152,17 @@ export default {
       const x = node.x != null ? node.x : this.svgWidth / 2;
       return interceptY + (x - this.svgWidth / 2) * slope;
     },
+
     getBubbleColor(node) {
       if (!this.isActive(node)) return 'grey';
       return node.data.agg_sentiment < 0 ? 'orange' : 'steelblue';
     },
+
     renderChart(nodes, svgElem, simulation, side) {
-      // Clear previous elements
       d3.select(svgElem).selectAll('*').remove();
       const svg = d3.select(svgElem);
-
-      // Create groups
       const group = svg.selectAll('g').data(nodes).enter().append('g');
+
       group.append('circle').attr('r', d => d.radius).attr('fill', d => this.getBubbleColor(d));
       group.append('text')
            .attr('text-anchor', 'middle')
@@ -148,10 +178,9 @@ export default {
              .attr('dy', '1.1em')
              .text(d => `${d.data.agg_sentiment.toFixed(0)} | ${d.data.dataset}`);
 
-      // Apply forces
       simulation.nodes(nodes)
         .force('x', d3.forceX(this.svgWidth / 2).strength(0.05))
-        .force('y', d3.forceY().y(d => this.isActive(d) ? this.getGravityTargetY(d) : d.radius).strength(0.1))
+        .force('y', d3.forceY().y(d => this.getGravityTargetY(d)).strength(0.1))
         .force('collision', d3.forceCollide(d => d.radius + 2))
         .alpha(0.7)
         .alphaDecay(0.015)
@@ -166,22 +195,11 @@ export default {
 
       if (side === 'left') this.leftSim = simulation;
       else this.rightSim = simulation;
-    },
-    updateForces() {
-      const apply = (sim, nodes, svgElem) => {
-        sim.force('y', d3.forceY().y(d => this.isActive(d) ? this.getGravityTargetY(d) : d.radius).strength(0.1))
-           .alpha(0.7)
-           .alphaDecay(0.015)
-           .restart();
-        d3.select(svgElem).selectAll('circle').attr('fill', d => this.getBubbleColor(d));
-      };
-      if (this.leftSim) apply(this.leftSim, this.leftNodes, this.$refs.svgLeft);
-      if (this.rightSim) apply(this.rightSim, this.rightNodes, this.$refs.svgRight);
     }
   },
   beforeDestroy() {
-    this.leftSim && this.leftSim.stop();
-    this.rightSim && this.rightSim.stop();
+    if (this.leftSim)  this.leftSim.stop();
+    if (this.rightSim) this.rightSim.stop();
   }
 };
 </script>
