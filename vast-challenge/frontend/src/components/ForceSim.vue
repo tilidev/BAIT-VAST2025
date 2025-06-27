@@ -24,7 +24,7 @@
             @change="onFilterToggle"
             class="mr-1"
           />
-          Exclude Organizations
+          Exclude ENTITY_ORGANIZATION
         </label>
 
         <!-- Industry selectors: full restart -->
@@ -58,8 +58,11 @@
         </label>
       </div>
 
-      <!-- Scale Visualization -->
-      <div class="flex justify-center items-end relative mt-8 pb-8">
+      <!-- Scale Visualization (click background clears selection) -->
+      <div
+        class="flex justify-center items-end relative mt-8 pb-8"
+        @click="clearSelection"
+      >
         <!-- Left column -->
         <div class="w-[300px] h-[500px] overflow-visible">
           <svg
@@ -300,6 +303,7 @@ export default {
         .attr('stroke', '#fff')
         .attr('stroke-width', 1)
         .on('click', (evt, d) => {
+          evt.stopPropagation();
           this.selectedEntityNode = d;
           this.highlightSelectedBubble(d);
         });
