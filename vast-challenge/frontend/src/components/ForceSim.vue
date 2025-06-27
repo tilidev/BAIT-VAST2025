@@ -133,8 +133,8 @@ export default {
     },
     getEffectiveBottomY(side) {
     const halfSpan = this.svgWidth / 2;        // 150px
-    const φ        = this.tippingAngle * Math.PI/180;
-    const shift    = Math.tan(φ) * halfSpan;   // vertical rise over ±150px
+    const phi      = this.tippingAngle * Math.PI/180;
+    const shift    = Math.tan(phi) * halfSpan;   // vertical rise over ±150px
     const pivotY   = this.svgHeight;           // your “true” pivot Y
 
     // left container sits at x = pivotX – 150px
