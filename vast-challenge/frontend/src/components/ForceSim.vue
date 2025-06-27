@@ -271,8 +271,7 @@ export default {
       };
       retarget(this.leftSim);
       retarget(this.rightSim);
-      // 3) clear any selection highlight
-      this.clearSelection();
+    //   this.clearSelection();
     },
 
     clearSelection() {
