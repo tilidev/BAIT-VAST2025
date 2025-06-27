@@ -68,8 +68,8 @@ export default {
   },
   computed: {
     tippingAngle() {
-      const leftSum = this.leftNodes.filter(this.isActive).reduce((sum, n) => sum + n.data.agg_sentiment, 0);
-      const rightSum = this.rightNodes.filter(this.isActive).reduce((sum, n) => sum + n.data.agg_sentiment, 0);
+      const leftSum = this.leftNodes.filter(this.isActive).reduce((sum, n) => sum + Math.abs(n.data.agg_sentiment), 0);
+      const rightSum = this.rightNodes.filter(this.isActive).reduce((sum, n) => sum + Math.abs(n.data.agg_sentiment), 0);
       const total = leftSum + rightSum;
       const relative = total === 0 ? 0 : (leftSum - rightSum) / total;
       return d3.scaleLinear().domain([-1, 1]).range([15, -15])(relative);
@@ -132,15 +132,16 @@ export default {
       if (this.rightSim) apply(this.rightSim, this.$refs.svgRight);
     },
     getEffectiveBottomY(side) {
-    const barWidth   = 600;                              // same as your .scale-base width
-    const angleRad   = this.tippingAngle * Math.PI/180;  // FULL angle, not half
-    const halfBar    = barWidth / 2;
-    // vertical rise = sin(angle) * half the bar length
-    const shift      = Math.sin(angleRad) * halfBar;
+    const halfSpan = this.svgWidth / 2;        // 150px
+    const φ        = this.tippingAngle * Math.PI/180;
+    const shift    = Math.tan(φ) * halfSpan;   // vertical rise over ±150px
+    const pivotY   = this.svgHeight;           // your “true” pivot Y
 
+    // left container sits at x = pivotX – 150px
+    // right at             = pivotX + 150px
     return side === 'left'
-        ? this.svgHeight - shift
-        : this.svgHeight + shift;
+        ? pivotY - shift
+        : pivotY + shift;
     },
 
     getGravityTargetY(node) {
