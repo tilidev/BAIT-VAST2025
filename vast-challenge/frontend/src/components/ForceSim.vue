@@ -6,19 +6,19 @@
         <option v-for="ds in datasets" :key="ds" :value="ds">{{ ds }}</option>
       </select>
 
-      <label style="margin-left: 20px;">
+      <label class="control-item">
         <input type="checkbox" v-model="excludeOrganizations" @change="onFilterToggle" />
         Exclude ENTITY_ORGANIZATION
       </label>
 
-      <label style="margin-left: 20px;">
+      <label class="control-item">
         Left Industry:
         <select v-model="leftIndustry" @change="onFilterToggle">
           <option v-for="ind in industries" :key="ind" :value="ind">{{ ind }}</option>
         </select>
       </label>
 
-      <label style="margin-left: 10px;">
+      <label class="control-item">
         Right Industry:
         <select v-model="rightIndustry" @change="onFilterToggle">
           <option v-for="ind in industries" :key="ind" :value="ind">{{ ind }}</option>
@@ -82,7 +82,6 @@ export default {
     async fetchData() {
       const res = await fetch('/api/industry-pro-contra-sentiments');
       const data = await res.json();
-      // filter out entries exactly equal to zero
       this.allData = data.filter(d => d.agg_sentiment !== 0);
       this.datasets = ['all', ...new Set(this.allData.map(d => d.dataset))];
       this.industries = [...new Set(this.allData.map(d => d.industry))];
@@ -100,11 +99,10 @@ export default {
     },
 
     splitNodesBySupportedSide() {
-      const areaScale = d3.scaleSqrt().domain([0, 1]).range([5, 30]);
+      const areaScale = d3.scaleSqrt().domain([0, 1]).range([8, 35]);
       this.leftNodes = [];
       this.rightNodes = [];
       this.allData.forEach(d => {
-        // skip exactly zero
         if (d.agg_sentiment === 0) return;
         if (this.excludeOrganizations && d.entity_type === 'ENTITY_ORGANIZATION') return;
         if (![this.leftIndustry, this.rightIndustry].includes(d.industry)) return;
@@ -122,40 +120,49 @@ export default {
 
     updateForces() {
       const apply = (sim, svgElem) => {
-        sim
-          .force('y',
-            d3.forceY()
-              .y(d => this.isActive(d) ? this.getGravityTargetY(d) : d.radius)
-              .strength(0.1)
-          )
-          .alpha(0.7)
-          .alphaDecay(0.015)
-          .restart();
-
+        sim.force('y', d3.forceY().y(d => this.isActive(d) ? this.getGravityTargetY(d) : d.radius).strength(0.1))
+           .alpha(0.7)
+           .alphaDecay(0.015)
+           .restart();
         d3.select(svgElem).selectAll('circle')
-          .attr('fill', d => this.getBubbleColor(d));
+          .attr('fill', d => this.getBubbleColor(d))
+          .style('opacity', d => this.isActive(d) ? 1 : 0.4);
       };
       if (this.leftSim) apply(this.leftSim, this.$refs.svgLeft);
       if (this.rightSim) apply(this.rightSim, this.$refs.svgRight);
     },
-
     getEffectiveBottomY(side) {
-      const shift = (this.tippingAngle / 15) * 50;
-      return side === 'left' ? this.svgHeight - shift : this.svgHeight + shift;
+    const barWidth   = 600;                              // same as your .scale-base width
+    const angleRad   = this.tippingAngle * Math.PI/180;  // FULL angle, not half
+    const halfBar    = barWidth / 2;
+    // vertical rise = sin(angle) * half the bar length
+    const shift      = Math.sin(angleRad) * halfBar;
+
+    return side === 'left'
+        ? this.svgHeight - shift
+        : this.svgHeight + shift;
     },
 
     getGravityTargetY(node) {
-      const side = this.leftNodes.includes(node) ? 'left' : 'right';
-      const phi = (this.tippingAngle / 2) * (Math.PI / 180);
-      const interceptY = this.getEffectiveBottomY(side);
-      const slope = Math.tan(phi);
-      const x = node.x != null ? node.x : this.svgWidth / 2;
-      return interceptY + (x - this.svgWidth / 2) * slope;
+    // 1) find the sloped floor’s y-intercept at the center of this column
+    const interceptY = this.getEffectiveBottomY(
+        this.leftNodes.includes(node) ? 'left' : 'right'
+    );
+
+    // 2) convert full angle to radians
+    const phi = this.tippingAngle * (Math.PI / 180);
+
+    // 3) how far off-center is this bubble?
+    const x    = node.x != null ? node.x : this.svgWidth / 2;
+    const dx   = x - (this.svgWidth / 2);
+
+    // 4) standard “rise over run” along the rotated bar
+    return interceptY + dx * Math.tan(phi);
     },
 
     getBubbleColor(node) {
-      if (!this.isActive(node)) return 'grey';
-      return node.data.agg_sentiment < 0 ? 'orange' : 'steelblue';
+      if (!this.isActive(node)) return '#ccc';
+      return node.data.agg_sentiment < 0 ? '#ff7f0e' : '#1f77b4';
     },
 
     renderChart(nodes, svgElem, simulation, side) {
@@ -165,13 +172,16 @@ export default {
 
       group.append('circle')
            .attr('r', d => d.radius)
-           .attr('fill', d => this.getBubbleColor(d));
+           .attr('fill', d => this.getBubbleColor(d))
+           .attr('stroke', '#fff')
+           .attr('stroke-width', 1);
 
       group.append('text')
            .attr('text-anchor', 'middle')
            .style('pointer-events', 'none')
-           .style('font-size', '9px')
-           .style('fill', 'white')
+           .style('font-family', 'Arial, sans-serif')
+           .style('font-size', '10px')
+           .style('fill', '#333')
            .append('tspan')
              .attr('x', 0)
              .attr('dy', '-0.3em')
@@ -179,10 +189,9 @@ export default {
            .append('tspan')
              .attr('x', 0)
              .attr('dy', '1.1em')
-             .text(d => `${d.data.agg_sentiment.toFixed(2)} | ${d.data.dataset}`);
+             .text(d => d.data.agg_sentiment.toFixed(2));
 
-      simulation
-        .nodes(nodes)
+      simulation.nodes(nodes)
         .force('x', d3.forceX(this.svgWidth / 2).strength(0.05))
         .force('y', d3.forceY().y(d => this.isActive(d) ? this.getGravityTargetY(d) : d.radius).strength(0.1))
         .force('collision', d3.forceCollide(d => d.radius + 2))
@@ -192,11 +201,17 @@ export default {
           group.attr('transform', d => {
             d.x = Math.max(d.radius, Math.min(this.svgWidth - d.radius, d.x));
             if (this.isActive(d)) {
-              const floorY = this.getGravityTargetY(d);
-              d.y = Math.min(floorY, Math.max(d.radius, d.y));
+            // get the sloped‐floor’s y *for the top of the bubble’s bottom*
+            const floorCenterY = this.getGravityTargetY(d);
+            const maxCenterY   = floorCenterY - d.radius;
+
+            // clamp the *center* y so that the *bottom* of the circle hits the floor
+            d.y = Math.min(maxCenterY, Math.max(d.radius, d.y));
             } else {
-              d.y = Math.max(d.radius, d.y);
+            // inactive still float up smoothly
+            d.y = Math.max(d.radius, d.y);
             }
+
             return `translate(${d.x},${d.y})`;
           });
         });
@@ -213,15 +228,33 @@ export default {
 </script>
 
 <style scoped>
-.controls { text-align: center; margin-bottom: 10px; }
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  font-family: Arial, sans-serif;
+}
+.control-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+select {
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-size: 0.9rem;
+}
 .scale-container {
   display: flex;
   justify-content: center;
   align-items: flex-end;
   position: relative;
-  margin-top: 40px;
+  margin-top: 2rem;
   overflow: visible;
-  padding-bottom: 60px;
+  padding-bottom: 1rem;
 }
 .column-wrapper {
   width: 300px;
@@ -233,24 +266,25 @@ export default {
 }
 .scale-base {
   position: absolute;
-  bottom: -5px;
+  bottom: -8px;
   left: 50%;
   width: 700px;
   height: 16px;
-  background: black;
-  border-radius: 6px;
+  background: #333;
+  border-radius: 8px;
   transform-origin: center bottom;
   transition: transform 0.6s ease;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
 }
 .pivot-dot {
   position: absolute;
-  bottom: -10px;
+  bottom: -12px;
   left: 50%;
-  width: 20px;
-  height: 20px;
-  background: #222;
+  width: 24px;
+  height: 24px;
+  background: #555;
+  border: 2px solid #222;
   border-radius: 50%;
   transform: translateX(-50%);
 }
-select { padding: 4px 8px; }
 </style>
