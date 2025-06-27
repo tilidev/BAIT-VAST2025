@@ -27,8 +27,8 @@
     </div>
 
     <div class="scale-container">
-      <div class="column-wrapper left" :style="getColumnStyle('left')">
-        <svg ref="svgLeft" :width="svgWidth" :height="svgHeight"></svg>
+      <div class="column-wrapper left">
+        <svg ref="svgLeft" :width="svgWidth" :height="svgHeight" class="bubble-svg"></svg>
       </div>
 
       <div
@@ -37,8 +37,8 @@
       ></div>
       <div class="pivot-dot"></div>
 
-      <div class="column-wrapper right" :style="getColumnStyle('right')">
-        <svg ref="svgRight" :width="svgWidth" :height="svgHeight"></svg>
+      <div class="column-wrapper right">
+        <svg ref="svgRight" :width="svgWidth" :height="svgHeight" class="bubble-svg"></svg>
       </div>
     </div>
   </div>
@@ -68,16 +68,11 @@ export default {
   },
   computed: {
     tippingAngle() {
-      const leftSum = this.leftNodes
-        .filter(this.isActive)
-        .reduce((sum, n) => sum + n.data.agg_sentiment, 0);
-      const rightSum = this.rightNodes
-        .filter(this.isActive)
-        .reduce((sum, n) => sum + n.data.agg_sentiment, 0);
+      const leftSum = this.leftNodes.filter(this.isActive).reduce((sum, n) => sum + n.data.agg_sentiment, 0);
+      const rightSum = this.rightNodes.filter(this.isActive).reduce((sum, n) => sum + n.data.agg_sentiment, 0);
       const total = leftSum + rightSum;
       const relative = total === 0 ? 0 : (leftSum - rightSum) / total;
-      const scale = d3.scaleLinear().domain([-1, 1]).range([15, -15]);
-      return scale(relative);
+      return d3.scaleLinear().domain([-1, 1]).range([15, -15])(relative);
     }
   },
   mounted() {
@@ -85,118 +80,86 @@ export default {
   },
   methods: {
     async fetchData() {
-      try {
-        const res = await fetch('/api/industry-pro-contra-sentiments');
-        const data = await res.json();
-        this.allData = data;
-
-        const uniqueDatasets = new Set(data.map(d => d.dataset));
-        const uniqueIndustries = new Set(data.map(d => d.industry));
-
-        this.datasets = ['all', ...uniqueDatasets];
-        this.industries = [...uniqueIndustries];
-
-        this.splitNodesBySupportedSide();
-        this.renderChart(this.leftNodes, this.$refs.svgLeft, d3.forceSimulation(), 'left');
-        this.renderChart(this.rightNodes, this.$refs.svgRight, d3.forceSimulation(), 'right');
-      } catch (err) {
-        console.error('Error loading data', err);
-      }
-    },
-
-    onFilterToggle() {
+      const res = await fetch('/api/industry-pro-contra-sentiments');
+      this.allData = await res.json();
+      this.datasets = ['all', ...new Set(this.allData.map(d => d.dataset))];
+      this.industries = [...new Set(this.allData.map(d => d.industry))];
       this.splitNodesBySupportedSide();
       this.renderChart(this.leftNodes, this.$refs.svgLeft, d3.forceSimulation(), 'left');
       this.renderChart(this.rightNodes, this.$refs.svgRight, d3.forceSimulation(), 'right');
     },
-
+    onFilterToggle() {
+      this.splitNodesBySupportedSide();
+      this.updateForces();
+    },
     splitNodesBySupportedSide() {
+      const areaScale = d3.scaleSqrt().domain([0, 1]).range([5, 30]);
       this.leftNodes = [];
       this.rightNodes = [];
-
-      const areaScale = d3.scaleSqrt().domain([0, 1]).range([5, 30]);
-
       this.allData.forEach(d => {
         if (d.agg_sentiment === 0) return;
         if (this.excludeOrganizations && d.entity_type === 'ENTITY_ORGANIZATION') return;
-        if (d.industry !== this.leftIndustry && d.industry !== this.rightIndustry) return;
-
-        const isPositive = d.agg_sentiment > 0;
-        const node = {
-          radius: areaScale(Math.abs(d.agg_sentiment)),
-          data: d
-        };
-
-        const supportsLeft =
-          (d.industry === this.leftIndustry && isPositive) ||
-          (d.industry === this.rightIndustry && !isPositive);
-
+        if (![this.leftIndustry, this.rightIndustry].includes(d.industry)) return;
+        const node = { radius: areaScale(Math.abs(d.agg_sentiment)), data: d };
+        const supportsLeft = (d.industry === this.leftIndustry && d.agg_sentiment > 0) ||
+                              (d.industry === this.rightIndustry && d.agg_sentiment < 0);
         if (supportsLeft) this.leftNodes.push(node);
         else this.rightNodes.push(node);
       });
     },
-
     isActive(node) {
       return this.activeDataset === 'all' || node.data.dataset === this.activeDataset;
     },
-
+    getEffectiveBottomY(side) {
+      const shift = (this.tippingAngle / 15) * 50;
+      return side === 'left' ? this.svgHeight - shift : this.svgHeight + shift;
+    },
     getGravityTargetY(node) {
-      return this.isActive(node) ? this.svgHeight : 0;
+      const side = this.leftNodes.includes(node) ? 'left' : 'right';
+      const phi = (this.tippingAngle / 2) * (Math.PI / 180);
+      const interceptY = this.getEffectiveBottomY(side);
+      const slope = Math.tan(phi);
+      const x = node.x != null ? node.x : this.svgWidth / 2;
+      return interceptY + (x - this.svgWidth / 2) * slope;
     },
-
     getBubbleColor(node) {
-      const isActive = this.isActive(node);
-      const isNegative = node.data.agg_sentiment < 0;
-      if (!isActive) return 'grey';
-      if (isNegative) return 'orange';
-      return 'steelblue';
+      if (!this.isActive(node)) return 'grey';
+      return node.data.agg_sentiment < 0 ? 'orange' : 'steelblue';
     },
+    renderChart(nodes, svgElem, simulation, side) {
+      // Clear previous elements
+      d3.select(svgElem).selectAll('*').remove();
+      const svg = d3.select(svgElem);
 
-    renderChart(nodes, svgRef, simulation, side) {
-      const svg = d3.select(svgRef);
-      svg.selectAll('*').remove();
+      // Create groups
+      const group = svg.selectAll('g').data(nodes).enter().append('g');
+      group.append('circle').attr('r', d => d.radius).attr('fill', d => this.getBubbleColor(d));
+      group.append('text')
+           .attr('text-anchor', 'middle')
+           .style('pointer-events', 'none')
+           .style('font-size', '9px')
+           .style('fill', 'white')
+           .append('tspan')
+             .attr('x', 0)
+             .attr('dy', '-0.3em')
+             .text(d => d.data.entity_id)
+           .append('tspan')
+             .attr('x', 0)
+             .attr('dy', '1.1em')
+             .text(d => `${d.data.agg_sentiment.toFixed(0)} | ${d.data.dataset}`);
 
-      const group = svg
-        .selectAll('g')
-        .data(nodes)
-        .enter()
-        .append('g');
-
-      group
-        .append('circle')
-        .attr('r', d => d.radius)
-        .attr('fill', d => this.getBubbleColor(d));
-
-      const text = group
-        .append('text')
-        .attr('text-anchor', 'middle')
-        .style('pointer-events', 'none')
-        .style('font-size', '9px')
-        .style('fill', 'white');
-
-      text
-        .append('tspan')
-        .attr('x', 0)
-        .attr('dy', '-0.3em')
-        .text(d => d.data.entity_id);
-
-      text
-        .append('tspan')
-        .attr('x', 0)
-        .attr('dy', '1.1em')
-        .text(d => `${d.data.agg_sentiment.toFixed(2)} | ${d.data.dataset}`);
-
-      simulation
-        .nodes(nodes)
+      // Apply forces
+      simulation.nodes(nodes)
         .force('x', d3.forceX(this.svgWidth / 2).strength(0.05))
-        .force('y', d3.forceY().y(d => this.getGravityTargetY(d)).strength(0.1))
+        .force('y', d3.forceY().y(d => this.isActive(d) ? this.getGravityTargetY(d) : d.radius).strength(0.1))
         .force('collision', d3.forceCollide(d => d.radius + 2))
-        .alphaDecay(0.015)
         .alpha(0.7)
+        .alphaDecay(0.015)
         .on('tick', () => {
           group.attr('transform', d => {
+            const floorY = this.isActive(d) ? this.getGravityTargetY(d) : d.radius;
             d.x = Math.max(d.radius, Math.min(this.svgWidth - d.radius, d.x));
-            d.y = Math.max(d.radius, Math.min(this.svgHeight - d.radius, d.y));
+            d.y = Math.min(floorY, Math.max(d.radius, d.y));
             return `translate(${d.x},${d.y})`;
           });
         });
@@ -204,74 +167,44 @@ export default {
       if (side === 'left') this.leftSim = simulation;
       else this.rightSim = simulation;
     },
-
     updateForces() {
-      const updateSimulation = (sim, nodes, svgRef) => {
-        sim
-          .force('y', d3.forceY().y(d => this.getGravityTargetY(d)).strength(0.1))
-          .alphaDecay(0.015)
-          .alpha(0.7)
-          .restart();
-
-        d3
-          .select(svgRef)
-          .selectAll('circle')
-          .attr('fill', d => this.getBubbleColor(d));
+      const apply = (sim, nodes, svgElem) => {
+        sim.force('y', d3.forceY().y(d => this.isActive(d) ? this.getGravityTargetY(d) : d.radius).strength(0.1))
+           .alpha(0.7)
+           .alphaDecay(0.015)
+           .restart();
+        d3.select(svgElem).selectAll('circle').attr('fill', d => this.getBubbleColor(d));
       };
-
-      if (this.leftSim) updateSimulation(this.leftSim, this.leftNodes, this.$refs.svgLeft);
-      if (this.rightSim) updateSimulation(this.rightSim, this.rightNodes, this.$refs.svgRight);
-    },
-
-    getColumnStyle(side) {
-    const tilt = this.tippingAngle;
-    const maxShift = 50; // max shift in px at full tilt (adjust as needed)
-    const shift = (tilt / 15) * maxShift; // normalize tilt to [-1, 1] range
-
-    if (side === 'left') {
-        return {
-        transform: `translateY(${-shift}px) rotate(${tilt / 2}deg)`,
-        transformOrigin: 'top center'
-        };
-    } else {
-        return {
-        transform: `translateY(${shift}px) rotate(${tilt / 2}deg)`,
-        transformOrigin: 'top center'
-        };
-    }
+      if (this.leftSim) apply(this.leftSim, this.leftNodes, this.$refs.svgLeft);
+      if (this.rightSim) apply(this.rightSim, this.rightNodes, this.$refs.svgRight);
     }
   },
   beforeDestroy() {
-    if (this.leftSim) this.leftSim.stop();
-    if (this.rightSim) this.rightSim.stop();
+    this.leftSim && this.leftSim.stop();
+    this.rightSim && this.rightSim.stop();
   }
 };
 </script>
 
 <style scoped>
-.controls {
-  text-align: center;
-  margin-bottom: 10px;
-}
-
+.controls { text-align: center; margin-bottom: 10px; }
 .scale-container {
   display: flex;
   justify-content: center;
   align-items: flex-end;
   position: relative;
   margin-top: 40px;
+  overflow: visible;
+  padding-bottom: 60px;
 }
-
 .column-wrapper {
   width: 300px;
   height: 500px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  transition: transform 0.6s ease;
-  transform-origin: top center;
+  overflow: visible;
 }
-
+.bubble-svg {
+  overflow: visible;
+}
 .scale-base {
   position: absolute;
   bottom: -5px;
@@ -282,9 +215,7 @@ export default {
   border-radius: 6px;
   transform-origin: center bottom;
   transition: transform 0.6s ease;
-  z-index: 0;
 }
-
 .pivot-dot {
   position: absolute;
   bottom: -10px;
@@ -294,10 +225,6 @@ export default {
   background: #222;
   border-radius: 50%;
   transform: translateX(-50%);
-  z-index: 1;
 }
-
-select {
-  padding: 4px 8px;
-}
+select { padding: 4px 8px; }
 </style>
