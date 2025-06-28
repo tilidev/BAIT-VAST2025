@@ -243,7 +243,7 @@ export default {
     },
 
     splitNodesBySupportedSide() {
-      const scale = d3.scaleSqrt().domain([0, 1]).range([8, 35]);
+      const scale = d3.scaleSqrt().domain([0.1, 4]).range([20, 70]); //TODO currently hardcoded values
       this.leftNodes = [];
       this.rightNodes = [];
       this.allData.forEach(d => {
@@ -326,14 +326,30 @@ export default {
         .style('pointer-events', 'none')
         .style('font', '10px Arial')
         .style('fill', '#333')
+        .selectAll('tspan')
+        .data(d => {
+          const words = d.data.entity_id.trim().split(/\s+/);
+          const sentiment = d.data.agg_sentiment.toFixed(2);
+          const lines = [];
+
+          if (words.length >= 2) {
+            lines.push({ text: words[0], dy: '-0.6em', weight: '600' });
+            lines.push({ text: words.slice(1).join(' '), dy: '1.1em', weight: '600' });
+            lines.push({ text: sentiment, dy: '1.1em', weight: '800' }); // bold
+          } else {
+            lines.push({ text: words[0], dy: '-0.3em', weight: '600' });
+            lines.push({ text: sentiment, dy: '1.1em', weight: '800' }); // bold
+          }
+
+          return lines;
+        })
+        .enter()
         .append('tspan')
-          .attr('x', 0)
-          .attr('dy', '-0.3em')
-          .text(d => d.data.entity_id)
-        .append('tspan')
-          .attr('x', 0)
-          .attr('dy', '1.1em')
-          .text(d => d.data.agg_sentiment.toFixed(2));
+        .attr('x', 0)
+        .attr('dy', d => d.dy)
+        .text(d => d.text)
+        .style('font-weight', d => d.weight);
+
 
       simulation.nodes(nodes)
         .force('x', d3.forceX(this.svgWidth / 2).strength(0.05))
