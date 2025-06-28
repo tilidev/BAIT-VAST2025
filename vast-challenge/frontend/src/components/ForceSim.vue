@@ -60,12 +60,12 @@
 
       <!-- Column Headers -->
     <div class="flex justify-center items-center mt-8">
-    <div class="w-[300px] text-center text-lg font-semibold">
-        {{ leftIndustry.charAt(0).toUpperCase() + leftIndustry.slice(1) }} (pro)
-    </div>
-    <div class="w-[300px] text-center text-lg font-semibold">
-        {{ rightIndustry.charAt(0).toUpperCase() + rightIndustry.slice(1) }} (pro)
-    </div>
+      <div class="w-[300px] text-center text-lg font-semibold">
+          {{ leftIndustry.charAt(0).toUpperCase() + leftIndustry.slice(1) }} (pro)
+      </div>
+      <div class="w-[300px] text-center text-lg font-semibold">
+          {{ rightIndustry.charAt(0).toUpperCase() + rightIndustry.slice(1) }} (pro)
+      </div>
     </div>
 
       <!-- Scale Visualization (click background clears selection) -->
@@ -270,7 +270,7 @@ export default {
           .attr('fill', d => this.getBubbleColor(d))
           .style('opacity', d => this.isActive(d) ? 1 : 0.4);
       });
-      // 2) re-target Y-force so active settle, inactive float
+      // 2) re-target Y-force so actives fall, inactive float
       const retarget = sim => {
         if (!sim) return;
         sim.force('y',
