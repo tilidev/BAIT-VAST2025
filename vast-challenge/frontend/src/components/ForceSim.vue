@@ -8,6 +8,9 @@
         :height="300"
         @cell-click="onSimilarityCellClick"
       />
+      <p class="mt-2 text-sm text-gray-600 italic">
+        To see the industries with the strongest conflicting interests, click the cell with the most negative similarity value. This will tip the bias scale furthest and make the metaphor most informative.
+      </p>
     </div>
 
     <!-- RIGHT: Controls + Scale + Detail -->
@@ -35,7 +38,7 @@
           Exclude ENTITY_ORGANIZATION
         </label>
 
-        <label class="flex items-center gap-2">
+        <!-- <label class="flex items-center gap-2">
           Left Industry:
           <select
             v-model="leftIndustry"
@@ -55,7 +58,7 @@
           >
             <option v-for="ind in industries" :key="ind" :value="ind">{{ ind }}</option>
           </select>
-        </label>
+        </label> -->
       </div>
 
       <!-- Scale + Detail Panel -->
@@ -108,7 +111,7 @@
         </div>
 
         <!-- Detail Panel -->
-        <div class="w-80 h-[85vh] bg-white shadow-lg rounded-lg border border-gray-300 flex flex-col ml-4">
+        <div class="w-80 h-[85vh] bg-white shadow-lg rounded-lg border border-gray-300 flex flex-col ml-10">
           <div
             v-if="selectedEntityNode"
             class="sticky top-0 bg-white z-10 px-4 py-3 border-b rounded-lg"
