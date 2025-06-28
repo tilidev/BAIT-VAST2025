@@ -58,6 +58,16 @@
         </label>
       </div>
 
+      <!-- Column Headers -->
+    <div class="flex justify-center items-center mt-8">
+    <div class="w-[300px] text-center text-lg font-semibold">
+        {{ leftIndustry.charAt(0).toUpperCase() + leftIndustry.slice(1) }} (pro)
+    </div>
+    <div class="w-[300px] text-center text-lg font-semibold">
+        {{ rightIndustry.charAt(0).toUpperCase() + rightIndustry.slice(1) }} (pro)
+    </div>
+    </div>
+
       <!-- Scale Visualization (click background clears selection) -->
       <div
         class="flex justify-center items-end relative mt-8 pb-8"
@@ -72,6 +82,10 @@
             class="overflow-visible"
           ></svg>
         </div>
+
+        <!-- Dotted Separator line -->
+        <div class="self-stretch border-l-2 border-dotted border-gray-400 opacity-50 mx-4 pointer-events-none"></div>
+
         <!-- Beam & pivot -->
         <div
           class="absolute bottom-[-8px] left-1/2 w-[700px] h-4 bg-gray-800 rounded origin-bottom transition-transform duration-500 shadow-md"
