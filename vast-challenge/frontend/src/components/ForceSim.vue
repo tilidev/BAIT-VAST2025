@@ -343,7 +343,8 @@ export default {
                    ? this.getGravityTargetY(d)
                    : d.radius)
             .strength(0.1))
-        .force('collision', d3.forceCollide(d => d.radius + 2))
+        .force('collision', d3.forceCollide(d => d.radius + 2).strength(0.95))
+        .force('charge', d3.forceManyBody().strength(-1))
         .alpha(0.7)
         .alphaDecay(0.015)
         .on('tick', () => {
