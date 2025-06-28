@@ -97,7 +97,7 @@
       <!-- Header (sticky) -->
       <div
         v-if="selectedEntityNode"
-        class="sticky top-0 bg-white z-10 px-4 py-3 border-b"
+        class="sticky top-0 bg-white z-10 px-4 py-3 border-b rounded-lg"
       >
         <button
           @click="clearSelection"
