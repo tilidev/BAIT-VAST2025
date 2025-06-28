@@ -1,10 +1,19 @@
 <template>
-  <div class="relative flex">
-    <!-- Main Content Column -->
-    <div class="flex-1">
-      <!-- Controls -->
-      <div class="flex flex-wrap justify-center gap-4 mb-4 font-sans">
-        <!-- Dataset selector: only updates styles & forces -->
+  <div class="flex space-x-6 p-4">
+    <!-- LEFT: Heatmap -->
+    <div class="p-4">
+      <IndustrySimilarityHeatmap
+        :useWeightedMean="true"
+        :width="300"
+        :height="300"
+        @cell-click="onSimilarityCellClick"
+      />
+    </div>
+
+    <!-- RIGHT: Controls + Scale + Detail -->
+    <div class="flex-1 flex flex-col space-y-6">
+      <!-- Controls Row -->
+      <div class="flex flex-wrap justify-center gap-4 font-sans">
         <label class="flex items-center gap-2">
           Active Dataset:
           <select
@@ -15,26 +24,17 @@
             <option v-for="ds in datasets" :key="ds" :value="ds">{{ ds }}</option>
           </select>
         </label>
-        <div class="w-full mb-4">
-          <IndustrySimilarityHeatmap
-            :useWeightedMean="true"
-            @cell-click="onSimilarityCellClick"
-          />
-        </div>
 
-
-        <!-- Exclude toggle: full restart -->
         <label class="flex items-center gap-2">
           <input
             type="checkbox"
             v-model="excludeOrganizations"
-            @change="() => {onFilterToggle(); updateStylesOnly()}"
+            @change="() => { onFilterToggle(); updateStylesOnly(); }"
             class="mr-1"
           />
           Exclude ENTITY_ORGANIZATION
         </label>
 
-        <!-- Industry selectors: full restart -->
         <label class="flex items-center gap-2">
           Left Industry:
           <select
@@ -42,13 +42,10 @@
             @change="onFilterToggle"
             class="px-2 py-1 border rounded"
           >
-            <option
-              v-for="ind in industries"
-              :key="ind"
-              :value="ind"
-            >{{ ind }}</option>
+            <option v-for="ind in industries" :key="ind" :value="ind">{{ ind }}</option>
           </select>
         </label>
+
         <label class="flex items-center gap-2">
           Right Industry:
           <select
@@ -56,138 +53,136 @@
             @change="onFilterToggle"
             class="px-2 py-1 border rounded"
           >
-            <option
-              v-for="ind in industries"
-              :key="ind"
-              :value="ind"
-            >{{ ind }}</option>
+            <option v-for="ind in industries" :key="ind" :value="ind">{{ ind }}</option>
           </select>
         </label>
       </div>
 
-      <!-- Column Headers -->
-    <div class="flex justify-center items-center mt-8">
-      <div class="w-[300px] text-center text-lg font-semibold">
-          {{ leftIndustry.charAt(0).toUpperCase() + leftIndustry.slice(1) }} (pro)
-      </div>
-      <div class="w-[300px] text-center text-lg font-semibold">
-          {{ rightIndustry.charAt(0).toUpperCase() + rightIndustry.slice(1) }} (pro)
-      </div>
-    </div>
+      <!-- Scale + Detail Panel -->
+      <div class="flex">
+        <!-- Scale Column -->
+        <div class="flex-1">
+          <!-- Column Headers -->
+          <div class="flex justify-center items-center mt-8">
+            <div class="w-[300px] text-center text-lg font-semibold">
+              {{ leftIndustry.charAt(0).toUpperCase() + leftIndustry.slice(1) }} (pro)
+            </div>
+            <div class="w-[300px] text-center text-lg font-semibold">
+              {{ rightIndustry.charAt(0).toUpperCase() + rightIndustry.slice(1) }} (pro)
+            </div>
+          </div>
 
-      <!-- Scale Visualization (click background clears selection) -->
-      <div
-        class="flex justify-center items-end relative mt-8 pb-8"
-        @click="clearSelection"
-      >
-        <!-- Left column -->
-        <div class="w-[300px] h-[500px] overflow-visible">
-          <svg
-            ref="svgLeft"
-            :width="svgWidth"
-            :height="svgHeight"
-            class="overflow-visible"
-          ></svg>
-        </div>
-
-        <!-- Dotted Separator line -->
-        <div class="self-stretch border-l-2 border-dotted border-gray-400 opacity-50 mx-4 pointer-events-none"></div>
-
-        <!-- Beam & pivot -->
-        <div
-          class="absolute bottom-[-8px] left-1/2 w-[700px] h-4 bg-gray-800 rounded origin-bottom transition-transform duration-500 shadow-md"
-          :style="{ transform: `translateX(-50%) rotate(${tippingAngle}deg)` }"
-        ></div>
-        <div
-          class="absolute bottom-[-12px] left-1/2 w-6 h-6 bg-gray-600 border-2 border-gray-900 rounded-full -translate-x-1/2"
-        ></div>
-        <!-- Right column -->
-        <div class="w-[300px] h-[500px] overflow-visible">
-          <svg
-            ref="svgRight"
-            :width="svgWidth"
-            :height="svgHeight"
-            class="overflow-visible"
-          ></svg>
-        </div>
-      </div>
-    </div>
-
-    <!-- Detail Panel -->
-    <div class="w-80 h-[85vh] bg-white shadow-lg rounded-lg border border-gray-300 flex flex-col ml-4">
-      <!-- Header (sticky) -->
-      <div
-        v-if="selectedEntityNode"
-        class="sticky top-0 bg-white z-10 px-4 py-3 border-b rounded-lg"
-      >
-        <button
-          @click="clearSelection"
-          class="mb-2 px-2 py-1 text-sm border border-gray-400 rounded hover:bg-gray-100"
-        >
-          Clear Selection
-        </button>
-        <h3 class="text-lg font-semibold">
-          {{ selectedEntityNode.data.entity_id }}
-        </h3>
-        <p class="text-sm text-gray-700">
-          Type: {{ selectedEntityNode.data.entity_type }}
-        </p>
-        <p class="text-sm text-gray-700">
-          Industry: {{ selectedEntityNode.data.industry }}
-        </p>
-        <p class="text-sm text-gray-700 mb-2">
-          Aggregated Sentiment:
-          {{ selectedEntityNode.data.agg_sentiment.toFixed(2) }}
-        </p>
-        <h4 class="font-semibold text-sm">Contributing Sentiments</h4>
-      </div>
-
-      <!-- Scrollable list -->
-      <div
-        v-if="selectedEntityNode"
-        class="flex-1 overflow-y-auto px-4 py-2"
-      >
-        <ul class="space-y-4 text-sm">
-          <li
-            v-for="(cs, i) in selectedEntityNode.data.contributing_sentiments"
-            :key="i"
-            class="border-b pb-2"
+          <!-- Scale Visualization -->
+          <div
+            class="flex justify-center items-end relative mt-8 pb-8"
+            @click="clearSelection"
           >
-            <p><strong>Topic:</strong> {{ cs.topic_id }}</p>
-            <p><strong>Sentiment:</strong>
-              <span
-                :class="[
-                  'px-2 py-0.5 rounded text-white text-xs font-semibold',
-                  cs.sentiment > 0
-                    ? 'bg-green-500'
-                    : cs.sentiment < 0
-                    ? 'bg-red-500'
-                    : 'bg-gray-400'
-                ]"
-              >
-                {{ cs.sentiment }}
-              </span>
-            </p>
-            <p><strong>Reason:</strong> {{ cs.reason }}</p>
-            <p><strong>Industries:</strong> {{ cs.topic_industry.join(', ') }}</p>
-            <p>
-              <strong>Datasets:</strong>
-              {{ cs.sentiment_recorded_in.join(', ') }}
-            </p>
-          </li>
-        </ul>
-      </div>
+            <div class="w-[300px] h-[500px] overflow-visible">
+              <svg
+                ref="svgLeft"
+                :width="svgWidth"
+                :height="svgHeight"
+                class="overflow-visible"
+              ></svg>
+            </div>
 
-      <!-- Placeholder -->
-      <div
-        v-else
-        class="p-4 text-sm italic text-gray-600"
-      >
-        Click on a sentiment bubble for detailed inspection
+            <div class="self-stretch border-l-2 border-dotted border-gray-400 opacity-50 mx-4 pointer-events-none"></div>
+
+            <div
+              class="absolute bottom-[-8px] left-1/2 w-[700px] h-4 bg-gray-800 rounded origin-bottom transition-transform duration-500 shadow-md"
+              :style="{ transform: `translateX(-50%) rotate(${tippingAngle}deg)` }"
+            ></div>
+            <div
+              class="absolute bottom-[-12px] left-1/2 w-6 h-6 bg-gray-600 border-2 border-gray-900 rounded-full -translate-x-1/2"
+            ></div>
+
+            <div class="w-[300px] h-[500px] overflow-visible">
+              <svg
+                ref="svgRight"
+                :width="svgWidth"
+                :height="svgHeight"
+                class="overflow-visible"
+              ></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detail Panel -->
+        <div class="w-80 h-[85vh] bg-white shadow-lg rounded-lg border border-gray-300 flex flex-col ml-4">
+          <div
+            v-if="selectedEntityNode"
+            class="sticky top-0 bg-white z-10 px-4 py-3 border-b rounded-lg"
+          >
+            <button
+              @click="clearSelection"
+              class="mb-2 px-2 py-1 text-sm border border-gray-400 rounded hover:bg-gray-100"
+            >
+              Clear Selection
+            </button>
+            <h3 class="text-lg font-semibold">
+              {{ selectedEntityNode.data.entity_id }}
+            </h3>
+            <p class="text-sm text-gray-700">
+              Type: {{ selectedEntityNode.data.entity_type }}
+            </p>
+            <p class="text-sm text-gray-700">
+              Industry: {{ selectedEntityNode.data.industry }}
+            </p>
+            <p class="text-sm text-gray-700 mb-2">
+              Aggregated Sentiment:
+              {{ selectedEntityNode.data.agg_sentiment.toFixed(2) }}
+            </p>
+            <h4 class="font-semibold text-sm">Contributing Sentiments</h4>
+          </div>
+
+          <div
+            v-if="selectedEntityNode"
+            class="flex-1 overflow-y-auto px-4 py-2"
+          >
+            <ul class="space-y-4 text-sm">
+              <li
+                v-for="(cs, i) in selectedEntityNode.data.contributing_sentiments"
+                :key="i"
+                class="border-b pb-2"
+              >
+                <p><strong>Topic:</strong> {{ cs.topic_id }}</p>
+                <p><strong>Sentiment:</strong>
+                  <span
+                    :class="[
+                      'px-2 py-0.5 rounded text-white text-xs font-semibold',
+                      cs.sentiment > 0
+                        ? 'bg-green-500'
+                        : cs.sentiment < 0
+                        ? 'bg-red-500'
+                        : 'bg-gray-400'
+                    ]"
+                  >
+                    {{ cs.sentiment }}
+                  </span>
+                </p>
+                <p><strong>Reason:</strong> {{ cs.reason }}</p>
+                <p><strong>Industries:</strong> {{ cs.topic_industry.join(', ') }}</p>
+                <p>
+                  <strong>Datasets:</strong>
+                  {{ cs.sentiment_recorded_in.join(', ') }}
+                </p>
+              </li>
+            </ul>
+          </div>
+
+          <div
+            v-else
+            class="p-4 text-sm italic text-gray-600"
+          >
+            Click on a sentiment bubble for detailed inspection
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
+
+
 
 <script>
 import * as d3 from 'd3';

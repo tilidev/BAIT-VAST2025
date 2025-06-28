@@ -1,12 +1,22 @@
 <template>
-  <div class="flex">
+  <div class="flex flex-col">
+    <!-- Toggle on top -->
     <div class="mb-4 flex items-center">
-      <ToggleSwitch v-model="useWeightedMean" @change="fetchData" inputId="weighted-mean-toggle" />
-      <label for="weighted-mean-toggle" class="ml-2 text-gray-700">Use Weighted Mean</label>
+      <ToggleSwitch
+        v-model="useWeightedMean"
+        @change="fetchData"
+        inputId="weighted-mean-toggle"
+      />
+      <label for="weighted-mean-toggle" class="ml-2 text-gray-700">
+        Use Weighted Mean
+      </label>
     </div>
-    <div v-if="isReady">
+
+    <!-- Heatmap below -->
+    <div v-if="isReady" class="flex-auto">
       <AdjacencyMatrix
-        class="flex-auto"
+        :width="width"
+        :height="height"
         :data="matrixData"
         :rowLabels="industryLabels"
         :colLabels="industryLabels"
@@ -21,6 +31,7 @@
   </div>
 </template>
 
+
 <script lang="ts">
 import { defineComponent } from 'vue';
 import { useIndustrySimilarityStore } from '../stores/industrySimilarityStore';
@@ -31,6 +42,16 @@ import ToggleSwitch from 'primevue/toggleswitch';
 
 export default defineComponent({
   emits: ['cell-click'],
+  props: {
+    width: {
+      type: Number,
+      default: 400,
+    },
+    height: {
+      type: Number,
+      default: 400,
+    }
+  },
   name: 'IndustrySimilarityHeatmap',
   components: {
     AdjacencyMatrix,
