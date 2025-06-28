@@ -12,6 +12,7 @@
         :colLabels="industryLabels"
         :colorScale="colorScale"
         :tooltipFormatter="tooltipFormatter"
+        @cell-click="onCellClick"
       />
     </div>
     <div v-else>
@@ -29,6 +30,7 @@ import * as d3 from 'd3';
 import ToggleSwitch from 'primevue/toggleswitch';
 
 export default defineComponent({
+  emits: ['cell-click'],
   name: 'IndustrySimilarityHeatmap',
   components: {
     AdjacencyMatrix,
@@ -38,7 +40,7 @@ export default defineComponent({
     return {
       industrySimilarityStore: useIndustrySimilarityStore(),
       isReady: false,
-      useWeightedMean: false,
+      useWeightedMean: true,
     };
   },
   async created() {
@@ -98,6 +100,9 @@ export default defineComponent({
         <div>Similarity: ${cell.value?.toFixed(2)}</div>
       `;
     },
+    onCellClick({ left, right }: { left: string; right: string }) {
+      this.$emit('cell-click', { left, right });
+    }
   },
 });
 </script>

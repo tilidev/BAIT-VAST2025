@@ -15,6 +15,13 @@
             <option v-for="ds in datasets" :key="ds" :value="ds">{{ ds }}</option>
           </select>
         </label>
+        <div class="w-full mb-4">
+          <IndustrySimilarityHeatmap
+            :useWeightedMean="true"
+            @cell-click="onSimilarityCellClick"
+          />
+        </div>
+
 
         <!-- Exclude toggle: full restart -->
         <label class="flex items-center gap-2">
@@ -184,9 +191,13 @@
 
 <script>
 import * as d3 from 'd3';
+import IndustrySimilarityHeatmap from './IndustrySimilarityHeatmap.vue';
 
 export default {
   name: 'IndustrySentimentBubbles',
+  components : {
+    IndustrySimilarityHeatmap
+  },
   data() {
     return {
       svgWidth: 300,
@@ -232,6 +243,15 @@ export default {
       this.renderChart(this.rightNodes, this.$refs.svgRight, d3.forceSimulation(), 'right');
     },
 
+    onSimilarityCellClick({ left, right }) {
+      // update the two industries and re-run the sim
+      console.log("Doing a click")
+      this.leftIndustry  = left;
+      this.rightIndustry = right;
+      this.onFilterToggle();
+      this.updateStylesOnly();
+    },
+
     onFilterToggle() {
       // restart sims when filters change
       this.splitNodesBySupportedSide();
@@ -243,7 +263,8 @@ export default {
     },
 
     splitNodesBySupportedSide() {
-      const scale = d3.scaleSqrt().domain([0.1, 4]).range([20, 70]); //TODO currently hardcoded values
+      // makes sure area of bubble is proportional to the agg sentiment value
+      const scale = d3.scaleSqrt().domain([0, 4]).range([15, 70]); //TODO currently hardcoded values
       this.leftNodes = [];
       this.rightNodes = [];
       this.allData.forEach(d => {

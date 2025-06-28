@@ -238,7 +238,16 @@ export default {
           svgGroup.selectAll(".column-label")
             .filter(label => label === d.col)
             .style("font-weight", "normal");
-        });
+        })
+        .on("click", (event, d) => {
+        // only emit if there's a real similarity value
+        if (d.cellData && d.cellData.value !== null) {
+          this.$emit('cell-click', {
+            left:  d.row,
+            right: d.col
+          });
+        }
+      });
 
       // Row labels
       svgGroup.selectAll(".row-label")
@@ -269,6 +278,11 @@ export default {
         .attr("text-anchor", "start")
         .style("font-size", "10px") // Smaller font size for column labels
         .text(d => colLabelFormatter ? colLabelFormatter(d) : d.toString());
+    },
+      handleCellClick(cell) {
+      // only fire when cell.value !== null
+      console.log("Clicked")
+      this.$emit('cell-click', { left: cell.rowId, right: cell.colId });
     },
   },
 };
