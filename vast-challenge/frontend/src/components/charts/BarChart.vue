@@ -24,6 +24,7 @@ interface BarChartProps {
 
 export default defineComponent({
   name: 'BarChart',
+  emits: ['bar-click'],
   props: {
       data: {
         type: Array,
@@ -78,7 +79,7 @@ export default defineComponent({
        default: false
       }
   },
-  setup(props: BarChartProps) {
+  setup(props: BarChartProps, { emit }) {
     const chartContainer = ref<HTMLElement | null>(null);
     let svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any> | null = null;
     let tooltip: d3.Selection<HTMLDivElement, unknown, HTMLElement, any> | null = null;
@@ -156,7 +157,7 @@ export default defineComponent({
       svgGroup.selectAll(".bar")
         .data(data)
         .join("rect")
-        .attr("class", "bar")
+        .attr("class", "bar cursor-pointer")
         .attr("x", d => x(d[xKey])!)
         .attr("y", d => y(d[yKey]))
         .attr("width", x.bandwidth())
@@ -187,6 +188,9 @@ export default defineComponent({
           if (tooltip) {
             tooltip.classed("hidden", true);
           }
+        })
+        .on("click", (event, d) => {
+            emit('bar-click', d);
         });
     }
 
