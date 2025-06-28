@@ -1,24 +1,25 @@
 <template>
-  <div>
+  <div ref="geoJsonMapContainer" class="w-full h-full">
     <div id="svg"></div>
   </div>
 </template>
 
 <script>
-import { defineComponent } from 'vue';
-import * as d3 from 'd3'
+import * as d3 from 'd3';
 import { useEntityStore } from '../stores/entityStore';
+import { useLinkingStore } from '../stores/linkingStore';
+import { useMapStore } from '../stores/mapStore'; 
 import { mapState } from 'pinia';
 import { toRaw } from 'vue';
 
-export default defineComponent({
+export default {
   data() {
     return {
-      width: 900,
-      height: 900,
-      geojson: null,
+      width: 0,
+      height: 0,
       projection: null,
       path: null,
+      resizeObserver: null,
       regionColors: {
         "Island": "#8dd3c7",
         "Ecological Preserve": "#a1d99b",
@@ -36,60 +37,92 @@ export default defineComponent({
   },
 
   watch: {
-    places(newVal, oldVal) {
-      if (newVal.length > 0) {
-        this.draw()
-      }
-    }
+    places() {
+    },
+    highlightedPlaces(newVal) {
+      this.drawPlaces(newVal); 
+    },
+    width() {
+      this.draw();
+    },
+    height() {
+      this.draw();
+    },
+    
+    'mapStore.features': {
+      handler() {
+        this.draw();
+      },
+      deep: true,
+    },
   },
 
   computed: {
     ...mapState(useEntityStore, ['places']),
+    ...mapState(useLinkingStore, ['highlightedPlaces']),
+    mapStore() {
+      return useMapStore();
+    },
   },
 
   mounted() {
-    const container = d3.select("body")
-      .append("div")
-      .attr("class", "max-w-5xl mx-auto mt-10 p-6 bg-white shadow-2xl rounded-2xl");
+    this.resizeObserver = new ResizeObserver(entries => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+        this.width = width;
+        this.height = height;
+      }
+    });
+    this.resizeObserver.observe(this.$refs.geoJsonMapContainer);
 
-    this.svg = container.append("svg")
-      .attr("width", this.width)
-      .attr("height", this.height)
+    this.svg = d3.select(this.$refs.geoJsonMapContainer).select("#svg")
+      .append("svg")
       .attr("class", "rounded-lg shadow-md border");
 
     this.tooltip = d3.select("body")
       .append("div")
       .attr("class", "tooltip pointer-events-none absolute hidden p-3 rounded-lg shadow-lg bg-white border border-gray-200 text-sm text-gray-800 transition")
       .style("z-index", "50");
-
-    d3.json("../../public/oceanus_map.geojson")
-      .then(data => {
-        this.geojson = data;
-        this.projection = d3.geoIdentity().reflectY(true).fitSize([this.width, this.height], this.geojson);
-        this.path = d3.geoPath().projection(this.projection);
-
-        this.draw();
-      })
-      .catch(err => console.error("Failed to load geojson:", err));
+    
+    this.draw();
+  },
+  beforeUnmount() {
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+    }
+    if (this.tooltip) {
+      this.tooltip.remove();
+    }
+    if (this.svg) {
+      this.svg.remove();
+    }
   },
   methods: {
     draw() {
+      if (!this.width || !this.height || !this.mapStore.features.length) return;
+
       const svg = this.svg;
       const tooltip = this.tooltip;
-      const projection = this.projection;
-      const path = this.path;
       const regionColors = this.regionColors;
 
-      svg.selectAll("*").remove();
+      svg.attr("width", this.width)
+        .attr("height", this.height);
 
-      // Regions
+      this.projection = d3.geoIdentity().reflectY(true).fitSize([this.width, this.height], {
+        type: "FeatureCollection",
+        features: this.mapStore.features
+      });
+      this.path = d3.geoPath().projection(this.projection);
+
+      svg.selectAll("*").remove(); 
+      
       svg.append("g")
         .selectAll("path")
-        .data(this.geojson.features.filter(d =>
+        .data(this.mapStore.features.filter(d =>
           d.geometry.type === "Polygon"))
         .enter()
         .append("path")
-        .attr("d", path)
+        .attr("d", this.path)
         .attr("fill", d => regionColors[d.properties.Kind] || regionColors["default"])
         .attr("stroke", "#1f2937")
         .attr("stroke-width", 1.2)
@@ -111,23 +144,21 @@ export default defineComponent({
             .style("left", (event.pageX + 10) + "px")
             .style("top", (event.pageY - 28) + "px");
         })
-        .on("mouseout", function (event, d) {
-          console.log(d)
-          d3.select(this).attr("fill", regionColors[d.properties.Kind] || regionColors["default"]);
+        .on("mouseout", (event, d) => {
+          d3.select(event.currentTarget).attr("fill", regionColors[d.properties.Kind] || regionColors["default"]);
           tooltip.classed("hidden", true);
         });
-
-      // Cities and Buoys
+      
       svg.append("g")
         .selectAll("text")
-        .data(this.geojson.features.filter(d => d.geometry.type === "Point"))
+        .data(this.mapStore.features.filter(d => d.geometry.type === "Point"))
         .enter()
         .append("text")
-        .attr("x", d => projection(d.geometry.coordinates)[0])
-        .attr("y", d => projection(d.geometry.coordinates)[1])
+        .attr("x", d => this.projection(d.geometry.coordinates)[0])
+        .attr("y", d => this.projection(d.geometry.coordinates)[1])
         .attr("text-anchor", "middle")
         .attr("alignment-baseline", "central")
-        .text(d => d.properties.Kind === "city" ? "📍" : "🛟") // City as 📍, Buoy as 🛟
+        .text(d => d.properties.Kind === "city" ? "📍" : "🛟") 
         .attr("font-size", "16px")
         .attr("pointer-events", "none")
         .on("mouseover", function (event, d) {
@@ -147,19 +178,18 @@ export default defineComponent({
         .on("mouseout", function () {
           tooltip.classed("hidden", true);
         });
-
-      // Event layer 
+      
       svg.append("g")
         .selectAll("circle")
-        .data(this.geojson.features.filter(d => d.geometry.type === "Point"))
+        .data(this.mapStore.features.filter(d => d.geometry.type === "Point"))
         .enter()
         .append("circle")
-        .attr("cx", d => projection(d.geometry.coordinates)[0])
-        .attr("cy", d => projection(d.geometry.coordinates)[1])
+        .attr("cx", d => this.projection(d.geometry.coordinates)[0])
+        .attr("cy", d => this.projection(d.geometry.coordinates)[1])
         .attr("r", 6)
         .attr("opacity", 0)
         .attr("stroke", "#000")
-        .text(d => d.properties.Kind === "city" ? "📍" : "🛟") // City as 📍, Buoy as 🛟
+        .text(d => d.properties.Kind === "city" ? "📍" : "🛟") 
         .on("mouseover", function (event, d) {
           tooltip
             .classed("hidden", false)
@@ -178,19 +208,38 @@ export default defineComponent({
           tooltip.classed("hidden", true);
         });
 
-      // Places
-      svg.append("g")
-        .selectAll("circle")
-        .data(toRaw(this.places))
+      this.drawPlaces(this.highlightedPlaces); 
+    },
+    drawPlaces(highlightedPlaceNames = []) {
+      if (!this.svg || !this.projection || !this.places) return;
+
+      const svg = this.svg;
+      const tooltip = this.tooltip;
+      const allPlaces = toRaw(this.places).filter(p => p.lon != null && p.lat != null);
+
+      
+      const filteredPlaces = allPlaces.filter(p => highlightedPlaceNames.includes(p.name));
+
+      
+      if (this.placesLayer) {
+        this.placesLayer.remove();
+      }
+
+      this.placesLayer = svg.append("g")
+        .attr("class", "places-layer"); 
+
+      this.placesLayer.selectAll("circle")
+        .data(filteredPlaces)
         .enter()
         .append("circle")
-        .attr("cx", d => projection([d.lat, d.lon])[0])
-        .attr("cy", d => projection([d.lat, d.lon])[1])
-        .attr("r", 3)
+        .attr("cx", d => this.projection([d.lat, d.lon])[0])
+        .attr("cy", d => this.projection([d.lat, d.lon])[1])
+        .attr("r", 6) 
         .attr("fill", d => {
           return this.zoneColors[d.zone] || this.zoneColors.default;
         })
-        .attr("stroke", "#000")
+        .attr("stroke", "#ef4444") 
+        .attr("stroke-width", 2) 
         .on("mouseover", function (event, d) {
           tooltip
             .classed("hidden", false)
@@ -211,8 +260,8 @@ export default defineComponent({
         .on("mouseout", function () {
           tooltip.classed("hidden", true);
         });
-
-    }
+    },
   }
-})
+}
 </script>
+<style scoped></style>
