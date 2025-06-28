@@ -21,7 +21,7 @@
           <input
             type="checkbox"
             v-model="excludeOrganizations"
-            @change="onFilterToggle"
+            @change="() => {onFilterToggle(); updateStylesOnly()}"
             class="mr-1"
           />
           Exclude ENTITY_ORGANIZATION
