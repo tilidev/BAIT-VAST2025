@@ -16,12 +16,11 @@
     </div>
 
     <!-- Navigation -->
-    <nav
-      :class="[sidebarExpanded ? 'flex-row space-x-2' : 'flex-col space-y-4', { 'justify-center': !sidebarExpanded }]"
-      class="mb-6 flex">
+    <nav class="mb-6 flex flex-col space-y-4">
       <button @click="setActiveTab('overview')"
-        :class="{ 'bg-blue-500 text-white': activeTab === 'overview', 'hover:bg-gray-200 dark:hover:bg-gray-700': activeTab !== 'overview', 'w-full': sidebarExpanded }"
-        class="p-2 rounded-md transition-colors duration-200 flex items-center">
+        :class="{ 'bg-blue-500 text-white': activeTab === 'overview', 'hover:bg-gray-200 dark:hover:bg-gray-700': activeTab !== 'overview' }"
+        class="p-2 rounded-md transition-colors duration-200 flex items-center"
+        :style="{ 'justify-content': sidebarExpanded ? 'flex-start' : 'center' }">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" :class="{ 'mr-2': sidebarExpanded }" fill="none"
           viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -30,8 +29,9 @@
         <span v-if="sidebarExpanded">Overview</span>
       </button>
       <button @click="setActiveTab('detailed-analysis')"
-        :class="{ 'bg-blue-500 text-white': activeTab === 'detailed-analysis', 'hover:bg-gray-200 dark:hover:bg-gray-700': activeTab !== 'detailed-analysis', 'w-full': sidebarExpanded }"
-        class="p-2 rounded-md transition-colors duration-200 flex items-center">
+        :class="{ 'bg-blue-500 text-white': activeTab === 'detailed-analysis', 'hover:bg-gray-200 dark:hover:bg-gray-700': activeTab !== 'detailed-analysis' }"
+        class="p-2 rounded-md transition-colors duration-200 flex items-center"
+        :style="{ 'justify-content': sidebarExpanded ? 'flex-start' : 'center' }">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" :class="{ 'mr-2': sidebarExpanded }" fill="none"
           viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -40,12 +40,13 @@
         <span v-if="sidebarExpanded">Detailed Analysis</span>
       </button>
       <button @click="setActiveTab('trip-analysis')"
-        :class="{ 'bg-blue-500 text-white': activeTab === 'trip-analysis', 'hover:bg-gray-200 dark:hover:bg-gray-700': activeTab !== 'trip-analysis', 'w-full': sidebarExpanded }"
-        class="p-2 rounded-md transition-colors duration-200 flex items-center">
+        :class="{ 'bg-blue-500 text-white': activeTab === 'trip-analysis', 'hover:bg-gray-200 dark:hover:bg-gray-700': activeTab !== 'trip-analysis' }"
+        class="p-2 rounded-md transition-colors duration-200 flex items-center"
+        :style="{ 'justify-content': sidebarExpanded ? 'flex-start' : 'center' }">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" :class="{ 'mr-2': sidebarExpanded }" fill="none"
           viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 16.382V5.618a1 1 0 00-1.447-.894L15 7m-6 3l6-3m0 0l6-3m-6 3v10" />
+            d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9V3m0 18a9 9 0 009-9M3 12a9 9 0 019-9" />
         </svg>
         <span v-if="sidebarExpanded">Trip Analysis</span>
       </button>

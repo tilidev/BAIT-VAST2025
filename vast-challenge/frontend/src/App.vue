@@ -1,12 +1,14 @@
 <template>
   <div class="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex">
-    <Sidebar :sidebar-expanded="sidebarExpanded" :active-tab="activeTab" @toggleSidebar="toggleSidebar" @update:activeTab="setActiveTab"/>
+    <Sidebar :sidebar-expanded="sidebarExpanded" :active-tab="activeTab" @toggleSidebar="toggleSidebar"
+      @update:activeTab="setActiveTab" />
 
     <!-- Main Content Area -->
     <main class="flex-grow p-4 overflow-auto transition-all duration-300 ease-in-out">
       <IdSelectionPanel />
       <OverviewTab v-if="activeTab === 'overview'" />
       <DetailedAnalysisTab v-else-if="activeTab === 'detailed-analysis'" />
+      <TripAnalysisTab v-else-if="activeTab === 'trip-analysis'" />
     </main>
   </div>
 </template>
@@ -23,6 +25,7 @@ import { useFilterStore } from './stores/filterStore';
 
 const OverviewTab = defineAsyncComponent(() => import('./components/tabs/OverviewTab.vue'));
 const DetailedAnalysisTab = defineAsyncComponent(() => import('./components/tabs/DetailedAnalysisTab.vue'));
+const TripAnalysisTab = defineAsyncComponent(() => import('./components/tabs/TripAnalysisTab.vue'));
 
 export default defineComponent({
   name: 'App',
@@ -31,10 +34,11 @@ export default defineComponent({
     Sidebar,
     OverviewTab,
     DetailedAnalysisTab,
+    TripAnalysisTab,
   },
   data() {
     return {
-      activeTab: 'overview',
+      activeTab: 'trip-analysis',
       sidebarExpanded: true,
       entityStore: useEntityStore(),
       graphStore: useGraphStore(),
