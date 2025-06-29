@@ -1,18 +1,10 @@
 <template>
   <div class="p-4 border rounded-lg shadow-md bg-white">
     <h3 class="text-lg font-semibold mb-3 text-gray-700">{{ title }}</h3>
-    <div class="mb-3">
-      <input
-        type="text"
-        v-model="searchQuery"
-        placeholder="Search..."
-        class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-    </div>
-    <div v-if="filteredData.length === 0" class="text-center text-gray-500">No data available or matches found.</div>
+    <div v-if="data.length === 0" class="text-center text-gray-500">No data available.</div>
     <div v-else class="space-y-2">
       <div
-        v-for="(item, index) in filteredData"
+        v-for="(item, index) in data"
         :key="index"
         class="grid grid-cols-[12rem_1fr_auto] items-center gap-x-2 group cursor-pointer py-1"
         @mouseover="handleItemHover(item)"
@@ -118,11 +110,6 @@ export default {
     },
   },
   emits: ['item-selected', 'item-hover', 'item-unhover', 'item-excluded'],
-  data() {
-    return {
-      searchQuery: '',
-    };
-  },
   computed: {
     effectiveMaxBarValue() {
       if (this.maxBarValue !== null && this.maxBarValue !== undefined) {
@@ -130,15 +117,6 @@ export default {
       }
       const maxDataValue = Math.max(...this.data.map(d => d[this.totalValueKey]));
       return maxDataValue > 0 ? maxDataValue : 1;
-    },
-    filteredData() {
-      if (!this.searchQuery) {
-        return this.data;
-      }
-      const query = this.searchQuery.toLowerCase();
-      return this.data.filter(item =>
-        item[this.labelKey].toLowerCase().includes(query)
-      );
     },
   },
   methods: {
