@@ -517,7 +517,7 @@ export default {
 
           this.eventRects.each(function (d) {
             const group = d3.select(this);
-            group.selectAll('.event-segment').remove(); // Clear existing segments
+            group.selectAll('.event-segment').remove(); 
 
             const totalVisits = Object.values(d.zoneCounts).reduce((a, b) => a + b, 0);
             if (totalVisits === 0) return;

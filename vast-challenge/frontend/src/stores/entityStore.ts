@@ -91,10 +91,7 @@ export const useEntityStore = defineStore('entity', {
       );
       this.personTripActivities = personTripActivitiesMap;
 
-      // Create a map to store trip IDs for each place
       const placeToTripIds = new Map<string, Set<string>>();
-
-      // Populate the map from personTripActivities
       for (const personId in this.personTripActivities) {
         const trips = this.personTripActivities[personId];
         trips.forEach(tripActivity => {
@@ -113,7 +110,6 @@ export const useEntityStore = defineStore('entity', {
         });
       }
 
-      // Add trip_ids to each place in the store
       this.places = this.places.map(place => {
         const tripIds = placeToTripIds.get(place.id);
         return {

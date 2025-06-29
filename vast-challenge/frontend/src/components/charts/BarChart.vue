@@ -68,7 +68,7 @@ export default defineComponent({
       },
       xLabelRotation: {
         type: Number,
-        default: 0, // No rotation by default
+        default: 0, 
       },
       showGridLines: {
         type: Boolean,
@@ -92,7 +92,6 @@ export default defineComponent({
         return;
       }
 
-      // Clear previous drawing
       d3.select(chartContainer.value).selectAll("*").remove();
       if (tooltip) tooltip.remove();
 
@@ -144,9 +143,9 @@ export default defineComponent({
         svgGroup.append("g")
           .attr("class", "grid")
           .call(d3.axisLeft(y)
-            .ticks(5) // Adjust number of ticks as needed
+            .ticks(5) 
             .tickSize(-innerWidth)
-            .tickFormat(null) // Use null to suppress tick labels for grid lines
+            .tickFormat(null) // to suppress tick labels for grid lines
           )
           .selectAll("line")
           .attr("stroke", "#e5e7eb") // Tailwind gray-200
@@ -168,6 +167,7 @@ export default defineComponent({
           } else if (typeof colorScale === 'function') {
             return colorScale(d[xKey]);
           }
+          // TODO: fix
           // This fallback should ideally not be reached if colorScale is required
           return '#6366f1';
         })

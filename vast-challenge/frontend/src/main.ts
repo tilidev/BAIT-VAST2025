@@ -10,13 +10,12 @@ import Tooltip from 'primevue/tooltip';
 const pinia = createPinia();
 const app = createApp(App);
 
-// Use plugins
 app.use(pinia);
 app.directive('tooltip', Tooltip);
 
 app.use(PrimeVue, {
   theme: {
-    preset: Aura, // Use the base Aura preset
+    preset: Aura,
     options: {
       darkModeSelector: '.dark', // managed by useDark in App.vue)
       ripple: true // for animation
@@ -24,5 +23,4 @@ app.use(PrimeVue, {
   }
 });
 
-// Mount the app
 app.mount('#app');
