@@ -9,6 +9,8 @@ import { useLinkingStore } from '../stores/linkingStore';
 import { useMapStore } from '../stores/mapStore';
 import { mapState } from 'pinia';
 import { toRaw } from 'vue';
+import { zoneColors } from '../utils/colors';
+
 
 export default {
   data() {
@@ -29,13 +31,7 @@ export default {
         "Fishing Ground": "#9ecae1",
         "default": "#e5e7eb"
       },
-      zoneColors: {
-        "government": "#6366f1",
-        "commercial": "#f59e0b",
-        "residential": "#10b981",
-        "industrial": "#ef4444",
-        "default": "grey"
-      }
+      zoneColors: zoneColors
     };
   },
 
