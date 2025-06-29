@@ -136,11 +136,12 @@ export default {
       });
       this.path = d3.geoPath().projection(this.projection);
 
+      this.setupBrush();
+
       this.g = this.svg.append("g");
 
       this.renderMapFeatures();
       this.setupZoom();
-      this.setupBrush();
     },
 
     renderMapFeatures() {
@@ -174,6 +175,9 @@ export default {
           if (this.isBrushing) return;
           d3.select(event.currentTarget).attr("fill", regionColors[d.properties.Kind] || regionColors["default"]);
           tooltip.classed("hidden", true);
+        })
+        .on("mousedown", (event) => {
+          this.forwardEventToBrush(event);
         });
 
       // Draw point icons
@@ -214,6 +218,9 @@ export default {
         .on("mouseout", () => {
           if (this.isBrushing) return;
           tooltip.classed("hidden", true);
+        })
+        .on("mousedown", (event) => {
+          this.forwardEventToBrush(event);
         });
 
       this.drawPlaces(this.highlightedPlaces);
@@ -269,6 +276,28 @@ export default {
       });
 
       this.linkingStore.setBrushedPlaces(selectedPlaces);
+    },
+
+    forwardEventToBrush(event) {
+      const brushEl = this.svg.select(".brush").node();
+      if (!brushEl) return;
+
+      const sourceEvent = event;
+      const newMouseEvent = new MouseEvent('mousedown', {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+        clientX: sourceEvent.clientX,
+        clientY: sourceEvent.clientY,
+        pageX: sourceEvent.pageX,
+        pageY: sourceEvent.pageY,
+        ctrlKey: sourceEvent.ctrlKey,
+        button: sourceEvent.button,
+        buttons: sourceEvent.buttons,
+        screenX: sourceEvent.screenX,
+        screenY: sourceEvent.screenY,
+      });
+      brushEl.dispatchEvent(newMouseEvent);
     },
 
     drawPlaces() {
@@ -369,6 +398,9 @@ export default {
           if (this.isBrushing) return;
           this.linkingStore.setHoveredPlaceId(null);
           tooltip.classed("hidden", true);
+        })
+        .on("mousedown", (event) => {
+          this.forwardEventToBrush(event);
         });
     },
   }
