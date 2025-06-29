@@ -1,14 +1,12 @@
 <template>
-  <div ref="geoJsonMapContainer" class="w-full h-full">
-    <div id="svg"></div>
-  </div>
+  <div ref="geoJsonMapContainer" class="w-full h-full"></div>
 </template>
 
 <script>
 import * as d3 from 'd3';
 import { useEntityStore } from '../stores/entityStore';
 import { useLinkingStore } from '../stores/linkingStore';
-import { useMapStore } from '../stores/mapStore'; 
+import { useMapStore } from '../stores/mapStore';
 import { mapState } from 'pinia';
 import { toRaw } from 'vue';
 
@@ -20,6 +18,11 @@ export default {
       projection: null,
       path: null,
       resizeObserver: null,
+      svg: null,
+      g: null,
+      zoom: null,
+      brush: null,
+      isBrushing: false,
       regionColors: {
         "Island": "#8dd3c7",
         "Ecological Preserve": "#a1d99b",
@@ -37,10 +40,25 @@ export default {
   },
 
   watch: {
-    places() {
+    'linkingStore.highlightedPlaceIds': {
+      handler() {
+        this.drawPlaces();
+      },
+      deep: true,
     },
-    highlightedPlaces(newVal) {
-      this.drawPlaces(newVal); 
+    'linkingStore.highlightedTrips': {
+      handler() {
+        this.drawPlaces();
+      },
+      deep: true,
+    },
+    activeFilters: {
+      handler() { this.drawPlaces(); },
+      deep: true,
+    },
+    brushedPlaces: {
+      handler() { this.drawPlaces(); },
+      deep: true,
     },
     width() {
       this.draw();
@@ -48,7 +66,6 @@ export default {
     height() {
       this.draw();
     },
-    
     'mapStore.features': {
       handler() {
         this.draw();
@@ -59,9 +76,12 @@ export default {
 
   computed: {
     ...mapState(useEntityStore, ['places']),
-    ...mapState(useLinkingStore, ['highlightedPlaces']),
+    ...mapState(useLinkingStore, ['brushedPlaces', 'activeFilters']),
     mapStore() {
       return useMapStore();
+    },
+    linkingStore() {
+      return useLinkingStore();
     },
   },
 
@@ -75,17 +95,14 @@ export default {
     });
     this.resizeObserver.observe(this.$refs.geoJsonMapContainer);
 
-    this.svg = d3.select(this.$refs.geoJsonMapContainer).select("#svg")
-      .append("svg")
-      .attr("class", "rounded-lg shadow-md border");
-
     this.tooltip = d3.select("body")
       .append("div")
       .attr("class", "tooltip pointer-events-none absolute hidden p-3 rounded-lg shadow-lg bg-white border border-gray-200 text-sm text-gray-800 transition")
       .style("z-index", "50");
-    
+
     this.draw();
   },
+
   beforeUnmount() {
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
@@ -97,16 +114,21 @@ export default {
       this.svg.remove();
     }
   },
+
   methods: {
     draw() {
       if (!this.width || !this.height || !this.mapStore.features.length) return;
 
-      const svg = this.svg;
-      const tooltip = this.tooltip;
-      const regionColors = this.regionColors;
+      if (this.svg) {
+        this.svg.remove();
+      }
 
-      svg.attr("width", this.width)
-        .attr("height", this.height);
+      this.svg = d3.select(this.$refs.geoJsonMapContainer)
+        .append("svg")
+        .attr("width", this.width)
+        .attr("height", this.height)
+        .attr("class", "rounded-lg shadow-md border")
+        .on("contextmenu", event => event.preventDefault());
 
       this.projection = d3.geoIdentity().reflectY(true).fitSize([this.width, this.height], {
         type: "FeatureCollection",
@@ -114,42 +136,48 @@ export default {
       });
       this.path = d3.geoPath().projection(this.projection);
 
-      svg.selectAll("*").remove(); 
-      
-      svg.append("g")
+      this.g = this.svg.append("g");
+
+      this.renderMapFeatures();
+      this.setupZoom();
+      this.setupBrush();
+    },
+
+    renderMapFeatures() {
+      const regionColors = this.regionColors;
+      const tooltip = this.tooltip;
+
+      // Draw polygons
+      this.g.append("g")
         .selectAll("path")
-        .data(this.mapStore.features.filter(d =>
-          d.geometry.type === "Polygon"))
+        .data(this.mapStore.features.filter(d => d.geometry.type === "Polygon"))
         .enter()
         .append("path")
         .attr("d", this.path)
         .attr("fill", d => regionColors[d.properties.Kind] || regionColors["default"])
         .attr("stroke", "#1f2937")
         .attr("stroke-width", 1.2)
-        .on("mouseover", function (event, d) {
-          d3.select(this).attr("fill", "#fde68a");
-          tooltip
-            .classed("hidden", false)
-            .html(`
-              <div class="font-semibold text-blue-700">${d.properties.Name}</div>
-              <div>Kind: ${d.properties.Kind}</div>
-              <div>Activities: ${d.properties.Activities?.join(", ") || "None"}</div>
-              ${d.properties.fish_species_present
-                ? `<div>Fish: ${d.properties.fish_species_present.join(", ")}</div>`
-                : ""}
-            `);
+        .on("mouseover", (event, d) => {
+          if (this.isBrushing) return;
+          d3.select(event.currentTarget).attr("fill", "#fde68a");
+          tooltip.classed("hidden", false)
+            .html(`<div class="font-semibold text-blue-700">${d.properties.Name}</div>
+                   <div>Kind: ${d.properties.Kind}</div>
+                   <div>Activities: ${d.properties.Activities?.join(", ") || "None"}</div>
+                   ${d.properties.fish_species_present ? `<div>Fish: ${d.properties.fish_species_present.join(", ")}</div>` : ""}`);
         })
-        .on("mousemove", function (event) {
-          tooltip
-            .style("left", (event.pageX + 10) + "px")
-            .style("top", (event.pageY - 28) + "px");
+        .on("mousemove", (event) => {
+          if (this.isBrushing) return;
+          tooltip.style("left", (event.pageX + 10) + "px").style("top", (event.pageY - 28) + "px");
         })
         .on("mouseout", (event, d) => {
+          if (this.isBrushing) return;
           d3.select(event.currentTarget).attr("fill", regionColors[d.properties.Kind] || regionColors["default"]);
           tooltip.classed("hidden", true);
         });
-      
-      svg.append("g")
+
+      // Draw point icons
+      this.g.append("g")
         .selectAll("text")
         .data(this.mapStore.features.filter(d => d.geometry.type === "Point"))
         .enter()
@@ -158,28 +186,12 @@ export default {
         .attr("y", d => this.projection(d.geometry.coordinates)[1])
         .attr("text-anchor", "middle")
         .attr("alignment-baseline", "central")
-        .text(d => d.properties.Kind === "city" ? "📍" : "🛟") 
+        .text(d => d.properties.Kind === "city" ? "📍" : "🛟")
         .attr("font-size", "16px")
-        .attr("pointer-events", "none")
-        .on("mouseover", function (event, d) {
-          tooltip
-            .classed("hidden", false)
-            .html(`
-              <div class="font-semibold text-blue-700">${d.properties.Name}</div>
-              <div>Type: ${d.properties.Kind}</div>
-              <div>Activities: ${d.properties.Activities?.join(", ") || "None"}</div>
-            `);
-        })
-        .on("mousemove", function (event) {
-          tooltip
-            .style("left", (event.pageX + 10) + "px")
-            .style("top", (event.pageY - 28) + "px");
-        })
-        .on("mouseout", function () {
-          tooltip.classed("hidden", true);
-        });
-      
-      svg.append("g")
+        .attr("pointer-events", "none");
+
+      // Draw invisible circles for tooltip interaction
+      this.g.append("g")
         .selectAll("circle")
         .data(this.mapStore.features.filter(d => d.geometry.type === "Point"))
         .enter()
@@ -188,80 +200,164 @@ export default {
         .attr("cy", d => this.projection(d.geometry.coordinates)[1])
         .attr("r", 6)
         .attr("opacity", 0)
-        .attr("stroke", "#000")
-        .text(d => d.properties.Kind === "city" ? "📍" : "🛟") 
-        .on("mouseover", function (event, d) {
-          tooltip
-            .classed("hidden", false)
-            .html(`
-          <div class="font-semibold text-blue-700">${d.properties.Name}</div>
-          <div>Type: ${d.properties.Kind}</div>
-          <div>Activities: ${d.properties.Activities?.join(", ") || "None"}</div>
-        `);
+        .on("mouseover", (event, d) => {
+          if (this.isBrushing) return;
+          tooltip.classed("hidden", false)
+            .html(`<div class="font-semibold text-blue-700">${d.properties.Name}</div>
+                   <div>Type: ${d.properties.Kind}</div>
+                   <div>Activities: ${d.properties.Activities?.join(", ") || "None"}</div>`);
         })
-        .on("mousemove", function (event) {
-          tooltip
-            .style("left", (event.pageX + 10) + "px")
-            .style("top", (event.pageY - 28) + "px");
+        .on("mousemove", (event) => {
+          if (this.isBrushing) return;
+          tooltip.style("left", (event.pageX + 10) + "px").style("top", (event.pageY - 28) + "px");
         })
-        .on("mouseout", function () {
+        .on("mouseout", () => {
+          if (this.isBrushing) return;
           tooltip.classed("hidden", true);
         });
 
-      this.drawPlaces(this.highlightedPlaces); 
+      this.drawPlaces(this.highlightedPlaces);
     },
-    drawPlaces(highlightedPlaceNames = []) {
-      if (!this.svg || !this.projection || !this.places) return;
 
-      const svg = this.svg;
+    setupZoom() {
+      this.zoom = d3.zoom()
+        .scaleExtent([1, 8])
+        .filter(event => !event.ctrlKey && event.button === 0) // Only zoom with left-click without Ctrl key
+        .on("zoom", (event) => {
+          this.g.attr("transform", event.transform);
+        });
+
+      this.svg.call(this.zoom);
+    },
+
+    setupBrush() {
+      this.brush = d3.brush()
+        .extent([[0, 0], [this.width, this.height]])
+        .filter(event => event.button === 2 || (event.ctrlKey && event.button === 0)) // Brush with right-click OR Ctrl+left-click
+        .on("start", () => {
+          this.isBrushing = true;
+          this.tooltip.classed("hidden", true);
+        })
+        .on("end", (event) => {
+          this.isBrushing = false;
+          if (event.selection) {
+            this.handleBrushSelection(event.selection);
+          } else {
+            this.linkingStore.setBrushedPlaces([]);
+          }
+        });
+
+      this.svg.append("g")
+        .attr("class", "brush")
+        .call(this.brush);
+    },
+
+    handleBrushSelection(selection) {
+      const [[x0, y0], [x1, y1]] = selection;
+      const allPlaces = toRaw(this.places).filter(p => p.lon != null && p.lat != null);
+      const selectedPlaces = [];
+
+      const currentTransform = d3.zoomTransform(this.g.node());
+
+      allPlaces.forEach(place => {
+        const [px, py] = this.projection([place.lat, place.lon]);
+        const [transformedX, transformedY] = currentTransform.apply([px, py]);
+
+        if (transformedX >= x0 && transformedX <= x1 && transformedY >= y0 && transformedY <= y1) {
+          selectedPlaces.push(place.name);
+        }
+      });
+
+      this.linkingStore.setBrushedPlaces(selectedPlaces);
+    },
+
+    drawPlaces() {
+      if (!this.g || !this.projection || !this.places) return;
+
+      const { highlightedPlaceIds, highlightedTrips } = this.linkingStore;
       const tooltip = this.tooltip;
       const allPlaces = toRaw(this.places).filter(p => p.lon != null && p.lat != null);
+      const activeFilters = this.activeFilters;
+      const brushedPlaceNames = new Set(this.brushedPlaces);
+      const hasFilters = activeFilters.length > 0 || brushedPlaceNames.size > 0;
 
-      
-      const filteredPlaces = allPlaces.filter(p => highlightedPlaceNames.includes(p.name));
-
-      
       if (this.placesLayer) {
         this.placesLayer.remove();
       }
 
-      this.placesLayer = svg.append("g")
-        .attr("class", "places-layer"); 
+      this.placesLayer = this.g.append("g")
+        .attr("class", "places-layer");
 
       this.placesLayer.selectAll("circle")
-        .data(filteredPlaces)
+        .data(allPlaces, d => d.id)
         .enter()
         .append("circle")
         .attr("cx", d => this.projection([d.lat, d.lon])[0])
         .attr("cy", d => this.projection([d.lat, d.lon])[1])
-        .attr("r", 6) 
-        .attr("fill", d => {
-          return this.zoneColors[d.zone] || this.zoneColors.default;
+        .attr("r", 4)
+        .attr("fill", d => this.zoneColors[d.zone] || this.zoneColors.default)
+        .attr("stroke", "#ef4444")
+        .attr("stroke-width", d => {
+          const isHighlighted = highlightedPlaceIds.includes(d.id) ||
+            (highlightedTrips.length > 0 && d.trip_ids?.some(tripId => highlightedTrips.includes(tripId)));
+          return isHighlighted ? 2 : 0;
         })
-        .attr("stroke", "#ef4444") 
-        .attr("stroke-width", 2) 
-        .on("mouseover", function (event, d) {
-          tooltip
-            .classed("hidden", false)
-            .html(`
-        <div class="font-semibold text-blue-700">${d.name || "Unknown Place"}</div>
-        <div>Zone: ${d.zone || "N/A"}</div>
-        <div>Detail: ${d.zone_detail || "N/A"}</div>
-        ${d.in_graph?.length
-                ? `<div>Graph Links: ${d.in_graph.join(", ")}</div>`
-                : ""}
-      `);
+        .style("opacity", d => {
+          const isHighlighted = highlightedPlaceIds.includes(d.id) ||
+            (highlightedTrips.length > 0 && d.trip_ids?.some(tripId => highlightedTrips.includes(tripId)));
+
+          const hasHighlights = highlightedPlaceIds.length > 0 || highlightedTrips.length > 0;
+
+          if (hasHighlights) {
+            return isHighlighted ? 1.0 : 0;
+          }
+
+          if (!hasFilters) {
+            return 0.3;
+          }
+
+          const passesActive = activeFilters.length === 0 || activeFilters.every(filter => {
+            if (!d.id) return false;
+            if (filter.type === 'island') {
+              const parentFeatureName = this.mapStore.getParentFeatureByPlaceId(d.id);
+              return parentFeatureName === filter.value;
+            } else if (filter.type === 'zone') {
+              return d.zone === filter.value;
+            }
+            return false;
+          });
+
+          const passesBrush = brushedPlaceNames.size === 0 || brushedPlaceNames.has(d.name);
+          const isActive = passesActive && passesBrush;
+
+          return isActive ? 1.0 : 0.3;
         })
-        .on("mousemove", function (event) {
-          tooltip
-            .style("left", (event.pageX + 10) + "px")
-            .style("top", (event.pageY - 28) + "px");
+        .on("mouseover", (event, d) => {
+          if (this.isBrushing) return;
+          this.linkingStore.setHoveredPlaceId(d.id);
+          tooltip.classed("hidden", false)
+            .html(`<div class="font-semibold text-blue-700">${d.name || "Unknown Place"}</div>
+                   <div>Zone: ${d.zone || "N/A"}</div>
+                   <div>Detail: ${d.zone_detail || "N/A"}</div>
+                   ${d.in_graph?.length ? `<div>Graph Links: ${d.in_graph.join(", ")}</div>` : ""}`);
         })
-        .on("mouseout", function () {
+        .on("mousemove", (event) => {
+          if (this.isBrushing) return;
+          tooltip.style("left", (event.pageX + 10) + "px").style("top", (event.pageY - 28) + "px");
+        })
+        .on("mouseout", () => {
+          if (this.isBrushing) return;
+          this.linkingStore.setHoveredPlaceId(null);
           tooltip.classed("hidden", true);
         });
     },
   }
 }
 </script>
-<style scoped></style>
+
+<style scoped>
+.brush .selection {
+  fill: rgba(100, 100, 100, 0.3);
+  stroke: #fff;
+}
+</style>

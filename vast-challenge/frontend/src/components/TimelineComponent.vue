@@ -45,6 +45,7 @@ export default {
               endTime: new Date(trip.visited_places[trip.visited_places.length - 1]?.visit_rel.time),
               startZone: trip.visited_places[0]?.place.zone,
               visitedPlaceNames: trip.visited_places.map(p => p.place.name),
+              visitedPlaceIds: trip.visited_places.map(p => p.place.id),
             });
           }
         });
@@ -53,51 +54,58 @@ export default {
       return allTrips.filter(d => d.startTime instanceof Date && !isNaN(d.startTime) && d.endTime instanceof Date && !isNaN(d.endTime));
     },
     filteredEvents() {
-      if (this.linkingStore.activeFilters.length === 0) {
-        return this.allEvents;
-      }
+      let events = this.allEvents;
 
-      return this.allEvents.filter(event => {
-        return this.linkingStore.activeFilters.every(filter => {
-          return event.trip.visited_places.some(visitedPlace => {
-            const place = visitedPlace.place;
-            if (!place || !place.id) {
+      // Filter by active sidebar filters
+      if (this.linkingStore.activeFilters.length > 0) {
+        events = events.filter(event => {
+          return this.linkingStore.activeFilters.every(filter => {
+            return event.trip.visited_places.some(visitedPlace => {
+              const place = visitedPlace.place;
+              if (!place || !place.id) return false;
+              if (filter.type === 'island') {
+                const parentFeatureName = this.mapStore.getParentFeatureByPlaceId(place.id);
+                return parentFeatureName === filter.value;
+              } else if (filter.type === 'zone') {
+                return place.zone === filter.value;
+              }
               return false;
-            }
-
-            if (filter.type === 'island') {
-              const parentFeatureName = this.mapStore.getParentFeatureByPlaceId(place.id);
-              return parentFeatureName === filter.value;
-            } else if (filter.type === 'zone') {
-              return place.zone === filter.value;
-            }
-            return false;
+            });
           });
         });
-      });
+      }
+
+      // Filter by brushed places on the map
+      if (this.linkingStore.brushedPlaces.length > 0) {
+        const brushedPlaceNames = new Set(this.linkingStore.brushedPlaces);
+        events = events.filter(event => {
+          return event.visitedPlaceNames.some(placeName => brushedPlaceNames.has(placeName));
+        });
+      }
+
+      return events;
     },
   },
-  mounted() {
-    this.tooltip = d3.select("body")
-      .append("div")
-      .attr("class", "tooltip pointer-events-none absolute hidden p-3 rounded-lg shadow-lg bg-white border border-gray-200 text-sm text-gray-800 transition")
-      .style("z-index", "50");
-
-    this.$nextTick(this.drawTimeline);
-  },
-  beforeUnmount() {
-    if (this.tooltip) {
-      this.tooltip.remove();
-    }
-  },
   watch: {
+    'linkingStore.brushedPlaces': {
+      handler() {
+        this.$nextTick(this.drawTimeline);
+      },
+      deep: true,
+    },
     'linkingStore.activeFilters': {
       handler() {
         this.$nextTick(this.drawTimeline);
       },
       deep: true,
     },
-    'linkingStore.highlightedPlaces': {
+    'linkingStore.highlightedPlaceIds': {
+      handler() {
+        this.updateHighlighting();
+      },
+      deep: true,
+    },
+    'linkingStore.hoveredPlaceId': {
       handler() {
         this.updateHighlighting();
       },
@@ -123,6 +131,19 @@ export default {
       },
       deep: true,
     },
+  },
+  mounted() {
+    this.tooltip = d3.select("body")
+      .append("div")
+      .attr("class", "tooltip pointer-events-none absolute hidden p-3 rounded-lg shadow-lg bg-white border border-gray-200 text-sm text-gray-800 transition")
+      .style("z-index", "50");
+
+    this.$nextTick(this.drawTimeline);
+  },
+  beforeUnmount() {
+    if (this.tooltip) {
+      this.tooltip.remove();
+    }
   },
   methods: {
     getInitials(name) {
@@ -300,8 +321,8 @@ export default {
               .html(this.tooltipFormatter(d));
             d3.select(event.currentTarget).style('opacity', 1);
 
-            const placeNames = d.visitedPlaceNames;
-            this.linkingStore.setHighlightedPlaces(placeNames);
+            this.linkingStore.setHighlightedPlaceIds(d.visitedPlaceIds);
+            this.linkingStore.setHighlightedTrips([d.trip.trip.id]);
           }
         })
         .on("mousemove", (event) => {
@@ -315,7 +336,8 @@ export default {
           if (this.tooltip) {
             this.tooltip.classed("hidden", true);
             d3.select(event.currentTarget).style('opacity', 0.8);
-            this.linkingStore.setHighlightedPlaces([]);
+            this.linkingStore.setHighlightedPlaceIds([]);
+            this.linkingStore.setHighlightedTrips([]);
           }
         });
 
@@ -392,26 +414,28 @@ export default {
     updateHighlighting() {
       if (!this.eventRects) return;
 
-      const highlightedPlaces = this.linkingStore.highlightedPlaces;
+      const { highlightedTrips, hoveredPlaceId } = this.linkingStore;
 
       this.eventRects
         .style('stroke', d => {
-          const isHighlighted = d.visitedPlaceNames.some(placeName =>
-            highlightedPlaces.includes(placeName)
-          );
-          return isHighlighted ? 'red' : 'none';
+          const isTripHighlighted = highlightedTrips.includes(d.trip.trip.id);
+          const isPlaceHovered = hoveredPlaceId && d.visitedPlaceIds.includes(hoveredPlaceId);
+          return isTripHighlighted || isPlaceHovered ? 'red' : 'none';
         })
         .style('stroke-width', d => {
-          const isHighlighted = d.visitedPlaceNames.some(placeName =>
-            highlightedPlaces.includes(placeName)
-          );
-          return isHighlighted ? 2 : 0;
+          const isTripHighlighted = highlightedTrips.includes(d.trip.trip.id);
+          const isPlaceHovered = hoveredPlaceId && d.visitedPlaceIds.includes(hoveredPlaceId);
+          return isTripHighlighted || isPlaceHovered ? 2 : 0;
         })
         .style('opacity', d => {
-          const isHighlighted = d.visitedPlaceNames.some(placeName =>
-            highlightedPlaces.includes(placeName)
-          );
-          return highlightedPlaces.length > 0 && !isHighlighted ? 0.3 : 0.8;
+          const isTripHighlighted = highlightedTrips.includes(d.trip.trip.id);
+          const isPlaceHovered = hoveredPlaceId && d.visitedPlaceIds.includes(hoveredPlaceId);
+          const isHighlighted = isTripHighlighted || isPlaceHovered;
+
+          if (highlightedTrips.length > 0 || hoveredPlaceId) {
+            return isHighlighted ? 0.8 : 0.3;
+          }
+          return 0.8;
         });
     },
   },

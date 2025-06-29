@@ -90,6 +90,37 @@ export const useEntityStore = defineStore('entity', {
           })
       );
       this.personTripActivities = personTripActivitiesMap;
+
+      // Create a map to store trip IDs for each place
+      const placeToTripIds = new Map<string, Set<string>>();
+
+      // Populate the map from personTripActivities
+      for (const personId in this.personTripActivities) {
+        const trips = this.personTripActivities[personId];
+        trips.forEach(tripActivity => {
+          if (tripActivity && tripActivity.trip && tripActivity.visited_places) {
+            const tripId = tripActivity.trip.id;
+            tripActivity.visited_places.forEach(visitedPlace => {
+              if (visitedPlace && visitedPlace.place) {
+                const placeId = visitedPlace.place.id;
+                if (!placeToTripIds.has(placeId)) {
+                  placeToTripIds.set(placeId, new Set());
+                }
+                placeToTripIds.get(placeId)?.add(tripId);
+              }
+            });
+          }
+        });
+      }
+
+      // Add trip_ids to each place in the store
+      this.places = this.places.map(place => {
+        const tripIds = placeToTripIds.get(place.id);
+        return {
+          ...place,
+          trip_ids: tripIds ? Array.from(tripIds) : []
+        };
+      });
     },
     setTrip(trips: Trip[]) {
       this.trips = trips

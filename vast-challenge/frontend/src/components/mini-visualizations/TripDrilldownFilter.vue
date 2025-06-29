@@ -81,6 +81,12 @@ export default {
     },
   },
   watch: {
+    'linkingStore.brushedPlaces': {
+      handler() {
+        // This will trigger re-computation of tripsPerIslandWithAllCounts and tripsPerZoneWithAllCounts
+      },
+      deep: true,
+    },
     hoveredIsland(newVal, oldVal) {
       if (newVal !== oldVal) {
         this.updateHoveredFilters();
@@ -104,28 +110,38 @@ export default {
       this.linkingStore.setHoveredFilters(filters);
     },
     getFilteredActivities(activities, filters) {
-      if (!filters || filters.length === 0) {
-        return activities;
-      }
+      let filtered = activities;
 
-      return activities.filter(activity => {
-        return filters.every(filter => {
-          return activity.visited_places.some(visitedPlace => {
-            const place = visitedPlace.place;
-            if (!place || !place.id) {
+      // Filter by sidebar selections
+      if (filters && filters.length > 0) {
+        filtered = filtered.filter(activity => {
+          return filters.every(filter => {
+            return activity.visited_places.some(visitedPlace => {
+              const place = visitedPlace.place;
+              if (!place || !place.id) return false;
+              if (filter.type === 'island') {
+                const parentFeatureName = this.mapStore.getParentFeatureByPlaceId(place.id);
+                return parentFeatureName === filter.value;
+              } else if (filter.type === 'zone') {
+                return place.zone === filter.value;
+              }
               return false;
-            }
-
-            if (filter.type === 'island') {
-              const parentFeatureName = this.mapStore.getParentFeatureByPlaceId(place.id);
-              return parentFeatureName === filter.value;
-            } else if (filter.type === 'zone') {
-              return place.zone === filter.value;
-            }
-            return false;
+            });
           });
         });
-      });
+      }
+
+      // Filter by map brush selection
+      if (this.linkingStore.brushedPlaces.length > 0) {
+        const brushedPlaceNames = new Set(this.linkingStore.brushedPlaces);
+        filtered = filtered.filter(activity => {
+          return activity.visited_places.some(visitedPlace =>
+            brushedPlaceNames.has(visitedPlace.place.name)
+          );
+        });
+      }
+
+      return filtered;
     },
     generateBarData(filterType) {
       const allCountsMap = this.processTripData(this.allActivities, filterType);
