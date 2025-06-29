@@ -15,14 +15,25 @@
         v-for="(item, index) in filteredData"
         :key="index"
         class="flex items-center justify-between group cursor-pointer py-1"
-        @click="handleItemClick(item)"
         @mouseover="handleItemHover(item)"
         @mouseleave="handleItemUnhover()"
       >
         <div class="flex-grow flex items-center">
+          <button
+            @click.stop="handleItemExclude(item)"
+            class="mr-2 px-2 py-1 text-xs font-semibold text-white bg-gray-800 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+            :class="{ 'opacity-100': isItemExcluded(item[labelKey]) }"
+          >
+            -
+          </button>
           <span
+            @click="handleItemClick(item)"
             class="text-sm font-medium mr-2"
-            :class="{ 'text-blue-500 font-bold': isItemSelected(item[labelKey]), 'text-gray-800': !isItemSelected(item[labelKey]) }"
+            :class="{
+              'text-blue-500 font-bold': isItemSelected(item[labelKey]),
+              'text-red-500 line-through': isItemExcluded(item[labelKey]),
+              'text-gray-800': !isItemSelected(item[labelKey]) && !isItemExcluded(item[labelKey]),
+            }"
           >
             {{ item[labelKey] }} ({{ item[activeValueKey] }})
           </span>
@@ -44,9 +55,10 @@
         </div>
         <button
           v-if="!isItemSelected(item[labelKey])"
+          @click.stop="handleItemClick(item)"
           class="ml-3 px-2 py-1 text-xs font-semibold text-white bg-gray-800 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200"
         >
-          + Add filter
+          + Add
         </button>
         <button
           v-else
@@ -94,12 +106,12 @@ export default {
       type: Number,
       default: null,
     },
-    activeColor: { 
+    activeColor: {
       type: String,
       default: '#6366f1',
     },
   },
-  emits: ['item-selected', 'item-hover', 'item-unhover'],
+  emits: ['item-selected', 'item-hover', 'item-unhover', 'item-excluded'],
   data() {
     return {
       searchQuery: '',
@@ -132,6 +144,9 @@ export default {
     handleItemClick(item) {
       this.$emit('item-selected', item[this.labelKey]);
     },
+    handleItemExclude(item) {
+      this.$emit('item-excluded', item[this.labelKey]);
+    },
     handleItemHover(item) {
       this.$emit('item-hover', item[this.labelKey]);
     },
@@ -140,7 +155,12 @@ export default {
     },
     isItemSelected(value) {
       return this.linkingStore.activeFilters.some(
-        filter => filter.type === this.labelKey && filter.value === value
+        (filter) => filter.type === this.title.split(' ')[2].toLowerCase() && filter.value === value
+      );
+    },
+    isItemExcluded(value) {
+      return this.linkingStore.excludedFilters.some(
+        (filter) => filter.type === this.title.split(' ')[2].toLowerCase() && filter.value === value
       );
     },
   },

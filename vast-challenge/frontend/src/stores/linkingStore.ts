@@ -3,6 +3,7 @@ import { defineStore } from 'pinia';
 export const useLinkingStore = defineStore('linking', {
   state: () => ({
     activeFilters: [], // Stores filter options as objects { type: 'island' | 'zone', value: string }
+    excludedFilters: [], // Stores filter options as objects { type: 'island' | 'zone', value: string }
     hoveredFilters: [], // Stores filter options for previewing
     highlightedPlaceIds: [], // Stores place IDs for cross-component highlighting
     brushedPlaces: [], // Stores place names selected by the brush tool
@@ -23,6 +24,16 @@ export const useLinkingStore = defineStore('linking', {
         this.activeFilters.splice(index, 1);
       }
     },
+    toggleExcludeFilter(newFilter) {
+      const index = this.excludedFilters.findIndex(
+        (f) => f.type === newFilter.type && f.value === newFilter.value
+      );
+      if (index === -1) {
+        this.excludedFilters.push(newFilter);
+      } else {
+        this.excludedFilters.splice(index, 1);
+      }
+    },
     setHighlightedPlaceIds(placeIds) {
       this.highlightedPlaceIds = placeIds;
     },
@@ -37,6 +48,7 @@ export const useLinkingStore = defineStore('linking', {
     },
     clearAllFilters() {
       this.activeFilters = [];
+      this.excludedFilters = [];
       this.brushedPlaces = [];
     },
   },

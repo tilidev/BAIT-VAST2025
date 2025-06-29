@@ -56,6 +56,10 @@ export default {
       handler() { this.drawPlaces(); },
       deep: true,
     },
+    excludedFilters: {
+      handler() { this.drawPlaces(); },
+      deep: true,
+    },
     brushedPlaces: {
       handler() { this.drawPlaces(); },
       deep: true,
@@ -76,7 +80,7 @@ export default {
 
   computed: {
     ...mapState(useEntityStore, ['places']),
-    ...mapState(useLinkingStore, ['brushedPlaces', 'activeFilters']),
+    ...mapState(useLinkingStore, ['brushedPlaces', 'activeFilters', 'excludedFilters']),
     mapStore() {
       return useMapStore();
     },
@@ -276,10 +280,40 @@ export default {
 
       const { highlightedPlaceIds, highlightedTrips } = this.linkingStore;
       const tooltip = this.tooltip;
-      const allPlaces = toRaw(this.places).filter(p => p.lon != null && p.lat != null);
+      let allPlaces = toRaw(this.places).filter(p => p.lon != null && p.lat != null);
       const activeFilters = this.activeFilters;
+      const excludedFilters = this.excludedFilters;
       const brushedPlaceNames = new Set(this.brushedPlaces);
-      const hasFilters = activeFilters.length > 0 || brushedPlaceNames.size > 0;
+      const hasFilters = activeFilters.length > 0 || brushedPlaceNames.size > 0 || excludedFilters.length > 0;
+
+      if (hasFilters) {
+        allPlaces = allPlaces.filter(d => {
+          const passesActive = activeFilters.length === 0 || activeFilters.every(filter => {
+            if (!d.id) return false;
+            if (filter.type === 'island') {
+              const parentFeatureName = this.mapStore.getParentFeatureByPlaceId(d.id);
+              return parentFeatureName === filter.value;
+            } else if (filter.type === 'zone') {
+              return d.zone === filter.value;
+            }
+            return false;
+          });
+
+          const passesExclusion = excludedFilters.length === 0 || !excludedFilters.some(filter => {
+            if (!d.id) return false;
+            if (filter.type === 'island') {
+              const parentFeatureName = this.mapStore.getParentFeatureByPlaceId(d.id);
+              return parentFeatureName === filter.value;
+            } else if (filter.type === 'zone') {
+              return d.zone === filter.value;
+            }
+            return false;
+          });
+
+          const passesBrush = brushedPlaceNames.size === 0 || brushedPlaceNames.has(d.name);
+          return passesActive && passesBrush && passesExclusion;
+        });
+      }
 
       if (this.placesLayer) {
         this.placesLayer.remove();
@@ -288,10 +322,14 @@ export default {
       this.placesLayer = this.g.append("g")
         .attr("class", "places-layer");
 
-      this.placesLayer.selectAll("circle")
-        .data(allPlaces, d => d.id)
-        .enter()
+      const circles = this.placesLayer.selectAll("circle")
+        .data(allPlaces, d => d.id);
+
+      circles.exit().remove();
+
+      circles.enter()
         .append("circle")
+        .merge(circles)
         .attr("cx", d => this.projection([d.lat, d.lon])[0])
         .attr("cy", d => this.projection([d.lat, d.lon])[1])
         .attr("r", 4)
@@ -309,28 +347,10 @@ export default {
           const hasHighlights = highlightedPlaceIds.length > 0 || highlightedTrips.length > 0;
 
           if (hasHighlights) {
-            return isHighlighted ? 1.0 : 0;
+            return isHighlighted ? 1.0 : 0.1;
           }
 
-          if (!hasFilters) {
-            return 0.3;
-          }
-
-          const passesActive = activeFilters.length === 0 || activeFilters.every(filter => {
-            if (!d.id) return false;
-            if (filter.type === 'island') {
-              const parentFeatureName = this.mapStore.getParentFeatureByPlaceId(d.id);
-              return parentFeatureName === filter.value;
-            } else if (filter.type === 'zone') {
-              return d.zone === filter.value;
-            }
-            return false;
-          });
-
-          const passesBrush = brushedPlaceNames.size === 0 || brushedPlaceNames.has(d.name);
-          const isActive = passesActive && passesBrush;
-
-          return isActive ? 1.0 : 0.3;
+          return 1.0;
         })
         .on("mouseover", (event, d) => {
           if (this.isBrushing) return;

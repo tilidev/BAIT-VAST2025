@@ -14,6 +14,7 @@
           :maxBarValue="maxTripCount"
           :activeColor="neutralBaseColor"
           @item-selected="handleIslandSelected"
+          @item-excluded="handleIslandExcluded"
           @item-hover="handleIslandHover"
           @item-unhover="handleIslandUnhover"
         />
@@ -29,8 +30,9 @@
           :maxBarValue="maxTripCount"
           :activeColor="neutralBaseColor"
           @item-selected="handleZoneSelected"
+          @item-excluded="handleZoneExcluded"
           @item-hover="handleZoneHover"
-          @item-unhover="handleZoneUnhover"
+          @unhover="handleZoneUnhover"
         />
       </div>
     </div>
@@ -87,6 +89,12 @@ export default {
       },
       deep: true,
     },
+    'linkingStore.excludedFilters': {
+      handler() {
+        // This will trigger re-computation of tripsPerIslandWithAllCounts and tripsPerZoneWithAllCounts
+      },
+      deep: true,
+    },
     hoveredIsland(newVal, oldVal) {
       if (newVal !== oldVal) {
         this.updateHoveredFilters();
@@ -112,11 +120,30 @@ export default {
     getFilteredActivities(activities, filters) {
       let filtered = activities;
 
-      // Filter by sidebar selections
+      // Filter by sidebar selections (inclusive)
       if (filters && filters.length > 0) {
-        filtered = filtered.filter(activity => {
-          return filters.every(filter => {
-            return activity.visited_places.some(visitedPlace => {
+        filtered = filtered.filter((activity) => {
+          return filters.every((filter) => {
+            return activity.visited_places.some((visitedPlace) => {
+              const place = visitedPlace.place;
+              if (!place || !place.id) return false;
+              if (filter.type === 'island') {
+                const parentFeatureName = this.mapStore.getParentFeatureByPlaceId(place.id);
+                return parentFeatureName === filter.value;
+              } else if (filter.type === 'zone') {
+                return place.zone === filter.value;
+              }
+              return false;
+            });
+          });
+        });
+      }
+
+      // Filter by sidebar selections (exclusive)
+      if (this.linkingStore.excludedFilters.length > 0) {
+        filtered = filtered.filter((activity) => {
+          return !this.linkingStore.excludedFilters.some((filter) => {
+            return activity.visited_places.some((visitedPlace) => {
               const place = visitedPlace.place;
               if (!place || !place.id) return false;
               if (filter.type === 'island') {
@@ -238,8 +265,14 @@ export default {
     handleIslandSelected(island) {
       this.linkingStore.toggleFilter({ type: 'island', value: island });
     },
+    handleIslandExcluded(island) {
+      this.linkingStore.toggleExcludeFilter({ type: 'island', value: island });
+    },
     handleZoneSelected(zone) {
       this.linkingStore.toggleFilter({ type: 'zone', value: zone });
+    },
+    handleZoneExcluded(zone) {
+      this.linkingStore.toggleExcludeFilter({ type: 'zone', value: zone });
     },
     handleIslandHover(island) {
       this.hoveredIsland = island;

@@ -75,6 +75,25 @@ export default {
         });
       }
 
+      // Filter by excluded sidebar filters
+      if (this.linkingStore.excludedFilters.length > 0) {
+        events = events.filter(event => {
+          return !this.linkingStore.excludedFilters.some(filter => {
+            return event.trip.visited_places.some(visitedPlace => {
+              const place = visitedPlace.place;
+              if (!place || !place.id) return false;
+              if (filter.type === 'island') {
+                const parentFeatureName = this.mapStore.getParentFeatureByPlaceId(place.id);
+                return parentFeatureName === filter.value;
+              } else if (filter.type === 'zone') {
+                return place.zone === filter.value;
+              }
+              return false;
+            });
+          });
+        });
+      }
+
       // Filter by brushed places on the map
       if (this.linkingStore.brushedPlaces.length > 0) {
         const brushedPlaceNames = new Set(this.linkingStore.brushedPlaces);
@@ -94,6 +113,12 @@ export default {
       deep: true,
     },
     'linkingStore.activeFilters': {
+      handler() {
+        this.$nextTick(this.drawTimeline);
+      },
+      deep: true,
+    },
+    'linkingStore.excludedFilters': {
       handler() {
         this.$nextTick(this.drawTimeline);
       },
