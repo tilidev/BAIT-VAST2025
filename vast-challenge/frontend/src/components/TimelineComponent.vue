@@ -9,6 +9,7 @@ import { useEntityStore } from '../stores/entityStore';
 import { useLinkingStore } from '../stores/linkingStore';
 import { useMapStore } from '../stores/mapStore';
 import { toRaw } from 'vue';
+import { zoneColors } from '../utils/colors';
 
 export default {
   data() {
@@ -19,6 +20,7 @@ export default {
       mapStore: useMapStore(),
       tooltip: null,
       eventRects: null,
+      zoneColors: zoneColors,
     };
   },
   computed: {
@@ -31,13 +33,33 @@ export default {
       return this.persons.map(p => p.id);
     },
 
+    personZoneDistribution() {
+      const distribution = {};
+      this.persons.forEach(person => {
+        const personTrips = this.allEvents.filter(event => event.personId === person.id);
+        const zoneCounts = personTrips.reduce((acc, trip) => {
+          for (const zone in trip.zoneCounts) {
+            acc[zone] = (acc[zone] || 0) + trip.zoneCounts[zone];
+          }
+          return acc;
+        }, {});
+        distribution[person.id] = zoneCounts;
+      });
+      return distribution;
+    },
+
     allEvents() {
       const allTrips = [];
       for (const personId in this.entityStore.personTripActivities) {
         const trips = this.entityStore.personTripActivities[personId];
         trips.forEach(trip => {
-
           if (trip && trip.visited_places && trip.visited_places.length > 0) {
+            const zoneCounts = trip.visited_places.reduce((acc, p) => {
+              const zone = p.place.zone || 'default';
+              acc[zone] = (acc[zone] || 0) + 1;
+              return acc;
+            }, {});
+
             allTrips.push({
               trip: toRaw(trip),
               personId: personId,
@@ -46,6 +68,7 @@ export default {
               startZone: trip.visited_places[0]?.place.zone,
               visitedPlaceNames: trip.visited_places.map(p => p.place.name),
               visitedPlaceIds: trip.visited_places.map(p => p.place.id),
+              zoneCounts: zoneCounts,
             });
           }
         });
@@ -175,6 +198,38 @@ export default {
     }
   },
   methods: {
+    pieChartTooltipFormatter(personData) {
+      const personName = personData.name;
+      const zoneData = this.personZoneDistribution[personData.id];
+      if (!zoneData) return '';
+
+      const totalVisits = Object.values(zoneData).reduce((a, b) => a + b, 0);
+
+      let zoneDetails = '<ul class="mt-2 space-y-1">';
+      if (totalVisits > 0) {
+        const sortedZones = Object.entries(zoneData).sort((a, b) => b[1] - a[1]);
+        for (const [zone, count] of sortedZones) {
+          const percentage = ((count / totalVisits) * 100).toFixed(1);
+          zoneDetails += `
+            <li class="flex items-center text-xs w-48">
+              <span class="w-3 h-3 rounded-full mr-2 flex-shrink-0" style="background-color: ${this.zoneColors[zone] || this.zoneColors.default};"></span>
+              <span class="font-semibold mr-1 truncate">${zone}:</span>
+              <span class="text-gray-600 mr-1">${count}</span>
+              <span class="ml-auto font-medium">${percentage}%</span>
+            </li>
+          `;
+        }
+      } else {
+        zoneDetails += '<li>No visits recorded.</li>';
+      }
+      zoneDetails += '</ul>';
+
+      return `
+        <div class="font-bold text-base text-gray-800 mb-1">${personName}</div>
+        <div class="text-sm text-gray-500 border-b pb-1">Zone Visit Distribution</div>
+        ${zoneDetails}
+      `;
+    },
     getInitials(name) {
       if (!name) return '??';
       const parts = name.split(' ');
@@ -194,7 +249,11 @@ export default {
         <div>
           Visited Places:
           <ul>
-            ${d.trip.visited_places.map(p => `<li>${p.place.name} (${p.place.zone})</li>`).join('')}
+            ${d.trip.visited_places.map(p => `
+              <li class="flex items-center">
+                <span class="w-3 h-3 rounded-full mr-2" style="background-color: ${this.zoneColors[p.place.zone] || this.zoneColors.default};"></span>
+                ${p.place.name} (${p.place.zone})
+              </li>`).join('')}
           </ul>
         </div>
       `;
@@ -284,7 +343,7 @@ export default {
           if (this.tooltip) {
             this.tooltip
               .classed("hidden", false)
-              .html(`<div class="font-semibold">${d.name}</div>`);
+              .html(this.pieChartTooltipFormatter(d));
           }
         })
         .on("mousemove", (event) => {
@@ -300,20 +359,37 @@ export default {
           }
         });
 
+      personAvatars.each((person, i, nodes) => {
+        const avatarGroup = d3.select(nodes[i]);
+        const radius = Math.min(16, yScale.bandwidth() / 2 * 0.9);
+        const zoneData = this.personZoneDistribution[person.id];
 
-      personAvatars.append('circle')
-        .attr('r', Math.min(16, yScale.bandwidth() / 2 * 0.9))
-        .style('fill', d => colorScale(d.id));
+        if (Object.keys(zoneData).length > 0) {
+          const pie = d3.pie().value(d => d[1]);
+          const arc = d3.arc().innerRadius(0).outerRadius(radius);
+          const pieData = pie(Object.entries(zoneData));
 
+          avatarGroup.selectAll('path')
+            .data(pieData)
+            .enter()
+            .append('path')
+            .attr('d', arc)
+            .attr('fill', d => this.zoneColors[d.data[0]] || this.zoneColors.default);
+        } else {
+          avatarGroup.append('circle')
+            .attr('r', radius)
+            .style('fill', colorScale(person.id));
+        }
 
-      personAvatars.append('text')
-        .text(d => this.getInitials(d.name))
-        .attr('text-anchor', 'middle')
-        .attr('dominant-baseline', 'central')
-        .style('fill', 'white')
-        .style('font-size', '10px')
-        .style('font-weight', 'bold')
-        .style('pointer-events', 'none');
+        avatarGroup.append('text')
+          .text(d => this.getInitials(d.name))
+          .attr('text-anchor', 'middle')
+          .attr('dominant-baseline', 'central')
+          .style('fill', 'white')
+          .style('font-size', '10px')
+          .style('font-weight', 'bold')
+          .style('pointer-events', 'none');
+      });
 
       svg.selectAll('.y-grid-line')
         .data(yScale.domain())
@@ -330,26 +406,18 @@ export default {
       const chartArea = svg.append('g')
         .attr("clip-path", "url(#clip)");
 
-      this.eventRects = chartArea.selectAll('.event')
+      this.eventRects = chartArea.selectAll('.event-group')
         .data(filteredEvents)
         .enter()
-        .append('rect')
-        .attr('class', 'event shadow-md')
-        .attr('x', d => xScale(d.startTime))
-        .attr('y', d => yScale(d.personId) ?? 0)
-        .attr('width', d => Math.max(0, xScale(d.endTime) - xScale(d.startTime)))
-        .attr('height', yScale.bandwidth())
-        .attr('fill', d => colorScale(d.personId))
-        .attr('rx', 3)
-        .attr('ry', 3)
-        .style('opacity', 0.8)
+        .append('g')
+        .attr('class', 'event-group')
+        .attr('transform', d => `translate(${xScale(d.startTime)}, ${yScale(d.personId) ?? 0})`)
         .on("mouseover", (event, d) => {
           if (this.tooltip) {
             this.tooltip
               .classed("hidden", false)
               .html(this.tooltipFormatter(d));
-            d3.select(event.currentTarget).style('opacity', 1);
-
+            d3.select(event.currentTarget).selectAll('rect').style('opacity', 1);
             this.linkingStore.setHighlightedPlaceIds(d.visitedPlaceIds);
             this.linkingStore.setHighlightedTrips([d.trip.trip.id]);
           }
@@ -364,11 +432,38 @@ export default {
         .on("mouseout", (event) => {
           if (this.tooltip) {
             this.tooltip.classed("hidden", true);
-            d3.select(event.currentTarget).style('opacity', 0.8);
+            d3.select(event.currentTarget).selectAll('rect').style('opacity', 0.8);
             this.linkingStore.setHighlightedPlaceIds([]);
             this.linkingStore.setHighlightedTrips([]);
           }
         });
+
+      this.eventRects.each((d, i, nodes) => {
+        const group = d3.select(nodes[i]);
+        const totalVisits = Object.values(d.zoneCounts).reduce((a, b) => a + b, 0);
+        if (totalVisits === 0) return;
+
+        const tripWidth = Math.max(0, xScale(d.endTime) - xScale(d.startTime));
+        const tripHeight = yScale.bandwidth();
+        let currentY = 0;
+
+        const sortedZones = Object.entries(d.zoneCounts).sort((a, b) => a[1] - b[1]);
+
+        for (const [zone, count] of sortedZones) {
+          const segmentHeight = (count / totalVisits) * tripHeight;
+
+          group.append('rect')
+            .attr('class', 'event-segment')
+            .attr('x', 0)
+            .attr('y', currentY)
+            .attr('width', tripWidth)
+            .attr('height', segmentHeight)
+            .attr('fill', this.zoneColors[zone] || this.zoneColors.default)
+            .style('opacity', 0.8);
+
+          currentY += segmentHeight;
+        }
+      });
 
       const zoom = d3.zoom()
         .scaleExtent([0.5, 20])
@@ -381,9 +476,38 @@ export default {
             .attr("dx", "-.8em")
             .attr("dy", ".15em")
             .attr("transform", "rotate(-45)");
+
           this.eventRects
-            .attr('x', d => newXScale(d.startTime))
-            .attr('width', d => Math.max(0, newXScale(d.endTime) - newXScale(d.startTime)));
+            .attr('transform', d => `translate(${newXScale(d.startTime)}, ${yScale(d.personId) ?? 0})`);
+
+          this.eventRects.each(function (d) {
+            const group = d3.select(this);
+            group.selectAll('.event-segment').remove(); // Clear existing segments
+
+            const totalVisits = Object.values(d.zoneCounts).reduce((a, b) => a + b, 0);
+            if (totalVisits === 0) return;
+
+            const tripWidth = Math.max(0, newXScale(d.endTime) - newXScale(d.startTime));
+            const tripHeight = yScale.bandwidth();
+            let currentY = 0;
+
+            const sortedZones = Object.entries(d.zoneCounts).sort((a, b) => a[1] - b[1]);
+
+            for (const [zone, count] of sortedZones) {
+              const segmentHeight = (count / totalVisits) * tripHeight;
+
+              group.append('rect')
+                .attr('class', 'event-segment')
+                .attr('x', 0)
+                .attr('y', currentY)
+                .attr('width', tripWidth)
+                .attr('height', segmentHeight)
+                .attr('fill', zoneColors[zone] || zoneColors.default)
+                .style('opacity', 0.8);
+
+              currentY += segmentHeight;
+            }
+          });
         });
 
       svg.call(zoom);
@@ -417,7 +541,7 @@ export default {
 
       const hoveredFilters = this.linkingStore.hoveredFilters;
 
-      this.eventRects.style('opacity', d => {
+      this.eventRects.selectAll('rect').style('opacity', d => {
         if (hoveredFilters.length === 0) {
           return 0.8;
         }
@@ -448,25 +572,21 @@ export default {
       const { highlightedTrips, hoveredPlaceId } = this.linkingStore;
 
       this.eventRects
-        .style('stroke', d => {
-          const isTripHighlighted = highlightedTrips.includes(d.trip.trip.id);
-          const isPlaceHovered = hoveredPlaceId && d.visitedPlaceIds.includes(hoveredPlaceId);
-          return isTripHighlighted || isPlaceHovered ? 'red' : 'none';
-        })
-        .style('stroke-width', d => {
-          const isTripHighlighted = highlightedTrips.includes(d.trip.trip.id);
-          const isPlaceHovered = hoveredPlaceId && d.visitedPlaceIds.includes(hoveredPlaceId);
-          return isTripHighlighted || isPlaceHovered ? 2 : 0;
-        })
-        .style('opacity', d => {
+        .each(function (d) {
+          const group = d3.select(this);
           const isTripHighlighted = highlightedTrips.includes(d.trip.trip.id);
           const isPlaceHovered = hoveredPlaceId && d.visitedPlaceIds.includes(hoveredPlaceId);
           const isHighlighted = isTripHighlighted || isPlaceHovered;
 
-          if (highlightedTrips.length > 0 || hoveredPlaceId) {
-            return isHighlighted ? 0.8 : 0.3;
-          }
-          return 0.8;
+          group.selectAll('rect')
+            .style('stroke', isHighlighted ? 'red' : 'none')
+            .style('stroke-width', isHighlighted ? 2 : 0)
+            .style('opacity', () => {
+              if (highlightedTrips.length > 0 || hoveredPlaceId) {
+                return isHighlighted ? 0.8 : 0.3;
+              }
+              return 0.8;
+            });
         });
     },
   },
