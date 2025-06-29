@@ -68,6 +68,8 @@ export default {
                 return parentFeatureName === filter.value;
               } else if (filter.type === 'zone') {
                 return place.zone === filter.value;
+              } else if (filter.type === 'in_graph') {
+                return place.in_graph && Array.isArray(place.in_graph) && place.in_graph.includes(filter.value);
               }
               return false;
             });
@@ -87,6 +89,8 @@ export default {
                 return parentFeatureName === filter.value;
               } else if (filter.type === 'zone') {
                 return place.zone === filter.value;
+              } else if (filter.type === 'in_graph') {
+                return place.in_graph && Array.isArray(place.in_graph) && place.in_graph.includes(filter.value);
               }
               return false;
             });
@@ -428,6 +432,8 @@ export default {
               return parentFeatureName === filter.value;
             } else if (filter.type === 'zone') {
               return place.zone === filter.value;
+            } else if (filter.type === 'in_graph') {
+              return place.in_graph && Array.isArray(place.in_graph) && place.in_graph.includes(filter.value);
             }
             return false;
           });

@@ -295,6 +295,8 @@ export default {
               return parentFeatureName === filter.value;
             } else if (filter.type === 'zone') {
               return d.zone === filter.value;
+            } else if (filter.type === 'in_graph') {
+              return d.in_graph && Array.isArray(d.in_graph) && d.in_graph.includes(filter.value);
             }
             return false;
           });
@@ -306,6 +308,8 @@ export default {
               return parentFeatureName === filter.value;
             } else if (filter.type === 'zone') {
               return d.zone === filter.value;
+            } else if (filter.type === 'in_graph') {
+              return d.in_graph && Array.isArray(d.in_graph) && d.in_graph.includes(filter.value);
             }
             return false;
           });

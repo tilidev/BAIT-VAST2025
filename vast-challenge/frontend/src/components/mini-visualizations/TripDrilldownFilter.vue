@@ -32,7 +32,23 @@
           @item-selected="handleZoneSelected"
           @item-excluded="handleZoneExcluded"
           @item-hover="handleZoneHover"
-          @unhover="handleZoneUnhover"
+          @item-unhover="handleZoneUnhover"
+        />
+      </div>
+      <div class="mt-4">
+        <HorizontalBarFilter
+          :data="tripsPerInGraphWithAllCounts"
+          labelKey="in_graph"
+          totalValueKey="totalCount"
+          activeValueKey="activeCount"
+          previewValueKey="previewCount"
+          title="Trips per In-Graph"
+          :maxBarValue="maxTripCount"
+          :activeColor="neutralBaseColor"
+          @item-selected="handleInGraphSelected"
+          @item-excluded="handleInGraphExcluded"
+          @item-hover="handleInGraphHover"
+          @item-unhover="handleInGraphUnhover"
         />
       </div>
     </div>
@@ -58,6 +74,7 @@ export default {
       mapStore: useMapStore(),
       hoveredIsland: null,
       hoveredZone: null,
+      hoveredInGraph: null,
       neutralBaseColor: neutralBaseColor,
     };
   },
@@ -74,10 +91,14 @@ export default {
     tripsPerZoneWithAllCounts() {
       return this.generateBarData('zone');
     },
+    tripsPerInGraphWithAllCounts() {
+      return this.generateBarData('in_graph');
+    },
     maxTripCount() {
       const allCounts = [
         ...this.tripsPerIslandWithAllCounts.map(d => d.totalCount),
         ...this.tripsPerZoneWithAllCounts.map(d => d.totalCount),
+        ...this.tripsPerInGraphWithAllCounts.map(d => d.totalCount),
       ];
       return Math.max(...allCounts, 1);
     },
@@ -105,6 +126,11 @@ export default {
         this.updateHoveredFilters();
       }
     },
+    hoveredInGraph(newVal, oldVal) {
+      if (newVal !== oldVal) {
+        this.updateHoveredFilters();
+      }
+    },
   },
   methods: {
     updateHoveredFilters() {
@@ -114,6 +140,9 @@ export default {
       }
       if (this.hoveredZone) {
         filters.push({ type: 'zone', value: this.hoveredZone });
+      }
+      if (this.hoveredInGraph) {
+        filters.push({ type: 'in_graph', value: this.hoveredInGraph });
       }
       this.linkingStore.setHoveredFilters(filters);
     },
@@ -132,6 +161,8 @@ export default {
                 return parentFeatureName === filter.value;
               } else if (filter.type === 'zone') {
                 return place.zone === filter.value;
+              } else if (filter.type === 'in_graph') {
+                return place.in_graph && Array.isArray(place.in_graph) && place.in_graph.includes(filter.value);
               }
               return false;
             });
@@ -151,6 +182,8 @@ export default {
                 return parentFeatureName === filter.value;
               } else if (filter.type === 'zone') {
                 return place.zone === filter.value;
+              } else if (filter.type === 'in_graph') {
+                return place.in_graph && Array.isArray(place.in_graph) && place.in_graph.includes(filter.value);
               }
               return false;
             });
@@ -185,6 +218,9 @@ export default {
       if (this.hoveredZone) {
         hoveredFilters.push({ type: 'zone', value: this.hoveredZone });
       }
+      if (this.hoveredInGraph) {
+        hoveredFilters.push({ type: 'in_graph', value: this.hoveredInGraph });
+      }
 
       if (hoveredFilters.length > 0) {
         const combinedFilters = [...this.linkingStore.activeFilters, ...hoveredFilters];
@@ -217,7 +253,26 @@ export default {
                 uniqueLabels.push(zone);
             }
         });
+      } else if (filterType === 'in_graph') {
+        const allInGraphs = new Set(['jo', 'fi', 'tr']);
+        allInGraphs.forEach(inGraph => {
+          if (!uniqueLabels.includes(inGraph)) {
+            uniqueLabels.push(inGraph);
+          }
+        });
       }
+
+      const activeFilterValues = new Set(
+        this.linkingStore.activeFilters
+          .filter(f => f.type === filterType)
+          .map(f => f.value)
+      );
+
+      const excludedFilterValues = new Set(
+        this.linkingStore.excludedFilters
+          .filter(f => f.type === filterType)
+          .map(f => f.value)
+      );
 
       const results = uniqueLabels.map(label => {
         const totalCount = allCountsMap.get(label) || 0;
@@ -229,10 +284,12 @@ export default {
           totalCount: totalCount,
           activeCount: activeCount,
           previewCount: hoveredFilters.length > 0 ? previewCount : 0,
+          isActive: activeFilterValues.has(label),
+          isExcluded: excludedFilterValues.has(label),
         };
       });
 
-      return results.filter(item => item.totalCount > 0);
+      return results.filter(item => item.totalCount > 0 || item.isActive || item.isExcluded);
     },
     processTripData(activities, filterType) {
       const counts = new Map();
@@ -244,15 +301,19 @@ export default {
             return;
           }
 
-          let label = null;
           if (filterType === 'island') {
-            label = this.mapStore.getParentFeatureByPlaceId(place.id);
+            const label = this.mapStore.getParentFeatureByPlaceId(place.id);
+            if (label) {
+              labels.add(label);
+            }
           } else if (filterType === 'zone') {
-            label = place.zone;
-          }
-
-          if (label) {
-            labels.add(label);
+            if (place.zone) {
+              labels.add(place.zone);
+            }
+          } else if (filterType === 'in_graph') {
+            if (place.in_graph && Array.isArray(place.in_graph)) {
+              place.in_graph.forEach(ig => labels.add(ig));
+            }
           }
         });
 
@@ -285,6 +346,18 @@ export default {
     },
     handleZoneUnhover() {
       this.hoveredZone = null;
+    },
+    handleInGraphSelected(inGraph) {
+      this.linkingStore.toggleFilter({ type: 'in_graph', value: inGraph });
+    },
+    handleInGraphExcluded(inGraph) {
+      this.linkingStore.toggleExcludeFilter({ type: 'in_graph', value: inGraph });
+    },
+    handleInGraphHover(inGraph) {
+      this.hoveredInGraph = inGraph;
+    },
+    handleInGraphUnhover() {
+      this.hoveredInGraph = null;
     },
   },
 };

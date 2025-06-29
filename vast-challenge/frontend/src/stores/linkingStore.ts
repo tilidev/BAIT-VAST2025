@@ -2,8 +2,8 @@ import { defineStore } from 'pinia';
 
 export const useLinkingStore = defineStore('linking', {
   state: () => ({
-    activeFilters: [], // Stores filter options as objects { type: 'island' | 'zone', value: string }
-    excludedFilters: [], // Stores filter options as objects { type: 'island' | 'zone', value: string }
+    activeFilters: [], // Stores filter options as objects { type: 'island' | 'zone' | 'in_graph', value: string }
+    excludedFilters: [], // Stores filter options as objects { type: 'island' | 'zone' | 'in_graph', value: string }
     hoveredFilters: [], // Stores filter options for previewing
     highlightedPlaceIds: [], // Stores place IDs for cross-component highlighting
     brushedPlaces: [], // Stores place names selected by the brush tool

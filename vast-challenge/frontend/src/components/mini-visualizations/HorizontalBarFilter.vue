@@ -22,7 +22,7 @@
           <button
             @click.stop="handleItemExclude(item)"
             class="mr-2 px-2 py-1 text-xs font-semibold text-white bg-gray-800 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-            :class="{ 'opacity-100': isItemExcluded(item[labelKey]) }"
+            :class="{ 'opacity-100': item.isExcluded }"
           >
             -
           </button>
@@ -30,9 +30,9 @@
             @click="handleItemClick(item)"
             class="text-sm font-medium mr-2"
             :class="{
-              'text-blue-500 font-bold': isItemSelected(item[labelKey]),
-              'text-red-500 line-through': isItemExcluded(item[labelKey]),
-              'text-gray-800': !isItemSelected(item[labelKey]) && !isItemExcluded(item[labelKey]),
+              'text-blue-500 font-bold': item.isActive,
+              'text-red-500 line-through': item.isExcluded,
+              'text-gray-800': !item.isActive && !item.isExcluded,
             }"
           >
             {{ item[labelKey] }} ({{ item[activeValueKey] }})
@@ -54,7 +54,7 @@
           </div>
         </div>
         <button
-          v-if="!isItemSelected(item[labelKey])"
+          v-if="!item.isActive"
           @click.stop="handleItemClick(item)"
           class="ml-3 px-2 py-1 text-xs font-semibold text-white bg-gray-800 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200"
         >
@@ -73,8 +73,6 @@
 </template>
 
 <script>
-import { useLinkingStore } from '../../stores/linkingStore';
-
 export default {
   name: 'HorizontalBarFilter',
   props: {
@@ -115,7 +113,6 @@ export default {
   data() {
     return {
       searchQuery: '',
-      linkingStore: useLinkingStore(),
     };
   },
   computed: {
@@ -152,16 +149,6 @@ export default {
     },
     handleItemUnhover() {
       this.$emit('item-unhover');
-    },
-    isItemSelected(value) {
-      return this.linkingStore.activeFilters.some(
-        (filter) => filter.type === this.title.split(' ')[2].toLowerCase() && filter.value === value
-      );
-    },
-    isItemExcluded(value) {
-      return this.linkingStore.excludedFilters.some(
-        (filter) => filter.type === this.title.split(' ')[2].toLowerCase() && filter.value === value
-      );
     },
   },
 };
