@@ -1,5 +1,39 @@
 <template>
-  <div ref="timelineContainer" class="timeline-container">
+  <div class="w-full h-full relative">
+    <div ref="timelineContainer" class="timeline-container w-full h-full"></div>
+    <div class="absolute top-2 right-2 z-10 flex items-center space-x-2">
+      <button @click="resetZoom" class="p-1.5 bg-white/80 rounded-full shadow-md hover:bg-white focus:outline-none transition-colors duration-200">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+ <path d="M12 5V1L7 6L12 11V7C15.31 7 18 9.69 18 13C18 16.31 15.31 19 12 19C8.69 19 6 16.31 6 13H4C4 17.42 7.58 21 12 21C16.42 21 20 17.42 20 13C20 8.58 16.42 5 12 5Z" fill="currentColor"/> 
+        </svg>
+      </button>
+      <div class="relative">
+        <button @mouseover="showHelp = true" @mouseleave="showHelp = false" class="p-1.5 bg-white/80 rounded-full shadow-md hover:bg-white focus:outline-none transition-colors duration-200">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </button>
+        <transition name="fade">
+          <div v-if="showHelp" class="absolute right-0 mt-2 w-72 p-4 bg-white rounded-xl shadow-2xl border border-gray-200 text-sm text-gray-800">
+            <p class="font-bold text-lg mb-3 text-gray-900">Timeline Interactions</p>
+            <ul class="space-y-3">
+              <li class="flex items-center">
+                <svg class="h-5 w-5 text-blue-500 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L8 9l11 4-5 2zm0 0l5 5M7.5 8.5A2.5 2.5 0 0110 6v0a2.5 2.5 0 012.5 2.5v0" /></svg>
+                <div><span class="font-semibold">Hover</span> over trips or avatars for details.</div>
+              </li>
+              <li class="flex items-center">
+                <svg class="h-5 w-5 text-purple-500 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 10l-2 2m2-2l2 2" /></svg>
+                <div><span class="font-semibold">Scroll/Pan</span> to zoom and navigate the timeline.</div>
+              </li>
+               <li class="flex items-center">
+                <svg class="h-5 w-5 text-gray-500 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 11.664 0l3.18-3.185m-3.181-4.991v-4.992a8.25 8.25 0 0 0-11.664 0l-3.18 3.185" /></svg>
+                <div><span class="font-semibold">Click the icon</span> to reset zoom.</div>
+              </li>
+            </ul>
+          </div>
+        </transition>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -14,6 +48,7 @@ import { zoneColors } from '../utils/colors';
 export default {
   data() {
     return {
+      showHelp: false,
       timelineContainer: null,
       entityStore: useEntityStore(),
       linkingStore: useLinkingStore(),
@@ -465,7 +500,7 @@ export default {
         }
       });
 
-      const zoom = d3.zoom()
+      this.zoom = d3.zoom()
         .scaleExtent([0.5, 20])
         .translateExtent([[0, 0], [width, height]])
         .on('zoom', (event) => {
@@ -510,31 +545,16 @@ export default {
           });
         });
 
-      svg.call(zoom);
-
-
-      const resetZoomButton = svg.append('g')
-        .attr('transform', `translate(${width - marginRight + 10}, ${marginTop})`)
-        .style('cursor', 'pointer')
-        .on('click', () => {
-          svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
-        });
-
-      resetZoomButton.append('rect')
-        .attr('width', 20)
-        .attr('height', 20)
-        .attr('fill', '#f0f0f0')
-        .attr('rx', 3)
-        .attr('ry', 3);
-
-      resetZoomButton.append('text')
-        .attr('x', 10)
-        .attr('y', 10)
-        .attr('text-anchor', 'middle')
-        .attr('dominant-baseline', 'central')
-        .text('\u21BA');
+      svg.call(this.zoom);
 
       this.updateHighlighting();
+    },
+
+    resetZoom() {
+      const svg = d3.select(this.$refs.timelineContainer).select('svg');
+      if (svg && this.zoom) {
+        svg.transition().duration(750).call(this.zoom.transform, d3.zoomIdentity);
+      }
     },
     updatePreviewHighlighting() {
       if (!this.eventRects) return;
@@ -600,5 +620,16 @@ export default {
 
 .timeline-container :deep(.axis.x-axis .tick text) {
   font-size: 0.75rem;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
 }
 </style>

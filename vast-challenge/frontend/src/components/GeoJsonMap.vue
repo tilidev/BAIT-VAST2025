@@ -1,5 +1,33 @@
 <template>
-  <div ref="geoJsonMapContainer" class="w-full h-full"></div>
+  <div class="w-full h-full relative">
+    <div ref="geoJsonMapContainer" class="w-full h-full"></div>
+    <div class="absolute top-2 right-2 z-10">
+      <button @mouseover="showHelp = true" @mouseleave="showHelp = false" class="p-1.5 bg-white/80 rounded-full shadow-md hover:bg-white focus:outline-none transition-colors duration-200">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </button>
+      <transition name="fade">
+        <div v-if="showHelp" class="absolute right-0 mt-2 w-72 p-4 bg-white rounded-xl shadow-2xl border border-gray-200 text-sm text-gray-800">
+          <p class="font-bold text-lg mb-3 text-gray-900">Map Interactions</p>
+          <ul class="space-y-3">
+            <li class="flex items-center">
+              <svg class="h-5 w-5 text-blue-500 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L8 9l11 4-5 2zm0 0l5 5M7.5 8.5A2.5 2.5 0 0110 6v0a2.5 2.5 0 012.5 2.5v0" /></svg>
+              <div><span class="font-semibold">Hover</span> to see details of regions and data points.</div>
+            </li>
+            <li class="flex items-center">
+              <svg class="h-5 w-5 text-green-500 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+              <div><span class="font-semibold">Right-click & Drag</span> to select and filter data points.</div>
+            </li>
+            <li class="flex items-center">
+              <svg class="h-5 w-5 text-purple-500 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 10l-2 2m2-2l2 2" /></svg>
+              <div><span class="font-semibold">Scroll/Pan</span> to zoom and navigate the map.</div>
+            </li>
+          </ul>
+        </div>
+      </transition>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -15,6 +43,7 @@ import { zoneColors } from '../utils/colors';
 export default {
   data() {
     return {
+      showHelp: false,
       width: 0,
       height: 0,
       projection: null,
@@ -411,5 +440,16 @@ export default {
 .brush .selection {
   fill: rgba(100, 100, 100, 0.3);
   stroke: #fff;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
 }
 </style>
