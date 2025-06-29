@@ -14,59 +14,67 @@
       <div
         v-for="(item, index) in filteredData"
         :key="index"
-        class="flex items-center justify-between group cursor-pointer py-1"
+        class="grid grid-cols-[12rem_1fr_auto] items-center gap-x-2 group cursor-pointer py-1"
         @mouseover="handleItemHover(item)"
         @mouseleave="handleItemUnhover()"
       >
-        <div class="flex-grow flex items-center">
+        <!-- Column 1: Label and exclude button -->
+        <div class="flex items-center truncate">
           <button
             @click.stop="handleItemExclude(item)"
-            class="mr-2 px-2 py-1 text-xs font-semibold text-white bg-gray-800 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+            class="mr-2 px-2 py-1 text-xs font-semibold text-white bg-gray-800 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0"
             :class="{ 'opacity-100': item.isExcluded }"
           >
             -
           </button>
           <span
             @click="handleItemClick(item)"
-            class="text-sm font-medium mr-2"
+            class="text-sm font-medium truncate"
             :class="{
               'text-blue-500 font-bold': item.isActive,
               'text-red-500 line-through': item.isExcluded,
               'text-gray-800': !item.isActive && !item.isExcluded,
             }"
+            :title="`${item[labelKey]} (${item[activeValueKey]})`"
           >
             {{ item[labelKey] }} ({{ item[activeValueKey] }})
           </span>
-          <div
-            class="relative h-4 bg-gray-400 rounded-sm overflow-hidden"
-            :style="{ width: calculateBarWidth(item[totalValueKey]) }"
-          >
-            <!-- Active bar (neutralBaseColor) -->
-            <div
-              class="absolute inset-0 transition-all duration-300 ease-out"
-              :style="{ width: calculateBarWidth(item[activeValueKey]), backgroundColor: activeColor }"
-            ></div>
-            <!-- Preview bar (orange) -->
-            <div
-              class="absolute inset-0 bg-orange-500 transition-all duration-300 ease-out"
-              :style="{ width: calculateBarWidth(item[previewValueKey]) }"
-            ></div>
-          </div>
         </div>
-        <button
-          v-if="!item.isActive"
-          @click.stop="handleItemClick(item)"
-          class="ml-3 px-2 py-1 text-xs font-semibold text-white bg-gray-800 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+
+        <!-- Column 2: Bar -->
+        <div
+          class="relative h-4 bg-gray-400 rounded-sm overflow-hidden"
+          :style="{ width: calculateBarWidth(item[totalValueKey]) }"
         >
-          + Add
-        </button>
-        <button
-          v-else
-          @click.stop="handleItemClick(item)"
-          class="ml-3 px-2 py-1 text-xs font-semibold text-white bg-red-500 rounded-md"
-        >
-          - Remove
-        </button>
+          <!-- Active bar (neutralBaseColor) -->
+          <div
+            class="absolute inset-0 transition-all duration-300 ease-out"
+            :style="{ width: calculateBarWidth(item[activeValueKey]), backgroundColor: activeColor }"
+          ></div>
+          <!-- Preview bar (orange) -->
+          <div
+            class="absolute inset-0 bg-orange-500 transition-all duration-300 ease-out"
+            :style="{ width: calculateBarWidth(item[previewValueKey]) }"
+          ></div>
+        </div>
+
+        <!-- Column 3: Add/Remove button -->
+        <div class="flex items-center">
+          <button
+            v-if="!item.isActive"
+            @click.stop="handleItemClick(item)"
+            class="px-2 py-1 text-xs font-semibold text-white bg-gray-800 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          >
+            + Add
+          </button>
+          <button
+            v-else
+            @click.stop="handleItemClick(item)"
+            class="px-2 py-1 text-xs font-semibold text-white bg-red-500 rounded-md"
+          >
+            - Remove
+          </button>
+        </div>
       </div>
     </div>
   </div>
