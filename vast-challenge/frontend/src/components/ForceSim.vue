@@ -206,7 +206,7 @@ export default {
       leftSim: null,
       rightSim: null,
       activeDataset: 'all',
-      datasets: ['all'],
+      datasets: [],
       industries: [],
       leftIndustry: 'large vessel',
       rightIndustry: 'tourism',
@@ -233,7 +233,7 @@ export default {
       const res = await fetch('/api/industry-pro-contra-sentiments');
       const data = await res.json();
       this.allData = data.filter(d => d.agg_sentiment !== 0);
-      this.datasets = ['all', ...new Set(this.allData.map(d => d.dataset))];
+      this.datasets = [...new Set(this.allData.map(d => d.dataset))];
       this.industries = [...new Set(this.allData.map(d => d.industry))];
       this.splitNodesBySupportedSide();
       // initial render & simulation start
@@ -279,7 +279,8 @@ export default {
 
     isActive(node) {
       return this.activeDataset === 'all' ||
-             node.data.dataset === this.activeDataset;
+             node.data.dataset === this.activeDataset ||
+             node.data.dataset === 'all';
     },
 
     updateStylesOnly() {
