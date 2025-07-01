@@ -1,27 +1,27 @@
 <template>
-  <div class="p-4 border rounded-lg shadow-md bg-white">
+  <div>
     <h3 class="text-lg font-semibold mb-3 text-gray-700">{{ title }}</h3>
     <div v-if="data.length === 0" class="text-center text-gray-500">No data available.</div>
     <div v-else class="space-y-2">
       <div
         v-for="(item, index) in data"
         :key="index"
-        class="grid grid-cols-[12rem_1fr_auto] items-center gap-x-2 group cursor-pointer py-1"
+        class="flex items-center gap-x-2 group cursor-pointer py-1"
         @mouseover="handleItemHover(item)"
         @mouseleave="handleItemUnhover()"
       >
         <!-- Column 1: Label and exclude button -->
-        <div class="flex items-center truncate">
+        <div class="flex items-start" style="flex-basis: 25%; min-width: 120px">
           <button
             @click.stop="handleItemExclude(item)"
-            class="mr-2 px-2 py-1 text-xs font-semibold text-white bg-gray-800 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0"
+            class="mr-2 mt-0.5 px-2 py-1 text-xs font-semibold text-white bg-gray-800 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0"
             :class="{ 'opacity-100': item.isExcluded }"
           >
             -
           </button>
           <span
             @click="handleItemClick(item)"
-            class="text-sm font-medium truncate"
+            class="text-sm font-medium"
             :class="{
               'text-blue-500 font-bold': item.isActive,
               'text-red-500 line-through': item.isExcluded,
@@ -29,29 +29,32 @@
             }"
             :title="`${item[labelKey]} (${item[activeValueKey]})`"
           >
-            {{ item[labelKey] }} ({{ item[activeValueKey] }})
+            {{ item[labelKey] }}
+            <span class="whitespace-nowrap">({{ item[activeValueKey] }})</span>
           </span>
         </div>
 
         <!-- Column 2: Bar -->
-        <div
-          class="relative h-4 bg-gray-400 rounded-sm overflow-hidden"
-          :style="{ width: calculateBarWidth(item[totalValueKey]) }"
-        >
-          <!-- Active bar (neutralBaseColor) -->
+        <div class="flex-1 relative h-4 bg-gray-200 rounded-sm overflow-hidden">
+          <!-- Base bar for total -->
           <div
-            class="absolute inset-0 transition-all duration-300 ease-out"
+            class="absolute h-full bg-gray-400 transition-all duration-300 ease-out"
+            :style="{ width: calculateBarWidth(item[totalValueKey]) }"
+          ></div>
+          <!-- Active bar (overlaid) -->
+          <div
+            class="absolute h-full transition-all duration-300 ease-out"
             :style="{ width: calculateBarWidth(item[activeValueKey]), backgroundColor: activeColor }"
           ></div>
-          <!-- Preview bar (orange) -->
+          <!-- Preview bar (overlaid) -->
           <div
-            class="absolute inset-0 bg-orange-500 transition-all duration-300 ease-out"
+            class="absolute h-full bg-orange-500 transition-all duration-300 ease-out"
             :style="{ width: calculateBarWidth(item[previewValueKey]) }"
           ></div>
         </div>
 
         <!-- Column 3: Add/Remove button -->
-        <div class="flex items-center">
+        <div class="flex-shrink-0">
           <button
             v-if="!item.isActive"
             @click.stop="handleItemClick(item)"

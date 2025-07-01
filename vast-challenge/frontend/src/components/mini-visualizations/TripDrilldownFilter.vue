@@ -1,56 +1,49 @@
 <template>
-  <div class="p-4 border rounded-lg shadow-md bg-white">
-    <h3 class="text-lg font-semibold mb-3 text-gray-700">Trip Analysis</h3>
+  <div>
     <div v-if="isLoading" class="text-center text-gray-500">Loading data...</div>
-    <div v-else>
-      <div>
-        <HorizontalBarFilter
-          :data="tripsPerIslandWithAllCounts"
-          labelKey="island"
-          totalValueKey="totalCount"
-          activeValueKey="activeCount"
-          previewValueKey="previewCount"
-          title="Trips per Island"
-          :maxBarValue="maxTripCount"
-          :activeColor="neutralBaseColor"
-          @item-selected="handleIslandSelected"
-          @item-excluded="handleIslandExcluded"
-          @item-hover="handleIslandHover"
-          @item-unhover="handleIslandUnhover"
-        />
-      </div>
-      <div class="mt-4">
-        <HorizontalBarFilter
-          :data="tripsPerZoneWithAllCounts"
-          labelKey="zone"
-          totalValueKey="totalCount"
-          activeValueKey="activeCount"
-          previewValueKey="previewCount"
-          title="Trips per Zone"
-          :maxBarValue="maxTripCount"
-          :activeColor="neutralBaseColor"
-          @item-selected="handleZoneSelected"
-          @item-excluded="handleZoneExcluded"
-          @item-hover="handleZoneHover"
-          @item-unhover="handleZoneUnhover"
-        />
-      </div>
-      <div class="mt-4">
-        <HorizontalBarFilter
-          :data="tripsPerInGraphWithAllCounts"
-          labelKey="in_graph"
-          totalValueKey="totalCount"
-          activeValueKey="activeCount"
-          previewValueKey="previewCount"
-          title="Trips per In-Graph"
-          :maxBarValue="maxTripCount"
-          :activeColor="neutralBaseColor"
-          @item-selected="handleInGraphSelected"
-          @item-excluded="handleInGraphExcluded"
-          @item-hover="handleInGraphHover"
-          @item-unhover="handleInGraphUnhover"
-        />
-      </div>
+    <div v-else class="space-y-4">
+      <HorizontalBarFilter
+        :data="tripsPerIslandWithAllCounts"
+        labelKey="island"
+        totalValueKey="totalCount"
+        activeValueKey="activeCount"
+        previewValueKey="previewCount"
+        title="Trips per Island"
+        :maxBarValue="maxTripCount"
+        :activeColor="neutralBaseColor"
+        @item-selected="handleIslandSelected"
+        @item-excluded="handleIslandExcluded"
+        @item-hover="handleIslandHover"
+        @item-unhover="handleIslandUnhover"
+      />
+      <HorizontalBarFilter
+        :data="tripsPerZoneWithAllCounts"
+        labelKey="zone"
+        totalValueKey="totalCount"
+        activeValueKey="activeCount"
+        previewValueKey="previewCount"
+        title="Trips per Zone"
+        :maxBarValue="maxTripCount"
+        :activeColor="neutralBaseColor"
+        @item-selected="handleZoneSelected"
+        @item-excluded="handleZoneExcluded"
+        @item-hover="handleZoneHover"
+        @item-unhover="handleZoneUnhover"
+      />
+      <HorizontalBarFilter
+        :data="tripsPerInGraphWithAllCounts"
+        labelKey="in_graph"
+        totalValueKey="totalCount"
+        activeValueKey="activeCount"
+        previewValueKey="previewCount"
+        title="Trips per In-Graph"
+        :maxBarValue="maxTripCount"
+        :activeColor="neutralBaseColor"
+        @item-selected="handleInGraphSelected"
+        @item-excluded="handleInGraphExcluded"
+        @item-hover="handleInGraphHover"
+        @item-unhover="handleInGraphUnhover"
+      />
     </div>
   </div>
 </template>
