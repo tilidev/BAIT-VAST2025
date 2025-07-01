@@ -1,5 +1,5 @@
 <template>
-  <div class="flex">
+  <div class="w-full h-full" ref="el">
     <AdjacencyMatrix
       class="flex-auto"
       :data="sentimentMatrixData"
@@ -13,7 +13,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, useTemplateRef } from 'vue';
+import { defineComponent, PropType } from 'vue';
 import { useElementSize } from '@vueuse/core'
 import { useGraphStore } from '../stores/graphStore';
 import AdjacencyMatrix from './AdjacencyMatrix.vue';
