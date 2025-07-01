@@ -4,11 +4,13 @@
       @update:activeTab="setActiveTab" />
 
     <!-- Main Content Area -->
-    <main class="flex-grow p-4 overflow-auto transition-all duration-300 ease-in-out">
+    <main class="flex-grow p-4 flex flex-col gap-4 overflow-hidden transition-all duration-300 ease-in-out">
       <IdSelectionPanel />
-      <OverviewTab v-if="activeTab === 'overview'" />
-      <DetailedAnalysisTab v-else-if="activeTab === 'detailed-analysis'" />
-      <TripAnalysisTab v-else-if="activeTab === 'trip-analysis'" />
+      <div class="flex-grow overflow-hidden">
+        <OverviewTab v-if="activeTab === 'overview'" />
+        <DetailedAnalysisTab v-else-if="activeTab === 'detailed-analysis'" />
+        <TripAnalysisTab v-else-if="activeTab === 'trip-analysis'" />
+      </div>
     </main>
   </div>
 </template>
