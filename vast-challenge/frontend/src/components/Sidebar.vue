@@ -1,6 +1,6 @@
 <template>
-  <aside :class="sidebarExpanded ? 'w-64' : 'w-20'"
-    class="bg-white dark:bg-gray-800 shadow-md p-4 flex flex-col transition-all duration-300 ease-in-out">
+  <aside :class="sidebarExpanded ? 'w-80' : 'w-20'"
+    class="h-screen bg-white dark:bg-gray-800 shadow-md p-4 flex flex-col transition-all duration-300 ease-in-out">
     <div class="flex items-center justify-between mb-6">
       <h1 v-if="sidebarExpanded" class="text-2xl font-bold text-center">Visual Analytics Dashboard</h1>
       <button @click="toggleSidebar" class="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700">
@@ -15,8 +15,10 @@
       </button>
     </div>
 
-    <!-- Navigation -->
-    <nav class="mb-6 flex flex-col space-y-4">
+    <!-- Scrollable Content -->
+    <div class="flex-grow overflow-y-auto">
+      <!-- Navigation -->
+      <nav class="mb-6 flex flex-col space-y-4">
       <button @click="setActiveTab('overview')"
         :class="{ 'bg-blue-500 text-white': activeTab === 'overview', 'hover:bg-gray-200 dark:hover:bg-gray-700': activeTab !== 'overview' }"
         class="p-2 rounded-md transition-colors duration-200 flex items-center"
@@ -54,22 +56,23 @@
 
     <!-- Controls -->
     <div v-if="sidebarExpanded" class="space-y-4 mb-6">
-      <h3 class="text-lg font-semibold mb-2">Controls</h3>
-      <div class="p-2 border border-gray-300 dark:border-gray-600 rounded-md">
-        <IdSelectionPanel />
-      </div>
     </div>
 
     <!-- Future Options Placeholder -->
-    <div v-if="sidebarExpanded" class="flex-grow border-t border-gray-200 dark:border-gray-700 pt-4">
-      <h3 class="text-lg font-semibold mb-2">Options</h3>
-      <p class="text-sm text-gray-600 dark:text-gray-400">
+    <div v-if="sidebarExpanded" class="border-t border-gray-200 dark:border-gray-700 pt-4">
+      <h2 class="text-lg font-semibold mb-2">Options</h2>
+
+      <div v-if="activeTab === 'trip-analysis'">
+        <TripDrilldownFilter />
+      </div>
+      <p v-else class="text-sm text-gray-600 dark:text-gray-400">
         More options will be added here in the future.
       </p>
     </div>
+    </div>
 
     <!-- Theme Switcher at the bottom -->
-    <div class="mt-auto p-2 flex justify-center">
+    <div class="p-2 flex justify-center">
       <ThemeSwitcher />
     </div>
   </aside>
@@ -78,14 +81,14 @@
 <script>
 import { defineComponent } from 'vue';
 import ThemeSwitcher from './ThemeSwitcher.vue';
-import IdSelectionPanel from './IdSelectionPanel.vue';
+import TripDrilldownFilter from './mini-visualizations/TripDrilldownFilter.vue';
 import { useFilterStore } from '../stores/filterStore';
 
 export default defineComponent({
   name: 'Sidebar',
   components: {
     ThemeSwitcher,
-    IdSelectionPanel
+    TripDrilldownFilter,
   },
   props: {
     sidebarExpanded: {
