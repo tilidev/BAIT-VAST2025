@@ -196,3 +196,14 @@ async def entity_topic_participation(driver: AsyncDriver):
         })
 
     return list(entity_topic_sentiments.values())
+
+
+async def personal_activity(driver: AsyncDriver, person_id: str):
+    query = "match (n {id: $person_id})-[rel]-(p:PLAN)--(m:MEETING), (p)--(t:TOPIC) return p, m.id, t.id, rel.in_graph"
+    records = await query_and_results(driver, query, {'person_id': person_id})
+    plans = [{"node" : serialize_neo4j_entity(r['p']), "meeting" : r['m.id'], "topic" : r['t.id'], "rel_exists_in": r['rel.in_graph']} for r in records]
+
+    query = "match (n {id: $person_id})-[rel]-(d:DISCUSSION)--(m:MEETING), (d)--(t:TOPIC) return d, m.id, t.id, rel.in_graph"
+    records = await query_and_results(driver, query, {'person_id': person_id})
+    discussions = [{"node" : serialize_neo4j_entity(r['d']), "meeting" : r['m.id'], "topic" : r['t.id'], "rel_exists_in": r['rel.in_graph']} for r in records]
+    return plans, discussions

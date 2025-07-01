@@ -22,7 +22,7 @@ export default defineComponent({
   name: 'OverviewTab',
   components: {
     OverallSentimentDistribution,
-IndustrySimilarityHeatmap,
+    IndustrySimilarityHeatmap,
     TopicSentimentOverview,
     DatasetNodeComparison,
   },

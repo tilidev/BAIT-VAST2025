@@ -12,6 +12,7 @@
     "@element-plus/icons-vue": "^2.3.1",
     "@headlessui/vue": "^1.7.23",
     "@primeuix/themes": "^1.0.3",
+    "@turf/turf": "^7.2.0",
     "@types/d3": "^7.4.3",
     "@vueuse/core": "^13.1.0",
     "axios": "^1.9.0",
