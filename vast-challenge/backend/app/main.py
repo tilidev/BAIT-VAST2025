@@ -352,8 +352,8 @@ async def retrieve_person_activity(person_id: str, driver: AsyncDriver = Depends
 
     datasets = ['jo', 'fi', 'tr']
     for ds in datasets:
-        ds_plans = list(filter(lambda node: ds in node['node']['in_graph'], plans))
-        ds_discussions = list(filter(lambda node: ds in node['node']['in_graph'], discussions))
+        ds_plans = list(filter(lambda node: ds in node['node']['in_graph'] and ds in node["rel_exists_in"], plans))
+        ds_discussions = list(filter(lambda node: ds in node['node']['in_graph'] and ds in node["rel_exists_in"], discussions))
         result[ds] = {
             "num_plans" : len(ds_plans),
             "num_discussions": len(ds_discussions),
