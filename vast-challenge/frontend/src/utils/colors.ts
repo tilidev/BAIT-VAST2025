@@ -19,3 +19,11 @@ export const neutralBaseColor = '#6366f1';
 export const positiveSentiment = "#d15f5d";
 export const negativeSentiment = "#6a9f58";
 export const neutralSentiment = "#FFFFFF";
+
+export const zoneColors: { [key: string]: string } = {
+  "government": "#6366f1",
+  "commercial": "#f59e0b",
+  "residential": "#10b981",
+  "industrial": "#ef4444",
+  "default": "grey"
+};

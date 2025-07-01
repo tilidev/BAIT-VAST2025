@@ -77,3 +77,15 @@ export async function fetchIndustryInterestAlignment(weight: boolean = false): P
     throw error;
   }
 }
+
+export async function fetchTripActivityByPerson(personId: string): Promise<TripActivity[]> {
+  try {
+    const res = await api.get<TripActivity[]>(`/trip-activity-by-person`, {
+      params: { person_id: personId },
+    });
+    return res.data;
+  } catch (error) {
+    console.error(`Error fetching trip activity for person ${personId}:`, error);
+    throw error;
+  }
+}

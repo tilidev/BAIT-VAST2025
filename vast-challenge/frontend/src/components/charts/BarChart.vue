@@ -24,6 +24,7 @@ interface BarChartProps {
 
 export default defineComponent({
   name: 'BarChart',
+  emits: ['bar-click'],
   props: {
       data: {
         type: Array,
@@ -67,7 +68,7 @@ export default defineComponent({
       },
       xLabelRotation: {
         type: Number,
-        default: 0, // No rotation by default
+        default: 0, 
       },
       showGridLines: {
         type: Boolean,
@@ -78,7 +79,7 @@ export default defineComponent({
        default: false
       }
   },
-  setup(props: BarChartProps) {
+  setup(props: BarChartProps, { emit }) {
     const chartContainer = ref<HTMLElement | null>(null);
     let svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any> | null = null;
     let tooltip: d3.Selection<HTMLDivElement, unknown, HTMLElement, any> | null = null;
@@ -91,7 +92,6 @@ export default defineComponent({
         return;
       }
 
-      // Clear previous drawing
       d3.select(chartContainer.value).selectAll("*").remove();
       if (tooltip) tooltip.remove();
 
@@ -143,9 +143,9 @@ export default defineComponent({
         svgGroup.append("g")
           .attr("class", "grid")
           .call(d3.axisLeft(y)
-            .ticks(5) // Adjust number of ticks as needed
+            .ticks(5) 
             .tickSize(-innerWidth)
-            .tickFormat(null) // Use null to suppress tick labels for grid lines
+            .tickFormat(null) // to suppress tick labels for grid lines
           )
           .selectAll("line")
           .attr("stroke", "#e5e7eb") // Tailwind gray-200
@@ -156,7 +156,7 @@ export default defineComponent({
       svgGroup.selectAll(".bar")
         .data(data)
         .join("rect")
-        .attr("class", "bar")
+        .attr("class", "bar cursor-pointer")
         .attr("x", d => x(d[xKey])!)
         .attr("y", d => y(d[yKey]))
         .attr("width", x.bandwidth())
@@ -167,6 +167,7 @@ export default defineComponent({
           } else if (typeof colorScale === 'function') {
             return colorScale(d[xKey]);
           }
+          // TODO: fix
           // This fallback should ideally not be reached if colorScale is required
           return '#6366f1';
         })
@@ -187,6 +188,9 @@ export default defineComponent({
           if (tooltip) {
             tooltip.classed("hidden", true);
           }
+        })
+        .on("click", (event, d) => {
+            emit('bar-click', d);
         });
     }
 

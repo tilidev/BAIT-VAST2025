@@ -22,6 +22,7 @@ export type Place = BaseNode & {
   zone: string;
   zone_detail?: string;
   label: string;
+  parent?: string;
 };
 
 export type Plan = BaseNode & {
