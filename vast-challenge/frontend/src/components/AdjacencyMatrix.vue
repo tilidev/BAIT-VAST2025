@@ -1,5 +1,5 @@
 <template>
-  <div ref="matrixContainer"></div>
+  <div ref="matrixContainer" class="h-full w-full"></div>
 </template>
 
 <script>
@@ -19,14 +19,6 @@ export default {
     colLabels: {
       type: Array,
       required: true,
-    },
-    width: {
-      type: Number,
-      default: 400,
-    },
-    height: {
-      type: Number,
-      default: 400,
     },
     margin: {
       type: Object,
@@ -77,6 +69,7 @@ export default {
   },
   mounted() {
     this.draw();
+    window.addEventListener('resize', this.draw);
   },
   beforeUnmount() {
     if (this.tooltip) {
@@ -85,14 +78,13 @@ export default {
     if (this.svg) {
       this.svg.remove();
     }
+    window.removeEventListener('resize', this.draw);
   },
   watch: {
     // Watch all props that affect drawing
     data: 'draw',
     rowLabels: 'draw',
     colLabels: 'draw',
-    width: 'draw',
-    height: 'draw',
     margin: {
       handler: 'draw',
       deep: true,
@@ -109,11 +101,15 @@ export default {
     draw() {
       if (!this.$refs.matrixContainer) return;
 
+      const container = this.$refs.matrixContainer;
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+
       // Clear previous drawing
       d3.select(this.$refs.matrixContainer).select("svg").remove();
       if (this.tooltip) this.tooltip.remove();
 
-      const { data, rowLabels, colLabels, width, height, margin, colorScale, cellFilter, nullValueFill, undefinedValueFill, tooltipFormatter, rowLabelFormatter, colLabelFormatter } = this.$props
+      const { data, rowLabels, colLabels, margin, colorScale, cellFilter, nullValueFill, undefinedValueFill, tooltipFormatter, rowLabelFormatter, colLabelFormatter } = this.$props
 
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;

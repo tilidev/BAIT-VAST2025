@@ -17,7 +17,6 @@
 
 <script>
 import { defineAsyncComponent, defineComponent } from 'vue';
-import Card from 'primevue/card';
 import Sidebar from './components/Sidebar.vue';
 
 import { useEntityStore } from './stores/entityStore';
@@ -28,15 +27,16 @@ import { useFilterStore } from './stores/filterStore';
 const OverviewTab = defineAsyncComponent(() => import('./components/tabs/OverviewTab.vue'));
 const DetailedAnalysisTab = defineAsyncComponent(() => import('./components/tabs/DetailedAnalysisTab.vue'));
 const TripAnalysisTab = defineAsyncComponent(() => import('./components/tabs/TripAnalysisTab.vue'));
+const IdSelectionPanel = defineAsyncComponent(() => import('./components/IdSelectionPanel.vue'));
 
 export default defineComponent({
   name: 'App',
   components: {
-    Card,
     Sidebar,
     OverviewTab,
     DetailedAnalysisTab,
     TripAnalysisTab,
+    IdSelectionPanel,
   },
   data() {
     return {

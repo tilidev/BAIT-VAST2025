@@ -1,36 +1,28 @@
 <template>
   <div class="h-full">
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4">
-      <OverallSentimentDistribution :selected-entity-id="filterStore.selectedEntityId" />
-      <DatasetNodeComparison :selected-entity-id="filterStore.selectedEntityId" />
-      <TopicSentimentOverview class="col-span-2" :selected-entity-id="filterStore.selectedEntityId" />
-      <IndustrySimilarityHeatmap class="col-span-full"/>
-    </div>
+    <CustomGridLayout :initial-layout="layout" />
   </div>
 </template>
 
-<script>
-import { defineAsyncComponent, defineComponent } from 'vue';
-import { useFilterStore } from '../../stores/filterStore';
-
-const OverallSentimentDistribution = defineAsyncComponent(() => import('../mini-visualizations/OverallSentimentDistribution.vue'));
-const TopicSentimentOverview = defineAsyncComponent(() => import('../mini-visualizations/TopicSentimentOverview.vue'));
-const DatasetNodeComparison = defineAsyncComponent(() => import('../mini-visualizations/DatasetNodeComparison.vue'));
-const IndustrySimilarityHeatmap = defineAsyncComponent(() => import('../IndustrySimilarityHeatmap.vue'))
+<script lang="ts">
+import { defineComponent } from 'vue';
+import CustomGridLayout from '../CustomGridLayout.vue';
 
 export default defineComponent({
   name: 'OverviewTab',
   components: {
-    OverallSentimentDistribution,
-    IndustrySimilarityHeatmap,
-    TopicSentimentOverview,
-    DatasetNodeComparison,
+    CustomGridLayout,
   },
   data() {
     return {
-      filterStore: useFilterStore()
+      layout: [
+        { x: 0, y: 0, w: 4, h: 4, i: '0', component: 'OverallSentimentDistribution' },
+        { x: 4, y: 0, w: 4, h: 4, i: '1', component: 'DatasetNodeComparison' },
+        { x: 0, y: 4, w: 8, h: 6, i: '2', component: 'TopicSentimentOverview' },
+        { x: 0, y: 10, w: 12, h: 8, i: '3', component: 'IndustrySimilarityHeatmap' },
+      ],
     };
-  }
+  },
 });
 </script>
 

@@ -1,11 +1,11 @@
 <template>
-  <div class="p-4 border rounded-lg shadow-md bg-white">
+  <div class="p-4 border rounded-lg shadow-md bg-white h-full w-full flex flex-col">
     <h3 class="text-lg font-semibold mb-3 text-gray-700">Entity Sentiment Consistency Matrix</h3>
     <div v-if="isLoading" class="text-center text-gray-500">Loading data...</div>
     <div v-else-if="error" class="text-center text-red-500">Error loading data: {{ error }}</div>
     <div v-else-if="matrixData.length === 0" class="text-center text-gray-500">No data available to display matrix.
     </div>
-    <div v-else class="w-full" style="height: 500px;">
+    <div v-else class="w-full flex-grow">
       <AdjacencyMatrix :data="matrixData" :rowLabels="rowLabels" :colLabels="colLabels"
         :colorScale="sentimentColorScaleLinear" :tooltipFormatter="matrixTooltipFormatter"
         :cellFilter="filterUndefinedCells" :cellRounded="true" :rotateColLabels="false" />
