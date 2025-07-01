@@ -357,6 +357,8 @@ async def retrieve_person_activity(person_id: str, driver: AsyncDriver = Depends
         result[ds] = {
             "num_plans" : len(ds_plans),
             "num_discussions": len(ds_discussions),
+            "num_meetings" : len(set([d['meeting'] for d in ds_plans + ds_discussions])),
+            "num_topics" : len(set([d['topic'] for d in ds_plans + ds_discussions])),
             "unique_meetings" : set([d['meeting'] for d in ds_plans + ds_discussions]),
             "unique_topics" : set([d['topic'] for d in ds_plans + ds_discussions]),
             "plans" : ds_plans,

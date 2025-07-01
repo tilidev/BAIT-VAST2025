@@ -66,6 +66,8 @@ class IndustryProContraSentiment(BaseModel):
 class PersonalActivity(BaseModel):
     num_plans: int
     num_discussions: int
+    num_meetings: int
+    num_topics: int
     unique_meetings: list[str]
     unique_topics: list[str]
     plans: list[dict]
