@@ -60,6 +60,14 @@ export default {
       type: Function,
       default: undefined,
     },
+    cellRounded: {
+      type: Boolean,
+      default: false,
+    },
+    rotateColLabels: {
+      type: Boolean,
+      default: true,
+    },
   },
   data() {
     return {
@@ -181,6 +189,8 @@ export default {
         .attr("class", "cell")
         .attr("x", d => x(d.col))
         .attr("y", d => y(d.row))
+        .attr("rx", d => this.$props.cellRounded ? 3 : 0)
+        .attr("ry", d => this.$props.cellRounded ? 3 : 0)
         .attr("width", x.bandwidth())
         .attr("height", y.bandwidth())
         .style("fill", d => {
@@ -239,6 +249,7 @@ export default {
         .attr("y", d => y(d) + y.bandwidth() / 2)
         .attr("dy", ".32em")
         .attr("text-anchor", "end")
+        .style("font-size", "10px") // Smaller font size for row labels
         .text(d => rowLabelFormatter ? rowLabelFormatter(d) : d.toString());
 
       // Column labels
@@ -246,12 +257,17 @@ export default {
         .data(colLabels)
         .join("g")
         .attr("class", "column-label")
-        .attr("transform", d => `translate(${x(d) + x.bandwidth() / 2},0) rotate(-90)`)
+        .attr("transform", d => {
+          const xTranslation = x(d) + x.bandwidth() / 2;
+          const yTranslation = -8 
+          return this.$props.rotateColLabels ? `translate(${xTranslation},${yTranslation}) rotate(-90)` : `translate(${xTranslation},${yTranslation})`;
+        })
         .append("text")
-        .attr("x", 6)
+        .attr("x", 0)
         .attr("y", 0)
         .attr("dy", ".32em")
         .attr("text-anchor", "start")
+        .style("font-size", "10px") // Smaller font size for column labels
         .text(d => colLabelFormatter ? colLabelFormatter(d) : d.toString());
     },
   },

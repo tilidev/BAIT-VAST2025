@@ -1,17 +1,14 @@
 <template>
-  <div  v-if="isReady" class="w-full h-full" ref="el">
-    <AdjacencyMatrix class="flex-auto" :data="sentimentMatrixData" :height="height" :width="width" :rowLabels="personLabels" :colLabels="topicLabels"
-      :colorScale="sentimentColorScale" :cellFilter="filterSentimentCells('jo')"
-      :tooltipFormatter="sentimentTooltipFormatter" />
-    <!-- <AdjacencyMatrix class="flex-auto" :data="sentimentMatrixData" :rowLabels="personLabels" :colLabels="topicLabels"
-      :colorScale="sentimentColorScale" :cellFilter="filterSentimentCells('tr')"
-      :tooltipFormatter="sentimentTooltipFormatter" />
-    <AdjacencyMatrix class="flex-auto" :data="sentimentMatrixData" :rowLabels="personLabels" :colLabels="topicLabels"
-      :colorScale="sentimentColorScale" :cellFilter="filterSentimentCells('fi')"
-      :tooltipFormatter="sentimentTooltipFormatter" /> -->
-  </div>
-  <div v-else>
-    Loading...
+  <div class="flex">
+    <AdjacencyMatrix
+      class="flex-auto"
+      :data="sentimentMatrixData"
+      :rowLabels="personLabels"
+      :colLabels="topicLabels"
+      :colorScale="sentimentColorScaleLinear"
+      :cellFilter="filterSentimentCells(filterKey)"
+      :tooltipFormatter="sentimentTooltipFormatter"
+    />
   </div>
 </template>
 
@@ -21,32 +18,27 @@ import { useElementSize } from '@vueuse/core'
 import { useGraphStore } from '../stores/graphStore';
 import AdjacencyMatrix from './AdjacencyMatrix.vue';
 import type { MatrixCell } from '../types/matrixTypes';
-import * as d3 from 'd3';
+import { sentimentColorScaleLinear } from '../utils/colors';
 
 export default defineComponent({
   name: 'GraphView',
   components: {
     AdjacencyMatrix,
   },
+  props: {
+    filterKey: {
+      type: String as PropType<'jo' | 'tr' | 'fi'>,
+      required: true,
+    },
+  },
   setup() {
-    const el = useTemplateRef('el')
-    const { width, height } = useElementSize(el)
-
-    return {
-      el,
-      width,
-      height,
-    }
+    const graphStore = useGraphStore();
+    return { graphStore };
   },
   data() {
     return {
-      graphStore: useGraphStore(),
-      isReady: false,
+      sentimentColorScaleLinear,
     };
-  },
-  async created() {
-    await this.graphStore.init();
-    this.isReady = true;
   },
   computed: {
     sentimentMatrixData(): MatrixCell[] {
@@ -78,11 +70,6 @@ export default defineComponent({
         });
       });
       return Array.from(topics).sort();
-    },
-    sentimentColorScale(): d3.ScaleLinear<string, number> {
-      return d3.scaleLinear<string, number>()
-        .domain([-1, 0, 1])
-        .range(["#d15f5d", "#FFFFFF", "#6a9f58"]);
     },
   },
   methods: {
