@@ -2,6 +2,7 @@
   <div class="flex space-x-6 p-4">
     <!-- LEFT: Heatmap -->
     <div class="p-4">
+      <h1 class="text-left text-lg font-bold mb-4 ">Cosine Similarity</h1>
       <IndustrySimilarityHeatmap
         :useWeightedMean="true"
         :width="300"
