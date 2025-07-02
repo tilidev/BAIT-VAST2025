@@ -160,9 +160,12 @@ export default {
         .attr('d', this.path)
         .attr('fill', d => regionColors[d.properties.Kind] || regionColors.default)
         .attr('fill-opacity', d =>
-          ['Fishing Ground', 'Ecological Preserve'].includes(d.properties.Kind) ? 0.1 : 0.7
+          ['Fishing Ground', 'Ecological Preserve'].includes(d.properties.Kind) ? 0.2 : 0.7
         )
         .attr('stroke', '#1f2937')
+        .attr('stroke-opacity', d =>
+          ['Fishing Ground', 'Ecological Preserve'].includes(d.properties.Kind) ? 0.2 : 0.7
+        )
         .attr('stroke-width', 1.2)
         .on('mouseover', (e, d) => {
           if (this.isBrushing) return;
