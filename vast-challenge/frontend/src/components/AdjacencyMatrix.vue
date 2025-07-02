@@ -73,6 +73,7 @@ export default {
     return {
       svg: null,
       tooltip: null,
+      selectedCell: null,
     };
   },
   mounted() {
@@ -87,7 +88,6 @@ export default {
     }
   },
   watch: {
-    // Watch all props that affect drawing
     data: 'draw',
     rowLabels: 'draw',
     colLabels: 'draw',
@@ -109,11 +109,18 @@ export default {
     draw() {
       if (!this.$refs.matrixContainer) return;
 
-      // Clear previous drawing
+      // clear old
       d3.select(this.$refs.matrixContainer).select("svg").remove();
       if (this.tooltip) this.tooltip.remove();
 
-      const { data, rowLabels, colLabels, width, height, margin, colorScale, cellFilter, nullValueFill, undefinedValueFill, tooltipFormatter, rowLabelFormatter, colLabelFormatter } = this.$props
+      const {
+        data, rowLabels, colLabels,
+        width, height, margin,
+        colorScale, cellFilter,
+        nullValueFill, undefinedValueFill,
+        tooltipFormatter, rowLabelFormatter, colLabelFormatter,
+        cellRounded, rotateColLabels
+      } = this.$props;
 
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
@@ -142,114 +149,93 @@ export default {
         .attr("height", innerHeight)
         .attr("fill", "#fff");
 
-      // Define patterns
-      svgGroup.append("defs")
-        .append("pattern")
+      // patterns
+      const defs = svgGroup.append("defs");
+      defs.append("pattern")
         .attr("id", "crosshatch")
         .attr("patternUnits", "userSpaceOnUse")
         .attr("width", 8)
         .attr("height", 8)
         .append("image")
         .attr("xlink:href", "data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSc4JyBoZWlnaHQ9JzgnPgogIDxyZWN0IHdpZHRoPSc4JyBoZWlnaHQ9JzgnIGZpbGw9JyNmZmYnLz4KICA8cGF0aCBkPSdNMCAwTDggOFpNOCAwTDAgOFonIHN0cm9rZS13aWR0aD0nMC41JyBzdHJva2U9JyNhYWEnLz4KPC9zdmc+Cg==")
-        .attr("x", 0)
-        .attr("y", 0)
         .attr("width", 8)
         .attr("height", 8);
 
-      svgGroup.append("defs")
-        .append("pattern")
+      defs.append("pattern")
         .attr("id", "diagonalStripe6")
         .attr("patternUnits", "userSpaceOnUse")
         .attr("width", 10)
         .attr("height", 10)
         .append("image")
         .attr("xlink:href", "data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxMCcgaGVpZ2h0PScxMCc+CiAgPHJlY3Qgd2lkdGg9JzEwJyBoZWlnaHQ9JzEwJyBmaWxsPSdibGFjaycvPgogIDxwYXRoIGQ9J00tMSwxIGwyLC0yCiAgICAgICAgICAgTTAsMTAgbDEwLC0xMAogICAgICAgICAgIE05LDExIGwyLC0yJyBzdHJva2U9J3doaXRlJyBzdHJva2Utd2lkdGg9JzEnLz4KPC9zdmc+")
-        .attr("x", 0)
-        .attr("y", 0)
         .attr("width", 10)
         .attr("height", 10);
 
-      const dataMap = new Map();
-      data.forEach(d => {
-        dataMap.set(`${d.rowId}-${d.colId}`, d);
-      });
-
+      // flatten data
+      const dataMap = new Map(data.map(d => [`${d.rowId}-${d.colId}`, d]));
       const matrixCells = [];
-      rowLabels.forEach(rLabel => {
-        colLabels.forEach(cLabel => {
-          const cellData = dataMap.get(`${rLabel}-${cLabel}`);
-          matrixCells.push({ row: rLabel, col: cLabel, cellData });
-        });
-      });
+      rowLabels.forEach(r => colLabels.forEach(c =>
+        matrixCells.push({ row: r, col: c, cellData: dataMap.get(`${r}-${c}`) })
+      ));
 
-      // Draw cells
+      // draw cells
       svgGroup.selectAll(".cell")
         .data(matrixCells)
         .join("rect")
         .attr("class", "cell")
         .attr("x", d => x(d.col))
         .attr("y", d => y(d.row))
-        .attr("rx", d => this.$props.cellRounded ? 3 : 0)
-        .attr("ry", d => this.$props.cellRounded ? 3 : 0)
+        .attr("rx", cellRounded ? 3 : 0)
+        .attr("ry", cellRounded ? 3 : 0)
         .attr("width", x.bandwidth())
         .attr("height", y.bandwidth())
         .style("fill", d => {
           if (cellFilter && d.cellData && !cellFilter(d.cellData)) {
-            return undefinedValueFill; // Filtered out
+            return undefinedValueFill;
           }
-          if (d.cellData === undefined || d.cellData.value === undefined) return undefinedValueFill;
+          if (!d.cellData || d.cellData.value === undefined) return undefinedValueFill;
           if (d.cellData.value === null) return nullValueFill;
           return colorScale(d.cellData.value);
         })
         .style("stroke", "#ccc")
+        .style("stroke-width", 1)
         .on("mouseover", (event, d) => {
-          if (this.tooltip && d.cellData && tooltipFormatter) {
+          if (d.cellData && tooltipFormatter) {
             this.tooltip
               .classed("hidden", false)
               .html(tooltipFormatter(d.cellData));
           }
-
           svgGroup.selectAll(".row-label")
-            .filter(label => label === d.row)
+            .filter(l => l === d.row)
             .style("font-weight", "bold");
-
-          svgGroup.selectAll(".column-label")
-            .filter(label => label === d.col)
+          svgGroup.selectAll(".column-label text")
+            .filter(l => l === d.col)
             .style("font-weight", "bold");
         })
-        .on("mousemove", (event) => {
-          if (this.tooltip) {
-            this.tooltip
-              .style("left", (event.pageX + 10) + "px")
-              .style("top", (event.pageY - 28) + "px");
-          }
+        .on("mousemove", event => {
+          this.tooltip
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 28) + "px");
         })
         .on("mouseout", (event, d) => {
-          if (this.tooltip) {
-            this.tooltip.classed("hidden", true);
-          }
-
-          // Unbold row label
+          this.tooltip.classed("hidden", true);
           svgGroup.selectAll(".row-label")
-            .filter(label => label === d.row)
+            .filter(l => l === d.row)
             .style("font-weight", "normal");
-
-          // Unbold column label
-          svgGroup.selectAll(".column-label")
-            .filter(label => label === d.col)
+          svgGroup.selectAll(".column-label text")
+            .filter(l => l === d.col)
             .style("font-weight", "normal");
         })
         .on("click", (event, d) => {
-        // only emit if there's a real similarity value
-        if (d.cellData && d.cellData.value !== null) {
-          this.$emit('cell-click', {
-            left:  d.row,
-            right: d.col
-          });
-        }
-      });
+          if (d.cellData && d.cellData.value !== null) {
+            this.selectedCell = { row: d.row, col: d.col };
+            // redraw stroke highlight only
+            this.updateHighlight(svgGroup);
+            this.$emit('cell-click', { left: d.row, right: d.col });
+          }
+        });
 
-      // Row labels
+      // row labels
       svgGroup.selectAll(".row-label")
         .data(rowLabels)
         .join("text")
@@ -258,31 +244,48 @@ export default {
         .attr("y", d => y(d) + y.bandwidth() / 2)
         .attr("dy", ".32em")
         .attr("text-anchor", "end")
-        .style("font-size", "10px") // Smaller font size for row labels
+        .style("font-size", "10px")
         .text(d => rowLabelFormatter ? rowLabelFormatter(d) : d.toString());
 
-      // Column labels
+      // column labels
       svgGroup.selectAll(".column-label")
         .data(colLabels)
         .join("g")
         .attr("class", "column-label")
         .attr("transform", d => {
-          const xTranslation = x(d) + x.bandwidth() / 2;
-          const yTranslation = -8 
-          return this.$props.rotateColLabels ? `translate(${xTranslation},${yTranslation}) rotate(-90)` : `translate(${xTranslation},${yTranslation})`;
+          const tx = x(d) + x.bandwidth()/2;
+          const ty = -8;
+          return rotateColLabels
+            ? `translate(${tx},${ty}) rotate(-90)`
+            : `translate(${tx},${ty})`;
         })
         .append("text")
-        .attr("x", 0)
-        .attr("y", 0)
         .attr("dy", ".32em")
         .attr("text-anchor", "start")
-        .style("font-size", "10px") // Smaller font size for column labels
+        .style("font-size", "10px")
         .text(d => colLabelFormatter ? colLabelFormatter(d) : d.toString());
+
+      // apply initial highlight if any
+      this.updateHighlight(svgGroup);
     },
-      handleCellClick(cell) {
-      // only fire when cell.value !== null
-      console.log("Clicked")
-      this.$emit('cell-click', { left: cell.rowId, right: cell.colId });
+
+    updateHighlight(svgGroup) {
+      // clear all first
+      svgGroup.selectAll(".cell")
+        .style("stroke", "#ccc")
+        .style("stroke-width", 1);
+
+      if (this.selectedCell) {
+        // highlight chosen cell & bring to front
+        svgGroup.selectAll(".cell")
+          .filter(d =>
+            d.row === this.selectedCell.row &&
+            d.col === this.selectedCell.col
+          )
+          .style("stroke", "#fd5825")
+          .style("stroke-width", 4)
+          .raise();
+      }
     },
   },
 };
