@@ -55,7 +55,7 @@ export default {
       brush: null,
       isBrushing: false,
       regionColors: {
-        "Island": "#8dd3c7",
+        "Island": "#2cae66",
         "Ecological Preserve": "#a1d99b",
         "Fishing Ground": "#9ecae1",
         "default": "#e5e7eb"
@@ -185,6 +185,11 @@ export default {
         .append("path")
         .attr("d", this.path)
         .attr("fill", d => regionColors[d.properties.Kind] || regionColors["default"])
+        .attr("fill-opacity", d => (
+          d.properties.Kind === "Fishing Ground" || d.properties.Kind === "Ecological Preserve"
+            ? 0.1    // more transparent
+            : 0.7
+        ))
         .attr("stroke", "#1f2937")
         .attr("stroke-width", 1.2)
         .on("mouseover", (event, d) => {
@@ -258,9 +263,27 @@ export default {
     setupZoom() {
       this.zoom = d3.zoom()
         .scaleExtent([1, 8])
-        .filter(event => !event.ctrlKey && event.button === 0) // Only zoom with left-click without Ctrl key
+        .filter(event => !event.ctrlKey && event.button === 0)
         .on("zoom", (event) => {
-          this.g.attr("transform", event.transform);
+          const { transform } = event;
+          const k = transform.k;
+
+          // pan & zoom the map
+          this.g.attr("transform", transform);
+
+          // counter‐scale point circles
+          this.g.selectAll("circle")
+            .attr("r", 6 / k)  //base radius
+            .attr("stroke-width", d => {
+              const isHighlighted = this.linkingStore.highlightedPlaceIds.includes(d.id)
+                || (this.linkingStore.highlightedTrips.length > 0
+                    && d.trip_ids?.some(id => this.linkingStore.highlightedTrips.includes(id)));
+              const baseWidth = isHighlighted ? 2 : 0;
+              return baseWidth / k;
+            });
+
+          this.g.selectAll("text")
+            .attr("font-size", `${16 / k}px`);
         });
 
       this.svg.call(this.zoom);
@@ -390,7 +413,7 @@ export default {
         .merge(circles)
         .attr("cx", d => this.projection([d.lat, d.lon])[0])
         .attr("cy", d => this.projection([d.lat, d.lon])[1])
-        .attr("r", 4)
+        .attr("r", 6)
         .attr("fill", d => this.zoneColors[d.zone] || this.zoneColors.default)
         .attr("stroke", "#ef4444")
         .attr("stroke-width", d => {
