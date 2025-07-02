@@ -332,12 +332,17 @@ export default {
         .attr('cy', d=>this.projection([d.lat,d.lon])[1])
         // base radius 6px, stroke 2px if highlighted
         .attr('r', 6 / k)
+        .attr('r',  d=>{
+          const highlighted = highlightedPlaceIds.includes(d.id)
+            || (highlightedTrips.length>0&&d.trip_ids?.some(id=>highlightedTrips.includes(id)));
+          return (highlighted?10:6) / k;
+        })
         .attr('fill', d=>this.zoneColors[d.zone]||this.zoneColors.default)
         .attr('stroke', '#ef4444')
         .attr('stroke-width', d=>{
           const highlighted = highlightedPlaceIds.includes(d.id)
             || (highlightedTrips.length>0&&d.trip_ids?.some(id=>highlightedTrips.includes(id)));
-          return (highlighted?2:0) / k;
+          return (highlighted?4:0) / k;
         })
         .style('opacity', d => {
           const highlighted = highlightedPlaceIds.includes(d.id)
