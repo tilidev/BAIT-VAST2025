@@ -13,7 +13,7 @@ export default {
     colLabels: { type: Array, required: true },
     width: { type: Number, default: 400 },
     height: { type: Number, default: 400 },
-    margin: { type: Object, default: () => ({ top: 120, right: 0, bottom: 10, left: 120 }) },
+    margin: { type: Object, default: () => ({ top: 120, right: 10, bottom: 10, left: 120 }) },
     colorScale: { type: Function, required: true },
     cellFilter: { type: Function, default: undefined },
     nullValueFill: { type: String, default: "url(#diagonalStripe6)" },
