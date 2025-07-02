@@ -2270,26 +2270,6 @@
       {
          "type": "Feature",
          "properties": {
-            "Name": "Exit West",
-            "Description": null,
-            "Kind": "buoy",
-            "type": "Entity.Location.Point",
-            "Activities": [
-               "International shipping",
-               "Deep sea fishing"
-            ]
-         },
-         "geometry": {
-            "type": "Point",
-            "coordinates": [
-               -167.0653924112542,
-               39.278932624310215
-            ]
-         }
-      },
-      {
-         "type": "Feature",
-         "properties": {
             "Name": "Nav 3",
             "Description": "Navigation in/out of South Paackland",
             "Kind": "buoy",
@@ -2417,26 +2397,6 @@
             "coordinates": [
                -164.5621704519129,
                40.02646159790052
-            ]
-         }
-      },
-      {
-         "type": "Feature",
-         "properties": {
-            "Name": "Exit East",
-            "Description": null,
-            "Kind": "buoy",
-            "type": "Entity.Location.Point",
-            "Activities": [
-               "International shipping",
-               "Deep sea fishing"
-            ]
-         },
-         "geometry": {
-            "type": "Point",
-            "coordinates": [
-               -163.2722883048121,
-               38.902036221633495
             ]
          }
       },
