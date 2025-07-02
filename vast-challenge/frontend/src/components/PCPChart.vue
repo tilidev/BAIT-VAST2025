@@ -1,40 +1,36 @@
 <template>
   <div class="relative">
     <svg :width="width" :height="height" class="bg-white border">
-      <!-- Translate to account for margins -->
       <g :transform="`translate(${margin.left}, ${margin.top})`">
         <!-- Axes and ticks -->
         <g v-for="(metric, i) in metrics" :key="metric">
           <line :x1="xScale(i)" y1="0" :x2="xScale(i)" :y2="innerHeight" stroke="#ccc" />
-          <!-- Axis label (bold) -->
           <text :x="xScale(i)" :y="innerHeight + 20" text-anchor="middle" class="text-sm font-bold">
             {{ metricLabels[metric] }}
           </text>
-          <!-- Zero tick -->
           <line :x1="xScale(i)-4" :x2="xScale(i)+4" :y1="yScale(metric, 0)" :y2="yScale(metric, 0)" stroke="#999" />
           <text :x="xScale(i)-6" :y="yScale(metric,0)+4" text-anchor="end" class="text-xs font-semibold">0</text>
-          <!-- Max tick -->
-          <line :x1="xScale(i)-4" :x2="xScale(i)+4" :y1="yScale(metric,adjustedDomains[metric].max)" :y2="yScale(metric,adjustedDomains[metric].max)" stroke="#999" />
-          <text :x="xScale(i)-6" :y="yScale(metric,adjustedDomains[metric].max)+4" text-anchor="end" class="text-xs font-semibold">
+          <line :x1="xScale(i)-4" :x2="xScale(i)+4" :y1="yScale(metric, adjustedDomains[metric].max)" :y2="yScale(metric, adjustedDomains[metric].max)" stroke="#999" />
+          <text :x="xScale(i)-6" :y="yScale(metric, adjustedDomains[metric].max)+4" text-anchor="end" class="text-xs font-semibold">
             {{ adjustedDomains[metric].max }}
           </text>
         </g>
 
-        <!-- Polylines with hover jitter animation -->
+        <!-- Polylines with axis-wise jitter on hover -->
         <g>
-          <!-- Invisible thicker path for hover detection -->
           <g v-for="line in lines" :key="line.id">
+            <!-- Invisible thick path for hover detection -->
             <polyline
               :points="computePoints(line.values)"
               stroke="transparent"
               fill="none"
-              :stroke-width="jitter + (line.strokeWidth || 3)"
+              :stroke-width="jitter * 2 + (line.strokeWidth || 3)"
               style="pointer-events: stroke"
               @mouseover="handleHover(line, $event)"
               @mouseleave="handleLeave"
               @click="$emit('select', line.id)"
             />
-            <!-- Visible jittered line -->
+            <!-- jittered line -->
             <polyline
               :points="computePoints(line.values)"
               :stroke="line.color"
@@ -42,8 +38,8 @@
               :opacity="line.opacity"
               :stroke-width="line.strokeWidth || 3"
               class="cursor-pointer"
-              :transform="`translate(${computeOffset(line.id)}, 0)`"
-              style="pointer-events: none; transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)"
+              :transform="`translate(${getOffset(line.id).x}, ${getOffset(line.id).y})`"
+              style="pointer-events: none; transition: transform 0.3s ease-out"
             />
           </g>
         </g>
@@ -65,24 +61,28 @@
 export default {
   name: 'PCPChart',
   props: {
-    lines:        { type: Array,  required: true },
-    metrics:      { type: Array,  required: true },
+    lines: { type: Array,  required: true },
+    metrics: { type: Array,  required: true },
     metricLabels: { type: Object, required: true },
-    domains:      { type: Object, required: true },
-    width:        { type: Number, default: 600 },
-    height:       { type: Number, default: 350 },
+    domains: { type: Object, required: true },
+    width: { type: Number, default: 600 },
+    height: { type: Number, default: 350 },
   },
   data() {
     return {
       margin: { top: 20, right: 30, bottom: 40, left: 30 },
       hoveredPoints: null,
       hoveredId: null,
-      jitter: 20
+      jitter: 10
     };
   },
   computed: {
-    innerWidth() { return this.width - this.margin.left - this.margin.right; },
-    innerHeight() { return this.height - this.margin.top - this.margin.bottom; },
+    innerWidth() {
+      return this.width - this.margin.left - this.margin.right;
+    },
+    innerHeight() {
+      return this.height - this.margin.top - this.margin.bottom;
+    },
     adjustedDomains() {
       const adj = {};
       this.metrics.forEach(m => {
@@ -90,6 +90,21 @@ export default {
         adj[m] = { min: 0, max: orig.max };
       });
       return adj;
+    },
+    jitterInfo() {
+      const groups = {};
+      this.lines.forEach(line => {
+        const sig = this.metrics.map(m => line.values[m] || 0).join('|');
+        groups[sig] = groups[sig] || [];
+        groups[sig].push(line.id);
+      });
+      const info = {};
+      Object.values(groups).forEach(group => {
+        group.forEach((id, idx) => {
+          info[id] = { idx, count: group.length };
+        });
+      });
+      return info;
     }
   },
   methods: {
@@ -107,29 +122,20 @@ export default {
           this.xScale(i),
           this.yScale(m, values[m] || 0)
         ])
-        .map(pt => pt.join(','))
-        .join(' ');
+        .map(pt => pt.join(',')).join(' ');
     },
-    computeOffset(id) {
-      if (this.hoveredId !== id) return 0;
-      const sigMap = {};
-      this.lines.forEach(line => {
-        const sig = this.metrics.map(m => line.values[m] || 0).join('|');
-        sigMap[sig] = sigMap[sig] || [];
-        sigMap[sig].push(line.id);
-      });
-      const sig = this.metrics.map(m => this.lines.find(l => l.id === id).values[m] || 0).join('|');
-      const group = sigMap[sig];
-      const idx = group.indexOf(id);
-      const count = group.length;
-      return (idx - (count - 1) / 2) * this.jitter;
+    getOffset(id) {
+      if (this.hoveredId !== id) return { x: 0, y: 0 };
+      const { idx, count } = this.jitterInfo[id] || { idx: 0, count: 1 };
+      const offset = (idx - (count - 1) / 2) * this.jitter;
+      return { x: offset, y: -offset };
     },
     handleHover(line, event) {
       this.hoveredId = line.id;
       this.hoveredPoints = this.metrics.map((m, i) => ({
         metric: m,
-        x: this.xScale(i) + this.computeOffset(line.id),
-        y: this.yScale(m, line.values[m] || 0) + this.computeOffset(line.id),
+        x: this.xScale(i),
+        y: this.yScale(m, line.values[m] || 0),
         value: line.values[m] || 0
       }));
       this.$emit('hover', line.id, event);
@@ -144,5 +150,4 @@ export default {
 </script>
 
 <style scoped>
-/* Additional styling if needed */
 </style>

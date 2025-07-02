@@ -192,5 +192,4 @@ export default {
 </script>
 
 <style scoped>
-/* Tailwind handles most styling */
 </style>
