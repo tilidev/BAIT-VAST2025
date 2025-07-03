@@ -40,7 +40,7 @@ export default defineComponent({
   },
   data() {
     return {
-      activeTab: 'trip-analysis',
+      activeTab: 'overview',
       sidebarExpanded: true,
       entityStore: useEntityStore(),
       graphStore: useGraphStore(),
