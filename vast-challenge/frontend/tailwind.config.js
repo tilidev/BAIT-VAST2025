@@ -6,7 +6,11 @@ export default {
   ],
   darkMode: 'class', // Enable class-based dark mode
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        'indigo-base': '#6366f1',
+      },
+    },
   },
   plugins: [],
 }
