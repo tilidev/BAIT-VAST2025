@@ -8,6 +8,14 @@ import * as d3 from 'd3';
 export default {
   name: 'AdjacencyMatrix',
   props: {
+    width: {
+      type: Number,
+      required: true,
+    },
+    height: {
+      type: Number,
+      required: true,
+    },
     data: {
       type: Array,
       required: true,
@@ -69,7 +77,6 @@ export default {
   },
   mounted() {
     this.draw();
-    window.addEventListener('resize', this.draw);
   },
   beforeUnmount() {
     if (this.tooltip) {
@@ -78,9 +85,10 @@ export default {
     if (this.svg) {
       this.svg.remove();
     }
-    window.removeEventListener('resize', this.draw);
   },
   watch: {
+    width: 'draw',
+    height: 'draw',
     // Watch all props that affect drawing
     data: 'draw',
     rowLabels: 'draw',
@@ -99,11 +107,9 @@ export default {
   },
   methods: {
     draw() {
-      if (!this.$refs.matrixContainer) return;
+      if (!this.$refs.matrixContainer || !this.width || !this.height) return;
 
-      const container = this.$refs.matrixContainer;
-      const width = container.clientWidth;
-      const height = container.clientHeight;
+      const { width, height } = this;
 
       // Clear previous drawing
       d3.select(this.$refs.matrixContainer).select("svg").remove();
