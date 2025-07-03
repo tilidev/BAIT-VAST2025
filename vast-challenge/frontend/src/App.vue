@@ -9,6 +9,7 @@
         <OverviewTab v-if="activeTab === 'overview'" />
         <DetailedAnalysisTab v-else-if="activeTab === 'detailed-analysis'" />
         <TripAnalysisTab v-else-if="activeTab === 'trip-analysis'" />
+        <ScaleTab v-else-if="activeTab === 'scale'" />
       </div>
     </main>
   </div>
@@ -26,6 +27,7 @@ import { useFilterStore } from './stores/filterStore';
 const OverviewTab = defineAsyncComponent(() => import('./components/tabs/OverviewTab.vue'));
 const DetailedAnalysisTab = defineAsyncComponent(() => import('./components/tabs/DetailedAnalysisTab.vue'));
 const TripAnalysisTab = defineAsyncComponent(() => import('./components/tabs/TripAnalysisTab.vue'));
+const ScaleTab = defineAsyncComponent(() => import('./components/tabs/ScaleTab.vue'));
 
 export default defineComponent({
   name: 'App',
@@ -34,6 +36,7 @@ export default defineComponent({
     OverviewTab,
     DetailedAnalysisTab,
     TripAnalysisTab,
+    ScaleTab,
   },
   data() {
     return {
