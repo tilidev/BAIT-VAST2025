@@ -1,10 +1,10 @@
 <template>
-  <div class="p-4 border rounded-lg shadow-md bg-white">
+  <div class="p-4 border rounded-lg shadow-md bg-white w-full h-full flex flex-col">
     <h3 class="text-lg font-semibold mb-3 text-gray-700">Overall Sentiment Score Distribution</h3>
-    <div v-if="isLoading" class="text-center text-gray-500">Loading data...</div>
-    <div v-else-if="error" class="text-center text-red-500">Error loading data: {{ error }}</div>
-    <div v-else-if="sentimentScores.length === 0" class="text-center text-gray-500">No sentiment scores found.</div>
-    <div v-else ref="chartContainer" class="w-full h-80">
+    <div v-if="isLoading" class="flex-grow flex items-center justify-center text-gray-500">Loading data...</div>
+    <div v-else-if="error" class="flex-grow flex items-center justify-center text-red-500">Error loading data: {{ error }}</div>
+    <div v-else-if="sentimentScores.length === 0" class="flex-grow flex items-center justify-center text-gray-500">No sentiment scores found.</div>
+    <div v-else ref="chartContainer" class="w-full flex-grow min-h-0">
       <Histogram :data="sentimentScores" :bins="20" :width="chartWidth" :height="chartHeight" :margin="chartMargin"
         :color="neutralBaseColor" :tooltipFormatter="histogramTooltipFormatter"
         :xAxisLabelFormatter="xAxisLabelFormatter" :yAxisLabelFormatter="yAxisLabelFormatter" :showGridLines="true" />
@@ -30,6 +30,7 @@ export default {
       chartWidth: 0,
       chartHeight: 0,
       chartMargin: { top: 20, right: 30, bottom: 50, left: 50 },
+      resizeObserver: null,
     };
   },
   computed: {
@@ -47,6 +48,9 @@ export default {
       });
       return scores;
     },
+    showChart() {
+      return !this.isLoading && !this.error && this.sentimentScores.length > 0;
+    }
   },
   methods: {
     histogramTooltipFormatter(d) {
@@ -66,27 +70,20 @@ export default {
     }
   },
   watch: {
-    isLoading(newVal) {
-      if (!newVal && this.sentimentScores.length > 0) {
+    showChart(isShown) {
+      if (isShown) {
         this.$nextTick(() => {
-          this.updateChartSize();
+          if (this.$refs.chartContainer) {
+            this.resizeObserver.observe(this.$refs.chartContainer);
+          }
         });
       }
-    },
-    sentimentScores: {
-      handler(newVal) {
-        if (newVal.length > 0 && !this.isLoading) {
-          this.$nextTick(() => {
-            this.updateChartSize();
-          });
-        }
-      },
-      deep: true,
-    },
+    }
   },
   async mounted() {
     this.isLoading = true;
     this.error = null;
+    this.resizeObserver = new ResizeObserver(this.updateChartSize);
     try {
       if (this.graphStore.sentimentPerTopic.length === 0) {
         await this.graphStore.init(); // Ensure data is loaded
@@ -97,13 +94,11 @@ export default {
     } finally {
       this.isLoading = false;
     }
-    window.addEventListener('resize', this.updateChartSize);
-    this.$nextTick(() => {
-      this.updateChartSize();
-    });
   },
   beforeUnmount() {
-    window.removeEventListener('resize', this.updateChartSize);
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+    }
   }
 };
 </script>

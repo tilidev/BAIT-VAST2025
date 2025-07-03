@@ -1,11 +1,11 @@
 <template>
-  <div class="p-4 border rounded-lg shadow-md bg-white">
+  <div class="w-full h-full">
     <h3 class="text-lg font-semibold mb-3 text-gray-700">Person Sentiment Across Datasets</h3>
     <div v-if="isLoading" class="text-center text-gray-500">Loading data...</div>
     <div v-else-if="error" class="text-center text-red-500">Error loading data: {{ error }}</div>
     <div v-else-if="processedData.length === 0" class="text-center text-gray-500">No sentiment data found for this
       person.</div>
-    <div v-else class="w-full h-96">
+    <div v-else ref="chartContainer" class="w-full h-96">
       <GroupedBarChart :data="processedData" groupKey="groupKey" :subGroupKeys="['jo', 'fi', 'tr']" :width="chartWidth"
         :height="chartHeight" :margin="chartMargin" :subGroupColorScale="subGroupColorScale"
         :tooltipFormatter="tooltipFormatter" :xAxisLabelFormatter="xAxisLabelFormatter"
@@ -16,7 +16,9 @@
 
 <script>
 import * as d3 from 'd3';
+import { mapState } from 'pinia';
 import { useGraphStore } from '../../stores/graphStore';
+import { useFilterStore } from '../../stores/filterStore';
 import GroupedBarChart from '../charts/GroupedBarChart.vue';
 
 export default {
@@ -25,10 +27,6 @@ export default {
     GroupedBarChart,
   },
   props: {
-    personId: {
-      type: String,
-      required: true,
-    },
     sentimentGranularity: {
       type: String,
       default: 'topic', // 'topic' or 'industry'
@@ -39,12 +37,19 @@ export default {
       isLoading: true,
       error: null,
       graphStore: useGraphStore(),
-      chartWidth: 400,
-      chartHeight: 300,
+      chartWidth: 0,
+      chartHeight: 0,
       chartMargin: { top: 20, right: 30, bottom: 70, left: 60 },
+      resizeObserver: null,
     };
   },
   computed: {
+    ...mapState(useFilterStore, {
+      personId: 'selectedPersonId',
+    }),
+    showChart() {
+      return !this.isLoading && !this.error && this.processedData.length > 0;
+    },
     processedData() {
       if (!this.graphStore.sentimentPerTopic || this.graphStore.sentimentPerTopic.length === 0) {
         return [];
@@ -122,6 +127,12 @@ export default {
     yAxisLabelFormatter(d) {
       return d.toFixed(2);
     },
+    updateChartSize() {
+      if (this.$refs.chartContainer) {
+        this.chartWidth = this.$refs.chartContainer.offsetWidth;
+        this.chartHeight = this.$refs.chartContainer.offsetHeight;
+      }
+    },
     async fetchDataForDatasets() {
       this.isLoading = true;
       this.error = null;
@@ -137,10 +148,26 @@ export default {
       }
     },
   },
-  async mounted() {
-    await this.fetchDataForDatasets();
+  mounted() {
+    this.resizeObserver = new ResizeObserver(this.updateChartSize);
+    this.fetchDataForDatasets();
+  },
+  beforeUnmount() {
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+    }
   },
   watch: {
+    showChart(isShown) {
+      this.$nextTick(() => {
+        if (isShown && this.$refs.chartContainer) {
+          this.updateChartSize();
+          this.resizeObserver.observe(this.$refs.chartContainer);
+        } else if (this.$refs.chartContainer) {
+          this.resizeObserver.unobserve(this.$refs.chartContainer);
+        }
+      });
+    },
     personId: {
       handler() {
         // Re-fetch data when personId or sentimentGranularity changes

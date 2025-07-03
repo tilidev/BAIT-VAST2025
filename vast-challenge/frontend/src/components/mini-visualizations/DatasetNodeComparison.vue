@@ -1,10 +1,10 @@
 <template>
-  <div class="p-4 border rounded-lg shadow-md bg-white">
+  <div class="p-4 border rounded-lg shadow-md bg-white w-full h-full flex flex-col">
     <h3 class="text-lg font-semibold mb-3 text-gray-700">Node Count by Dataset Source</h3>
-    <div v-if="isLoading" class="text-center text-gray-500">Loading data...</div>
-    <div v-else-if="error" class="text-center text-red-500">Error loading data: {{ error }}</div>
-    <div v-else-if="processedData.length === 0" class="text-center text-gray-500">No dataset node data found.</div>
-    <div v-else ref="chartContainer" class="w-full h-80">
+    <div v-if="isLoading" class="flex-grow flex items-center justify-center text-gray-500">Loading data...</div>
+    <div v-else-if="error" class="flex-grow flex items-center justify-center text-red-500">Error loading data: {{ error }}</div>
+    <div v-else-if="processedData.length === 0" class="flex-grow flex items-center justify-center text-gray-500">No dataset node data found.</div>
+    <div v-else ref="chartContainer" class="w-full flex-grow min-h-0">
       <BarChart :data="processedData" xKey="dataset" yKey="nodeCount" :width="chartWidth" :height="chartHeight"
         :margin="chartMargin" :colorScale="colorScale" :tooltipFormatter="tooltipFormatter"
         :xAxisLabelFormatter="xAxisLabelFormatter" :yAxisLabelFormatter="yAxisLabelFormatter" :showGridLines="true" />
@@ -26,9 +26,8 @@ export default {
   },
   data() {
     return {
-      chartContainer: null,
-      chartWidth: 400,
-      chartHeight: 300,
+      chartWidth: 0,
+      chartHeight: 0,
       chartMargin: { top: 20, right: 30, bottom: 40, left: 60 },
       resizeObserver: null,
     };
@@ -39,6 +38,9 @@ export default {
       isLoading: 'isLoadingDatasetNodeCounts',
       error: 'errorDatasetNodeCounts',
     }),
+    showChart() {
+      return !this.isLoading && !this.error && this.processedData.length > 0;
+    }
   },
   methods: {
     colorScale(s) {
@@ -53,9 +55,41 @@ export default {
     yAxisLabelFormatter(d, i) {
       return d3.format("d")(d);
     },
+    updateChartSize() {
+      if (this.$refs.chartContainer) {
+        this.chartWidth = this.$refs.chartContainer.offsetWidth;
+        this.chartHeight = this.$refs.chartContainer.offsetHeight;
+      }
+    }
+  },
+  watch: {
+    showChart(isShown) {
+      this.$nextTick(() => {
+        if (isShown && this.$refs.chartContainer) {
+          this.updateChartSize();
+          this.resizeObserver.observe(this.$refs.chartContainer);
+        } else if (this.$refs.chartContainer) {
+          this.resizeObserver.unobserve(this.$refs.chartContainer);
+        }
+      });
+    }
   },
   mounted() {
+    this.resizeObserver = new ResizeObserver(this.updateChartSize);
+    if (this.showChart) {
+      this.$nextTick(() => {
+        if (this.$refs.chartContainer) {
+          this.updateChartSize();
+          this.resizeObserver.observe(this.$refs.chartContainer);
+        }
+      });
+    }
   },
+  beforeUnmount() {
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+    }
+  }
 };
 </script>
 
