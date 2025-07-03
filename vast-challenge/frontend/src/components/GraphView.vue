@@ -1,17 +1,9 @@
 <template>
   <div class="w-full h-full" ref="el">
-    <AdjacencyMatrix
-      v-if="width > 0 && height > 0"
-      class="flex-auto"
-      :data="sentimentMatrixData"
-      :rowLabels="personLabels"
-      :colLabels="topicLabels"
-      :colorScale="sentimentColorScaleLinear"
-      :cellFilter="filterSentimentCells(filterKey)"
-      :tooltipFormatter="sentimentTooltipFormatter"
-      :width="width"
-      :height="height"
-    />
+    <AdjacencyMatrix v-if="width > 0 && height > 0" class="flex-auto" :data="sentimentMatrixData"
+      :rowLabels="personLabels" :colLabels="topicLabels" :colorScale="sentimentColorScaleLinear"
+      :cellFilter="filterSentimentCells(filterKey)" :tooltipFormatter="sentimentTooltipFormatter" :width="width"
+      :height="height" />
   </div>
 </template>
 
