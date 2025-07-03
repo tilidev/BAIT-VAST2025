@@ -9,7 +9,7 @@ import os
 import numpy as np
 
 from .models import IndustryProContraSentiment, Entity, BaseGraphObject, EntityTopicSentiment, GraphMembership, PersonalActivity
-from .crud import dataset_specific_nodes_and_links, entity_topic_participation, graph_skeleton, personal_activity, query_and_results, retrieve_entities, retrieve_trips_by_person
+from .crud import dataset_specific_nodes_and_links, entity_topic_participation, graph_skeleton, num_trips_by_person, personal_activity, query_and_results, retrieve_entities, retrieve_trips_by_person
 from .utils import cosine_similarity_with_nans, serialize_neo4j_entity
 
 # Neo4j connection details from environment variables or local development
@@ -80,6 +80,10 @@ async def trips_of_person(person_id: str, driver: AsyncDriver = Depends(get_driv
     records = await retrieve_trips_by_person(driver, person_id)
     return records
 
+
+@app.get("/num-trips-by-person")
+async def num_trips_of_person(person_id: str, driver: AsyncDriver = Depends(get_driver)):
+    return await num_trips_by_person(driver, person_id)
 
 @app.get("/sentiment")
 async def sentiment():
