@@ -1,13 +1,12 @@
 <template>
   <div class="h-full">
     <div id="content" class="h-full">
-      <GridLayout :ref="setLayoutRef" :layout.sync="layout" :col-num="colNum" :row-height="30" :is-draggable="true"
-        :is-resizable="true" :vertical-compact="true" :use-css-transforms="true" class="h-full">
-        <GridItem v-for="item in layout" :key="item.i" :ref="e => setItemRef(item, e)" :x="item.x" :y="item.y"
-          :w="item.w" :h="item.h" :i="item.i">
+      <GridLayout v-model:layout="layout" :col-num="colNum" :row-height="30" :is-draggable="isDraggable"
+        :is-resizable="isResizable" :vertical-compact="true" :use-css-transforms="true" class="h-full">
+        <GridItem v-for="item in layout" :key="item.i" :x="item.x" :y="item.y" :w="item.w" :h="item.h" :i="item.i">
           <span class="remove" @click="removeItem(item.i)">x</span>
           <div class="h-full w-full">
-            <component :is="item.component" />
+            <component :is="item.component" v-bind="item.props" />
           </div>
         </GridItem>
       </GridLayout>
@@ -16,7 +15,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType } from 'vue';
+import { defineComponent, type PropType } from 'vue';
 import { GridLayout, GridItem } from 'vue-grid-layout-v3';
 import GraphView from './GraphView.vue';
 import GeoJsonMap from './GeoJsonMap.vue';
@@ -40,6 +39,7 @@ interface LayoutItem {
   i: string;
   static?: boolean;
   component: string;
+  props?: Record<string, any>;
 }
 
 export default defineComponent({
@@ -66,22 +66,22 @@ export default defineComponent({
       type: Array as PropType<LayoutItem[]>,
       required: true,
     },
+    isDraggable: {
+      type: Boolean,
+      default: true,
+    },
+    isResizable: {
+      type: Boolean,
+      default: true,
+    },
   },
   data() {
     return {
       layout: this.initialLayout,
       colNum: 12,
-      layoutRef: {} as any,
-      itemRefs: {} as { [key: string]: any },
     };
   },
   methods: {
-    setItemRef(item: LayoutItem, e: any) {
-      this.itemRefs[item.i] = e;
-    },
-    setLayoutRef(e: any) {
-      this.layoutRef = e;
-    },
     removeItem(val: string) {
       const index = this.layout.findIndex(item => item.i === val);
       if (index !== -1) {
