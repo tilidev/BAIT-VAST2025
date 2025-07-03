@@ -1,9 +1,11 @@
 <template>
-  <div class="p-4 border rounded-lg shadow-md bg-white w-full h-full flex flex-col">
+  <div class=" w-full h-full flex flex-col">
     <h3 class="text-lg font-semibold mb-3 text-gray-700">Node Count by Dataset Source</h3>
     <div v-if="isLoading" class="flex-grow flex items-center justify-center text-gray-500">Loading data...</div>
-    <div v-else-if="error" class="flex-grow flex items-center justify-center text-red-500">Error loading data: {{ error }}</div>
-    <div v-else-if="processedData.length === 0" class="flex-grow flex items-center justify-center text-gray-500">No dataset node data found.</div>
+    <div v-else-if="error" class="flex-grow flex items-center justify-center text-red-500">Error loading data: {{ error
+    }}</div>
+    <div v-else-if="processedData.length === 0" class="flex-grow flex items-center justify-center text-gray-500">No
+      dataset node data found.</div>
     <div v-else ref="chartContainer" class="w-full flex-grow min-h-0">
       <BarChart :data="processedData" xKey="dataset" yKey="nodeCount" :width="chartWidth" :height="chartHeight"
         :margin="chartMargin" :colorScale="colorScale" :tooltipFormatter="tooltipFormatter"
