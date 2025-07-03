@@ -70,6 +70,9 @@
         </div>
 
         <IdSelectionPanel v-else-if="activeTab === 'detailed-analysis'" />
+
+        <ScaleOptions v-else-if="activeTab === 'scale'" />
+
         <p v-else class="text-sm text-gray-600 dark:text-gray-400">
           More options will be added here in the future.
         </p>
@@ -88,14 +91,16 @@ import { defineComponent } from 'vue';
 import ThemeSwitcher from './ThemeSwitcher.vue';
 import TripDrilldownFilter from './mini-visualizations/TripDrilldownFilter.vue';
 import { useFilterStore } from '../stores/filterStore';
-import IdSelectionPanel from './IdSelectionPanel.vue'
+import IdSelectionPanel from './IdSelectionPanel.vue';
+import ScaleOptions from './ScaleOptions.vue';
 
 export default defineComponent({
   name: 'Sidebar',
   components: {
     ThemeSwitcher,
     TripDrilldownFilter,
-    IdSelectionPanel
+    IdSelectionPanel,
+    ScaleOptions,
   },
   props: {
     sidebarExpanded: {
