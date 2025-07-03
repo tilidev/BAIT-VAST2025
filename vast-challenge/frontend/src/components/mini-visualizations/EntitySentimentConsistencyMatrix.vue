@@ -1,20 +1,21 @@
 <template>
-  <div class="p-4 border rounded-lg shadow-md bg-white h-full w-full flex flex-col">
-    <h3 class="text-lg font-semibold mb-3 text-gray-700">Entity Sentiment Consistency Matrix</h3>
+  <div class="h-full w-full">
     <div v-if="isLoading" class="text-center text-gray-500">Loading data...</div>
     <div v-else-if="error" class="text-center text-red-500">Error loading data: {{ error }}</div>
     <div v-else-if="matrixData.length === 0" class="text-center text-gray-500">No data available to display matrix.
     </div>
-    <div v-else class="w-full flex-grow">
-      <AdjacencyMatrix :data="matrixData" :rowLabels="rowLabels" :colLabels="colLabels"
+    <div v-else class="w-full h-full" ref="el">
+      <AdjacencyMatrix v-if="width > 0 && height > 0" class="flex-auto" :data="matrixData" :rowLabels="rowLabels" :colLabels="colLabels"
         :colorScale="sentimentColorScaleLinear" :tooltipFormatter="matrixTooltipFormatter"
-        :cellFilter="filterUndefinedCells" :cellRounded="true" :rotateColLabels="false" />
+        :cellFilter="filterUndefinedCells" :cellRounded="true" :rotateColLabels="false" :width="width"
+        :height="height" />
     </div>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { defineComponent, ref } from 'vue';
+import { useElementSize } from '@vueuse/core';
 import { useGraphStore } from '../../stores/graphStore';
 import { sentimentColorScaleLinear } from '../../utils/colors';
 import AdjacencyMatrix from '../AdjacencyMatrix.vue';
@@ -24,6 +25,11 @@ export default defineComponent({
   name: 'EntitySentimentConsistencyMatrix',
   components: {
     AdjacencyMatrix,
+  },
+  setup() {
+    const el = ref(null);
+    const { width, height } = useElementSize(el);
+    return { el, width, height };
   },
   props: {
     entityTypesToShow: {
@@ -53,7 +59,7 @@ export default defineComponent({
       );
 
       entities.forEach((entity: any) => {
-        const sentimentsByDataset = {
+        const sentimentsByDataset: { [key: string]: { sum: number; count: number } } = {
           jo: { sum: 0, count: 0 },
           fi: { sum: 0, count: 0 },
           tr: { sum: 0, count: 0 },
@@ -114,7 +120,7 @@ export default defineComponent({
     },
   },
   methods: {
-    matrixTooltipFormatter(cell) {
+    matrixTooltipFormatter(cell: MatrixCell) {
       return `
         <div class="font-semibold text-blue-700">Entity: ${cell.rowId}</div>
         <div>Dataset: ${cell.colId}</div>
@@ -122,7 +128,7 @@ export default defineComponent({
         <div>Count: ${cell.rawData.count}</div>
       `;
     },
-    filterUndefinedCells(cell) {
+    filterUndefinedCells(cell: MatrixCell) {
       return cell.value !== undefined;
     }
   },
@@ -133,7 +139,7 @@ export default defineComponent({
       if (this.graphStore.sentimentPerTopic.length === 0) {
         await this.graphStore.init();
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Error initializing matrix data:", e);
       this.error = e.message || "An unknown error occurred";
     } finally {
