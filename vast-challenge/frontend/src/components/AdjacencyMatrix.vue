@@ -1,5 +1,5 @@
 <template>
-  <div ref="matrixContainer"></div>
+  <div ref="matrixContainer" class="h-full w-full"></div>
 </template>
 
 <script>
@@ -8,87 +8,216 @@ import * as d3 from 'd3';
 export default {
   name: 'AdjacencyMatrix',
   props: {
-    data: { type: Array, required: true },
-    rowLabels: { type: Array, required: true },
-    colLabels: { type: Array, required: true },
-    width: { type: Number, default: 400 },
-    height: { type: Number, default: 400 },
-    margin: { type: Object, default: () => ({ top: 120, right: 10, bottom: 10, left: 120 }) },
-    colorScale: { type: Function, required: true },
-    cellFilter: { type: Function, default: undefined },
-    nullValueFill: { type: String, default: "url(#diagonalStripe6)" },
-    undefinedValueFill: { type: String, default: "url(#crosshatch)" },
-    tooltipFormatter: { type: Function, default: undefined },
-    rowLabelFormatter: { type: Function, default: undefined },
-    colLabelFormatter: { type: Function, default: undefined },
-    cellRounded: { type: Boolean, default: false },
-    rotateColLabels: { type: Boolean, default: true },
+    width: {
+      type: Number,
+      required: true,
+    },
+    height: {
+      type: Number,
+      required: true,
+    },
+    data: {
+      type: Array,
+      required: true,
+    },
+    rowLabels: {
+      type: Array,
+      required: true,
+    },
+    colLabels: {
+      type: Array,
+      required: true,
+    },
+    margin: {
+      type: Object,
+      default: () => ({ top: 150, right: 0, bottom: 10, left: 150 }),
+    },
+    colorScale: {
+      type: Function,
+      required: true,
+    },
+    cellFilter: {
+      type: Function,
+      default: undefined,
+    },
+    nullValueFill: {
+      type: String,
+      default: "url(#diagonalStripe6)",
+    },
+    undefinedValueFill: {
+      type: String,
+      default: "url(#crosshatch)",
+    },
+    tooltipFormatter: {
+      type: Function,
+      default: undefined,
+    },
+    rowLabelFormatter: {
+      type: Function,
+      default: undefined,
+    },
+    colLabelFormatter: {
+      type: Function,
+      default: undefined,
+    },
+    cellRounded: {
+      type: Boolean,
+      default: false,
+    },
+    rotateColLabels: {
+      type: Boolean,
+      default: true,
+    },
   },
   data() {
-    return { svg: null, tooltip: null, selectedCell: null };
+    return {
+      svg: null,
+      tooltip: null,
+    };
   },
-  mounted() { this.draw(); },
+  mounted() {
+    this.draw();
+  },
   beforeUnmount() {
-    if (this.tooltip) this.tooltip.remove();
-    if (this.svg) this.svg.remove();
+    if (this.tooltip) {
+      this.tooltip.remove();
+    }
+    if (this.svg) {
+      this.svg.remove();
+    }
   },
   watch: {
-    data: 'draw', rowLabels: 'draw', colLabels: 'draw',
-    width: 'draw', height: 'draw',
-    margin: { handler: 'draw', deep: true },
-    colorScale: 'draw', cellFilter: 'draw',
-    nullValueFill: 'draw', undefinedValueFill: 'draw',
-    tooltipFormatter: 'draw', rowLabelFormatter: 'draw', colLabelFormatter: 'draw',
+    width: 'draw',
+    height: 'draw',
+    // Watch all props that affect drawing
+    data: 'draw',
+    rowLabels: 'draw',
+    colLabels: 'draw',
+    margin: {
+      handler: 'draw',
+      deep: true,
+    },
+    colorScale: 'draw',
+    cellFilter: 'draw',
+    nullValueFill: 'draw',
+    undefinedValueFill: 'draw',
+    tooltipFormatter: 'draw',
+    rowLabelFormatter: 'draw',
+    colLabelFormatter: 'draw',
   },
   methods: {
     draw() {
-      if (!this.$refs.matrixContainer) return;
+      if (!this.$refs.matrixContainer || !this.width || !this.height) return;
+
+      const { width, height } = this;
+
+      // Clear previous drawing
       d3.select(this.$refs.matrixContainer).select("svg").remove();
       if (this.tooltip) this.tooltip.remove();
-      const { data, rowLabels, colLabels, width, height, margin,
-        colorScale, cellFilter, nullValueFill, undefinedValueFill,
-        tooltipFormatter, rowLabelFormatter, colLabelFormatter,
-        cellRounded, rotateColLabels } = this.$props;
+
+      const { data, rowLabels, colLabels, margin, colorScale, cellFilter, nullValueFill, undefinedValueFill, tooltipFormatter, rowLabelFormatter, colLabelFormatter } = this.$props
+
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
-      this.svg = d3.select(this.$refs.matrixContainer).append('svg')
-        .attr('width', width).attr('height', height)
+
+      this.svg = d3.select(this.$refs.matrixContainer)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height)
         .attr('class', 'rounded-lg shadow-md border');
-      this.tooltip = d3.select("body").append("div")
+
+      this.tooltip = d3.select("body")
+        .append("div")
         .attr("class", "tooltip pointer-events-none absolute hidden p-3 rounded-lg shadow-lg bg-white border border-gray-200 text-sm text-gray-800 transition")
-        .style("z-index", "50").classed("hidden", true);
+        .style("z-index", "50")
+        .classed("hidden", true);
+
       const x = d3.scaleBand().range([0, innerWidth]).domain(colLabels).padding(0.01);
       const y = d3.scaleBand().range([0, innerHeight]).domain(rowLabels).padding(0.01);
+
       const svgGroup = this.svg.append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
-      svgGroup.append("rect").attr("class", "background")
-        .attr("width", innerWidth).attr("height", innerHeight).attr("fill", "#fff");
-      const defs = svgGroup.append("defs");
-      defs.append("pattern").attr("id", "crosshatch").attr("patternUnits", "userSpaceOnUse").attr("width", 8).attr("height", 8)
-        .append("image").attr("xlink:href", "data:image/svg+xml;base64,...").attr("width", 8).attr("height", 8);
-      defs.append("pattern").attr("id", "diagonalStripe6").attr("patternUnits", "userSpaceOnUse").attr("width", 10).attr("height", 10)
-        .append("image").attr("xlink:href", "data:image/svg+xml;base64,...").attr("width", 10).attr("height", 10);
-      const dataMap = new Map(data.map(d => [`${d.rowId}-${d.colId}`, d]));
+
+      svgGroup.append("rect")
+        .attr("class", "background")
+        .attr("width", innerWidth)
+        .attr("height", innerHeight)
+        .attr("fill", "#fff");
+
+      // Define patterns
+      svgGroup.append("defs")
+        .append("pattern")
+        .attr("id", "crosshatch")
+        .attr("patternUnits", "userSpaceOnUse")
+        .attr("width", 8)
+        .attr("height", 8)
+        .append("image")
+        .attr("xlink:href", "data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSc4JyBoZWlnaHQ9JzgnPgogIDxyZWN0IHdpZHRoPSc4JyBoZWlnaHQ9JzgnIGZpbGw9JyNmZmYnLz4KICA8cGF0aCBkPSdNMCAwTDggOFpNOCAwTDAgOFonIHN0cm9rZS13aWR0aD0nMC41JyBzdHJva2U9JyNhYWEnLz4KPC9zdmc+Cg==")
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("width", 8)
+        .attr("height", 8);
+
+      svgGroup.append("defs")
+        .append("pattern")
+        .attr("id", "diagonalStripe6")
+        .attr("patternUnits", "userSpaceOnUse")
+        .attr("width", 10)
+        .attr("height", 10)
+        .append("image")
+        .attr("xlink:href", "data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxMCcgaGVpZ2h0PScxMCc+CiAgPHJlY3Qgd2lkdGg9JzEwJyBoZWlnaHQ9JzEwJyBmaWxsPSdibGFjaycvPgogIDxwYXRoIGQ9J00tMSwxIGwyLC0yCiAgICAgICAgICAgTTAsMTAgbDEwLC0xMAogICAgICAgICAgIE05LDExIGwyLC0yJyBzdHJva2U9J3doaXRlJyBzdHJva2Utd2lkdGg9JzEnLz4KPC9zdmc+")
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("width", 10)
+        .attr("height", 10);
+
+      const dataMap = new Map();
+      data.forEach(d => {
+        dataMap.set(`${d.rowId}-${d.colId}`, d);
+      });
+
       const matrixCells = [];
-      rowLabels.forEach(r => colLabels.forEach(c =>
-        matrixCells.push({ row: r, col: c, cellData: dataMap.get(`${r}-${c}`) })
-      ));
-      svgGroup.selectAll(".cell").data(matrixCells).join("rect")
-        .attr("class", "cell").attr("x", d => x(d.col)).attr("y", d => y(d.row))
-        .attr("rx", cellRounded ? 3 : 0).attr("ry", cellRounded ? 3 : 0)
-        .attr("width", x.bandwidth()).attr("height", y.bandwidth())
+      rowLabels.forEach(rLabel => {
+        colLabels.forEach(cLabel => {
+          const cellData = dataMap.get(`${rLabel}-${cLabel}`);
+          matrixCells.push({ row: rLabel, col: cLabel, cellData });
+        });
+      });
+
+      // Draw cells
+      svgGroup.selectAll(".cell")
+        .data(matrixCells)
+        .join("rect")
+        .attr("class", "cell")
+        .attr("x", d => x(d.col))
+        .attr("y", d => y(d.row))
+        .attr("rx", d => this.$props.cellRounded ? 3 : 0)
+        .attr("ry", d => this.$props.cellRounded ? 3 : 0)
+        .attr("width", x.bandwidth())
+        .attr("height", y.bandwidth())
         .style("fill", d => {
-          if (cellFilter && d.cellData && !cellFilter(d.cellData)) return undefinedValueFill;
-          if (!d.cellData || d.cellData.value === undefined) return undefinedValueFill;
+          if (cellFilter && d.cellData && !cellFilter(d.cellData)) {
+            return undefinedValueFill; // Filtered out
+          }
+          if (d.cellData === undefined || d.cellData.value === undefined) return undefinedValueFill;
           if (d.cellData.value === null) return nullValueFill;
           return colorScale(d.cellData.value);
         })
-        .style("stroke", "#ccc").style("stroke-width", 1)
-        .style("stroke-linejoin", cellRounded ? "round" : "miter")
+        .style("stroke", "#ccc")
         .on("mouseover", (event, d) => {
-          if (d.cellData && tooltipFormatter) this.tooltip.classed("hidden", false).html(tooltipFormatter(d.cellData));
-          svgGroup.selectAll(".row-label").filter(l => l === d.row).style("font-weight", "bold");
-          svgGroup.selectAll(".column-label text").filter(l => l === d.col).style("font-weight", "bold");
+          if (this.tooltip && d.cellData && tooltipFormatter) {
+            this.tooltip
+              .classed("hidden", false)
+              .html(tooltipFormatter(d.cellData));
+          }
+
+          svgGroup.selectAll(".row-label")
+            .filter(label => label === d.row)
+            .style("font-weight", "bold");
+
+          svgGroup.selectAll(".column-label")
+            .filter(label => label === d.col)
+            .style("font-weight", "bold");
         })
         .on("mousemove", event => this.tooltip.style("left", (event.pageX + 10) + "px").style("top", (event.pageY - 28) + "px"))
         .on("mouseout", () => {
@@ -103,26 +232,35 @@ export default {
             this.$emit('cell-click', { left: d.row, right: d.col });
           }
         });
-      // row labels
-      svgGroup.selectAll(".row-label").data(rowLabels).join("text")
-        .attr("class", "row-label").attr("x", -6)
+
+      // Row labels
+      svgGroup.selectAll(".row-label")
+        .data(rowLabels)
+        .join("text")
+        .attr("class", "row-label")
+        .attr("x", -6)
         .attr("y", d => y(d) + y.bandwidth() / 2)
-        .attr("dy", ".32em").attr("text-anchor", "end")
-        .style("font-size", "10px")
+        .attr("dy", ".32em")
+        .attr("text-anchor", "end")
+        .style("font-size", "10px") // Smaller font size for row labels
         .text(d => rowLabelFormatter ? rowLabelFormatter(d) : d.toString());
-      // column labels
-      svgGroup.selectAll(".column-label").data(colLabels).join("g")
+
+      // Column labels
+      svgGroup.selectAll(".column-label")
+        .data(colLabels)
+        .join("g")
         .attr("class", "column-label")
         .attr("transform", d => {
-          const tx = x(d) + x.bandwidth() / 2;
-          const ty = -8;
-          return rotateColLabels
-            ? `translate(${tx},${ty}) rotate(-90)`
-            : `translate(${tx},${ty})`;
+          const xTranslation = x(d) + x.bandwidth() / 2;
+          const yTranslation = -8 
+          return this.$props.rotateColLabels ? `translate(${xTranslation},${yTranslation}) rotate(-90)` : `translate(${xTranslation},${yTranslation})`;
         })
         .append("text")
-        .attr("dy", ".32em").attr("text-anchor", "start")
-        .style("font-size", "10px")
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("dy", ".32em")
+        .attr("text-anchor", "start")
+        .style("font-size", "10px") // Smaller font size for column labels
         .text(d => colLabelFormatter ? colLabelFormatter(d) : d.toString());
       this.updateHighlight(svgGroup);
     },

@@ -1,24 +1,25 @@
 <template>
-  <div class="h-full flex flex-col gap-4">
-    <div class="basis-2/5 overflow-hidden">
-      <TimelineComponent class="h-full w-full" />
-    </div>
-    <div class="basis-3/5 overflow-hidden">
-      <GeoJsonMap class="h-full w-full" />
-    </div>
+  <div class="h-full">
+    <CustomGridLayout :initial-layout="layout" />
   </div>
 </template>
 
-<script>
+<script lang="ts">
 import { defineComponent } from 'vue';
-import TimelineComponent from '../TimelineComponent.vue';
-import GeoJsonMap from '../GeoJsonMap.vue';
+import CustomGridLayout from '../CustomGridLayout.vue';
 
 export default defineComponent({
   name: 'TripAnalysisTab',
   components: {
-    TimelineComponent,
-    GeoJsonMap,
+    CustomGridLayout,
+  },
+  data() {
+    return {
+      layout: [
+        { x: 0, y: 0, w: 12, h: 8, i: '0', component: 'TimelineComponent' },
+        { x: 0, y: 8, w: 12, h: 12, i: '1', component: 'GeoJsonMap' },
+      ],
+    };
   },
 });
 </script>

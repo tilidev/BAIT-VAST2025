@@ -5,7 +5,6 @@
 
     <!-- Main Content Area -->
     <main class="flex-grow p-4 flex flex-col gap-4 overflow-hidden transition-all duration-300 ease-in-out">
-      <IdSelectionPanel />
       <div class="flex-grow overflow-hidden">
         <OverviewTab v-if="activeTab === 'overview'" />
         <DetailedAnalysisTab v-else-if="activeTab === 'detailed-analysis'" />
@@ -17,7 +16,6 @@
 
 <script>
 import { defineAsyncComponent, defineComponent } from 'vue';
-import Card from 'primevue/card';
 import Sidebar from './components/Sidebar.vue';
 
 import { useEntityStore } from './stores/entityStore';
@@ -32,7 +30,6 @@ const TripAnalysisTab = defineAsyncComponent(() => import('./components/tabs/Tri
 export default defineComponent({
   name: 'App',
   components: {
-    Card,
     Sidebar,
     OverviewTab,
     DetailedAnalysisTab,
@@ -40,7 +37,7 @@ export default defineComponent({
   },
   data() {
     return {
-      activeTab: 'trip-analysis',
+      activeTab: 'overview',
       sidebarExpanded: true,
       entityStore: useEntityStore(),
       graphStore: useGraphStore(),

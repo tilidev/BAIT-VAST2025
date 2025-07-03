@@ -1,5 +1,5 @@
 <template>
-  <div class="p-4 border rounded-lg shadow-md bg-white">
+  <div class="w-full h-full flex flex-col">
     <h3 class="text-lg font-semibold mb-3 text-gray-700">Topic Sentiment Overview</h3>
     <div class="mb-2">
       <label for="sortOrder" class="mr-2 text-sm font-medium text-gray-700">Sort by:</label>
@@ -10,10 +10,12 @@
         <option value="sentimentCountDesc">No. of Sentiments (High to Low)</option>
       </select>
     </div>
-    <div v-if="isLoading" class="text-center text-gray-500">Loading data...</div>
-    <div v-else-if="error" class="text-center text-red-500">Error loading data: {{ error }}</div>
-    <div v-else-if="processedData.length === 0" class="text-center text-gray-500">No topic sentiment data found.</div>
-    <div v-else ref="chartContainer" class="w-full" :style="{ height: chartHeight + 'px' }"></div>
+    <div v-if="isLoading" class="flex-grow flex items-center justify-center text-gray-500">Loading data...</div>
+    <div v-else-if="error" class="flex-grow flex items-center justify-center text-red-500">Error loading data: {{ error
+    }}</div>
+    <div v-else-if="processedData.length === 0" class="flex-grow flex items-center justify-center text-gray-500">No
+      topic sentiment data found.</div>
+    <div v-else ref="chartContainer" class="w-full flex-grow min-h-0"></div>
   </div>
 </template>
 
@@ -25,11 +27,11 @@ export default {
   name: 'TopicSentimentOverview',
   data() {
     return {
-      chartContainer: null,
       isLoading: true,
       error: null,
       graphStore: useGraphStore(),
       sortOrder: 'avgSentimentDesc',
+      resizeObserver: null,
     };
   },
   computed: {
@@ -75,15 +77,14 @@ export default {
       }
       return result.slice(0, 20); // Display top 20 for manageability
     },
-    chartHeight() {
-        // Adjust height based on number of items, e.g., 30px per item + margins
-        return Math.max(300, this.processedData.length * 30 + 80); 
-    },
+    showChart() {
+      return !this.isLoading && !this.error && this.processedData.length > 0;
+    }
   },
   methods: {
     drawChart() {
       if (!this.$refs.chartContainer || this.processedData.length === 0) {
-        if(this.$refs.chartContainer) d3.select(this.$refs.chartContainer).selectAll("*").remove();
+        if (this.$refs.chartContainer) d3.select(this.$refs.chartContainer).selectAll("*").remove();
         return;
       }
       d3.select(this.$refs.chartContainer).selectAll("*").remove();
@@ -91,9 +92,8 @@ export default {
       const data = this.processedData;
 
       const margin = { top: 20, right: 50, bottom: 40, left: 150 }; // Increased left margin for topic IDs
-      const width = this.$refs.chartContainer.clientWidth - margin.left - margin.right;
-      // Height is now dynamic based on chartHeight computed property
-      const height = this.$refs.chartContainer.clientHeight - margin.top - margin.bottom;
+      const width = this.$refs.chartContainer.offsetWidth - margin.left - margin.right;
+      const height = this.$refs.chartContainer.offsetHeight - margin.top - margin.bottom;
 
 
       const svg = d3.select(this.$refs.chartContainer)
@@ -129,9 +129,9 @@ export default {
         .attr("class", "grid")
         .attr("transform", `translate(0,${height})`)
         .call(d3.axisBottom(x)
-            .ticks(10) // More ticks for grid lines
-            .tickSize(-height)
-            .tickFormat("")
+          .ticks(10) // More ticks for grid lines
+          .tickSize(-height)
+          .tickFormat("")
         )
         .selectAll("line")
         .attr("stroke-opacity", 0.1);
@@ -150,12 +150,12 @@ export default {
       svg.selectAll(".bar")
         .data(data)
         .join("rect")
-          .attr("class", "bar")
-          .attr("y", d => y(d.topicId))
-          .attr("x", d => d.averageSentiment < 0 ? x(d.averageSentiment) : x(0))
-          .attr("width", d => Math.abs(x(d.averageSentiment) - x(0)))
-          .attr("height", y.bandwidth())
-          .attr("fill", d => colorScale(d.averageSentiment));
+        .attr("class", "bar")
+        .attr("y", d => y(d.topicId))
+        .attr("x", d => d.averageSentiment < 0 ? x(d.averageSentiment) : x(0))
+        .attr("width", d => Math.abs(x(d.averageSentiment) - x(0)))
+        .attr("height", y.bandwidth())
+        .attr("fill", d => colorScale(d.averageSentiment));
 
       // Tooltip
       const tooltip = d3.select("body").append("div")
@@ -171,16 +171,51 @@ export default {
         })
         .on("mousemove", (event) => {
           tooltip.style("left", (event.pageX + 10) + "px")
-                 .style("top", (event.pageY - 20) + "px");
+            .style("top", (event.pageY - 20) + "px");
         })
         .on("mouseout", () => {
           tooltip.classed("hidden", true);
         });
     },
   },
+  watch: {
+    processedData: {
+      handler() {
+        if (this.showChart) {
+          this.$nextTick(() => this.drawChart());
+        }
+      },
+      deep: true,
+      immediate: true
+    },
+    sortOrder() {
+      if (this.showChart) {
+        this.$nextTick(() => this.drawChart());
+      }
+    },
+    showChart(isShown) {
+      if (isShown) {
+        this.$nextTick(() => {
+          if (this.$refs.chartContainer) {
+            this.resizeObserver.observe(this.$refs.chartContainer);
+            this.drawChart();
+          }
+        });
+      } else {
+        if (this.$refs.chartContainer) {
+          this.resizeObserver.unobserve(this.$refs.chartContainer);
+        }
+      }
+    }
+  },
   async mounted() {
     this.isLoading = true;
     this.error = null;
+    this.resizeObserver = new ResizeObserver(() => {
+      if (this.showChart) {
+        this.drawChart();
+      }
+    });
     try {
       if (this.graphStore.sentimentPerTopic.length === 0) {
         await this.graphStore.init();
@@ -192,39 +227,14 @@ export default {
       this.isLoading = false;
     }
   },
-  watch: {
-    processedData: {
-      handler() { // Watch chartHeight as well
-        if (!this.isLoading) {
-          // Ensure chart container is ready for new height
-          requestAnimationFrame(() => { // Wait for next frame for DOM update
-              this.drawChart();
-          });
-        }
-      },
-      deep: true,
-    },
-    sortOrder() {
-      if (!this.isLoading) {
-        requestAnimationFrame(() => {
-            this.drawChart();
-        });
-      }
-    },
-    chartHeight() {
-      if (!this.isLoading) {
-        requestAnimationFrame(() => {
-            this.drawChart();
-        });
-      }
-    },
-    isLoading(newIsLoading) {
-        if (!newIsLoading && this.processedData.length > 0) {
-             requestAnimationFrame(() => {
-                this.drawChart();
-            });
-        }
-    },
+  beforeUnmount() {
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+    }
+    const tooltip = d3.select("body").select(".tooltip");
+    if (!tooltip.empty()) {
+      tooltip.remove();
+    }
   },
 };
 </script>

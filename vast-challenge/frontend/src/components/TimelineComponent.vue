@@ -56,6 +56,7 @@ export default {
       tooltip: null,
       eventRects: null,
       zoneColors: zoneColors,
+      resizeObserver: null,
     };
   },
   computed: {
@@ -225,11 +226,21 @@ export default {
       .attr("class", "tooltip pointer-events-none absolute hidden p-3 rounded-lg shadow-lg bg-white border border-gray-200 text-sm text-gray-800 transition")
       .style("z-index", "50");
 
-    this.$nextTick(this.drawTimeline);
+    this.$nextTick(() => {
+      if (this.$refs.timelineContainer) {
+        this.resizeObserver = new ResizeObserver(() => {
+          this.drawTimeline();
+        });
+        this.resizeObserver.observe(this.$refs.timelineContainer);
+      }
+    });
   },
   beforeUnmount() {
     if (this.tooltip) {
       this.tooltip.remove();
+    }
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
     }
   },
   methods: {
