@@ -5,7 +5,6 @@
 
     <!-- Main Content Area -->
     <main class="flex-grow p-4 flex flex-col gap-4 overflow-hidden transition-all duration-300 ease-in-out">
-      <IdSelectionPanel />
       <div class="flex-grow overflow-hidden">
         <OverviewTab v-if="activeTab === 'overview'" />
         <DetailedAnalysisTab v-else-if="activeTab === 'detailed-analysis'" />
@@ -27,7 +26,6 @@ import { useFilterStore } from './stores/filterStore';
 const OverviewTab = defineAsyncComponent(() => import('./components/tabs/OverviewTab.vue'));
 const DetailedAnalysisTab = defineAsyncComponent(() => import('./components/tabs/DetailedAnalysisTab.vue'));
 const TripAnalysisTab = defineAsyncComponent(() => import('./components/tabs/TripAnalysisTab.vue'));
-const IdSelectionPanel = defineAsyncComponent(() => import('./components/IdSelectionPanel.vue'));
 
 export default defineComponent({
   name: 'App',
@@ -36,7 +34,6 @@ export default defineComponent({
     OverviewTab,
     DetailedAnalysisTab,
     TripAnalysisTab,
-    IdSelectionPanel,
   },
   data() {
     return {
