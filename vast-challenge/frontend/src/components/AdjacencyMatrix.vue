@@ -219,27 +219,18 @@ export default {
             .filter(label => label === d.col)
             .style("font-weight", "bold");
         })
-        .on("mousemove", (event) => {
-          if (this.tooltip) {
-            this.tooltip
-              .style("left", (event.pageX + 10) + "px")
-              .style("top", (event.pageY - 28) + "px");
-          }
+        .on("mousemove", event => this.tooltip.style("left", (event.pageX + 10) + "px").style("top", (event.pageY - 28) + "px"))
+        .on("mouseout", () => {
+          this.tooltip.classed("hidden", true);
+          svgGroup.selectAll(".row-label").style("font-weight", "normal");
+          svgGroup.selectAll(".column-label text").style("font-weight", "normal");
         })
-        .on("mouseout", (event, d) => {
-          if (this.tooltip) {
-            this.tooltip.classed("hidden", true);
+        .on("click", (event, d) => {
+          if (d.cellData && d.cellData.value !== null) {
+            this.selectedCell = { row: d.row, col: d.col };
+            this.updateHighlight(svgGroup);
+            this.$emit('cell-click', { left: d.row, right: d.col });
           }
-
-          // Unbold row label
-          svgGroup.selectAll(".row-label")
-            .filter(label => label === d.row)
-            .style("font-weight", "normal");
-
-          // Unbold column label
-          svgGroup.selectAll(".column-label")
-            .filter(label => label === d.col)
-            .style("font-weight", "normal");
         });
 
       // Row labels
@@ -271,6 +262,19 @@ export default {
         .attr("text-anchor", "start")
         .style("font-size", "10px") // Smaller font size for column labels
         .text(d => colLabelFormatter ? colLabelFormatter(d) : d.toString());
+      this.updateHighlight(svgGroup);
+    },
+    updateHighlight(svgGroup) {
+      svgGroup.selectAll(".cell")
+        .style("stroke", "#ccc").style("stroke-width", 1)
+        .style("stroke-linejoin", "miter");
+      if (this.selectedCell) {
+        svgGroup.selectAll(".cell").filter(d =>
+          d.row === this.selectedCell.row && d.col === this.selectedCell.col
+        )
+        .style("stroke", "#fd5825").style("stroke-width", 4)
+        .style("stroke-linejoin", "round").style("stroke-linecap", "round").raise();
+      }
     },
   },
 };

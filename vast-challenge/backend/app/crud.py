@@ -82,16 +82,29 @@ def _convert_visited_places(visit_rels: list[Relationship], place_nodes: list[No
 
 
 async def retrieve_trips_by_person(driver: AsyncDriver, person_id: str):
-    query = 'match (p:ENTITY_PERSON {id: $person_id})--(t:TRIP)-[visit]-(pl:PLACE) ' \
-        'return t, collect(visit) as visit, collect(pl) as pl'
+    query = 'match (p:ENTITY_PERSON {id: $person_id})-[took]-(t:TRIP)-[visit]-(pl:PLACE) ' \
+        'return took, t, collect(visit) as visit, collect(pl) as pl'
     records = await query_and_results(driver, query, {'person_id': person_id})
     return [
         {
             "trip": convert_attr_values(record['t']),
+            "in_graph": record['took']['in_graph'],
             "visited_places": _convert_visited_places(record['visit'], record['pl'])
         }
         for record in records
     ]
+
+
+async def num_trips_by_person(driver: AsyncDriver, person_id: str):
+    query = 'match (p:ENTITY_PERSON {id: $person_id})-[took]-(t:TRIP)-[visit]-(pl:PLACE) ' \
+        'return distinct took, t'
+    records = await query_and_results(driver, query, {'person_id': person_id})
+    counts = {k: 0 for k in ['jo', 'fi', 'tr']}
+    def adder(record: dict):
+        for k in record['took']['in_graph']:
+            counts[k] += 1
+    list(map(adder, records))
+    return counts
 
 
 async def graph_skeleton(driver: AsyncDriver, result_transformer=serializable_graph_transformer):
