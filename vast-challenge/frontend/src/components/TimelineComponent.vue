@@ -40,7 +40,7 @@
 <script>
 import * as d3 from 'd3';
 import { useEntityStore } from '../stores/entityStore';
-import { useLinkingStore } from '../stores/linkingStore';
+import { useLinkingStore, FilterType } from '../stores/linkingStore';
 import { useMapStore } from '../stores/mapStore';
 import { toRaw } from 'vue';
 import { zoneColors } from '../utils/colors';
@@ -48,6 +48,7 @@ import { zoneColors } from '../utils/colors';
 export default {
   data() {
     return {
+      FilterType,
       showHelp: false,
       timelineContainer: null,
       entityStore: useEntityStore(),
@@ -117,23 +118,35 @@ export default {
 
       // Filter by active sidebar filters
       if (this.linkingStore.activeFilters.length > 0) {
-        events = events.filter(event => {
-          return this.linkingStore.activeFilters.every(filter => {
-            return event.trip.visited_places.some(visitedPlace => {
-              const place = visitedPlace.place;
-              if (!place || !place.id) return false;
-              if (filter.type === 'island') {
-                const parentFeatureName = this.mapStore.getParentFeatureByPlaceId(place.id);
-                return parentFeatureName === filter.value;
-              } else if (filter.type === 'zone') {
-                return place.zone === filter.value;
-              } else if (filter.type === 'in_graph') {
-                return place.in_graph && Array.isArray(place.in_graph) && place.in_graph.includes(filter.value);
-              }
-              return false;
+        const placeFilters = this.linkingStore.activeFilters.filter(f => f.type === this.FilterType.PLACE).map(f => f.value);
+        const otherFilters = this.linkingStore.activeFilters.filter(f => f.type !== this.FilterType.PLACE);
+
+        if (placeFilters.length > 0) {
+          const brushedPlaceNames = new Set(placeFilters);
+          events = events.filter(event => {
+            return event.visitedPlaceNames.some(placeName => brushedPlaceNames.has(placeName));
+          });
+        }
+
+        if (otherFilters.length > 0) {
+          events = events.filter(event => {
+            return otherFilters.every(filter => {
+              return event.trip.visited_places.some(visitedPlace => {
+                const place = visitedPlace.place;
+                if (!place || !place.id) return false;
+                if (filter.type === 'island') {
+                  const parentFeatureName = this.mapStore.getParentFeatureByPlaceId(place.id);
+                  return parentFeatureName === filter.value;
+                } else if (filter.type === 'zone') {
+                  return place.zone === filter.value;
+                } else if (filter.type === 'in_graph') {
+                  return place.in_graph && Array.isArray(place.in_graph) && place.in_graph.includes(filter.value);
+                }
+                return false;
+              });
             });
           });
-        });
+        }
       }
 
       // Filter by excluded sidebar filters
@@ -157,24 +170,10 @@ export default {
         });
       }
 
-      // Filter by brushed places on the map
-      if (this.linkingStore.brushedPlaces.length > 0) {
-        const brushedPlaceNames = new Set(this.linkingStore.brushedPlaces);
-        events = events.filter(event => {
-          return event.visitedPlaceNames.some(placeName => brushedPlaceNames.has(placeName));
-        });
-      }
-
       return events;
     },
   },
   watch: {
-    'linkingStore.brushedPlaces': {
-      handler() {
-        this.$nextTick(this.drawTimeline);
-      },
-      deep: true,
-    },
     'linkingStore.activeFilters': {
       handler() {
         this.$nextTick(this.drawTimeline);
@@ -187,13 +186,7 @@ export default {
       },
       deep: true,
     },
-    'linkingStore.highlightedPlaceIds': {
-      handler() {
-        this.updateHighlighting();
-      },
-      deep: true,
-    },
-    'linkingStore.hoveredPlaceId': {
+    'linkingStore.hoverHighlights': {
       handler() {
         this.updateHighlighting();
       },
@@ -464,8 +457,9 @@ export default {
               .classed("hidden", false)
               .html(this.tooltipFormatter(d));
             d3.select(event.currentTarget).selectAll('rect').style('opacity', 1);
-            this.linkingStore.setHighlightedPlaceIds(d.visitedPlaceIds);
-            this.linkingStore.setHighlightedTrips([d.trip.trip.id]);
+            const highlights = d.visitedPlaceIds.map(id => ({ type: 'place', value: id }));
+            highlights.push({ type: 'trip', value: d.trip.trip.id });
+            this.linkingStore.setHoverHighlights(highlights);
           }
         })
         .on("mousemove", (event) => {
@@ -479,8 +473,7 @@ export default {
           if (this.tooltip) {
             this.tooltip.classed("hidden", true);
             d3.select(event.currentTarget).selectAll('rect').style('opacity', 0.8);
-            this.linkingStore.setHighlightedPlaceIds([]);
-            this.linkingStore.setHighlightedTrips([]);
+            this.linkingStore.setHoverHighlights([]);
           }
         });
 
@@ -600,20 +593,22 @@ export default {
     updateHighlighting() {
       if (!this.eventRects) return;
 
-      const { highlightedTrips, hoveredPlaceId } = this.linkingStore;
+      const { hoverHighlights } = this.linkingStore;
+      const highlightedTrips = hoverHighlights.filter(h => h.type === 'trip').map(h => h.value);
+      const highlightedPlaces = hoverHighlights.filter(h => h.type === 'place').map(h => h.value);
 
       this.eventRects
         .each(function (d) {
           const group = d3.select(this);
           const isTripHighlighted = highlightedTrips.includes(d.trip.trip.id);
-          const isPlaceHovered = hoveredPlaceId && d.visitedPlaceIds.includes(hoveredPlaceId);
-          const isHighlighted = isTripHighlighted || isPlaceHovered;
+          const isPlaceHighlighted = d.visitedPlaceIds.some(id => highlightedPlaces.includes(id));
+          const isHighlighted = isTripHighlighted || isPlaceHighlighted;
 
           group.selectAll('rect')
             .style('stroke', isHighlighted ? 'red' : 'none')
             .style('stroke-width', isHighlighted ? 2 : 0)
             .style('opacity', () => {
-              if (highlightedTrips.length > 0 || hoveredPlaceId) {
+              if (hoverHighlights.length > 0) {
                 return isHighlighted ? 0.8 : 0.3;
               }
               return 0.8;

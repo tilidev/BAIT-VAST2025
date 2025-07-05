@@ -1,41 +1,86 @@
 import { defineStore } from 'pinia';
 import type { MatrixCell } from '../types/matrixTypes';
 
+export const FilterType = {
+  ISLAND: 'island',
+  ZONE: 'zone',
+  IN_GRAPH: 'in_graph',
+  PLACE: 'place',
+  PERSON: 'person',
+  TOPIC: 'topic',
+  INDUSTRY: 'industry',
+} as const;
+
+export type FilterType = typeof FilterType[keyof typeof FilterType];
+
+export interface Filter {
+  type: FilterType;
+  value: string;
+}
+
+export const HighlightType = {
+  PLACE: 'place',
+  TRIP: 'trip',
+  PERSON: 'person',
+  TOPIC: 'topic',
+  INDUSTRY: 'industry',
+  CELL: 'cell',
+} as const;
+
+export type HighlightType = typeof HighlightType[keyof typeof HighlightType];
+
+export interface Highlight {
+  type: HighlightType;
+  value: string | MatrixCell;
+}
+
 interface LinkingState {
-  activeFilters: any[];
-  excludedFilters: any[];
-  hoveredFilters: any[];
-  highlightedPlaceIds: string[];
-  brushedPlaces: string[];
-  highlightedTrips: string[];
-  hoveredPlaceId: string | null;
-  hoveredCell: MatrixCell | null;
-  highlightedPeople: string[];
-  highlightedTopics: string[];
+  activeFilters: Filter[];
+  excludedFilters: Filter[];
+  hoverHighlights: Highlight[];
   selectedEntityId: string;
-  selectedIndustry: string;
 }
 
 export const useLinkingStore = defineStore('linking', {
   state: (): LinkingState => ({
-    activeFilters: [], // Stores filter options as objects { type: 'island' | 'zone' | 'in_graph', value: string }
-    excludedFilters: [], // Stores filter options as objects { type: 'island' | 'zone' | 'in_graph', value: string }
-    hoveredFilters: [], // Stores filter options for previewing
-    highlightedPlaceIds: [], // Stores place IDs for cross-component highlighting
-    brushedPlaces: [], // Stores place names selected by the brush tool
-    highlightedTrips: [], // Stores trip IDs for cross-component highlighting
-    hoveredPlaceId: null, // Stores the ID of the hovered place on the map
-    hoveredCell: null, // Stores the currently hovered cell in a matrix { rowId, colId }
-    highlightedPeople: [], // Stores IDs of highlighted people
-    highlightedTopics: [], // Stores IDs of highlighted topics
+    activeFilters: [],
+    excludedFilters: [],
+    hoverHighlights: [],
     selectedEntityId: '',
-    selectedIndustry: ''
   }),
-  actions: {
-    setBrushedPlaces(places: string[]) {
-      this.brushedPlaces = places;
+  getters: {
+    highlightedPeople(state): string[] {
+      return state.activeFilters.filter(f => f.type === 'person').map(f => f.value);
     },
-    toggleFilter(newFilter: any) {
+    highlightedTopics(state): string[] {
+      return state.activeFilters.filter(f => f.type === 'topic').map(f => f.value);
+    },
+    selectedIndustries(state): string[] {
+      return state.activeFilters.filter(f => f.type === 'industry').map(f => f.value);
+    },
+    selectedPerson(state): string {
+      const person = state.activeFilters.find(f => f.type === 'person');
+      return person ? person.value : '';
+    },
+    selectedIndustry(state): string {
+      const industry = state.activeFilters.find(f => f.type === 'industry');
+      return industry ? industry.value : '';
+    }
+  },
+  actions: {
+    setPersonId(personId: string) {
+      this.activeFilters = this.activeFilters.filter(f => f.type !== 'person');
+      if (personId) {
+        this.activeFilters.push({ type: 'person', value: personId });
+      }
+    },
+    setIndustry(industry: string) {
+      this.activeFilters = this.activeFilters.filter(f => f.type !== 'industry');
+      if (industry) {
+        this.activeFilters.push({ type: 'industry', value: industry });
+      }
+    },
+    toggleFilter(newFilter: Filter) {
       const index = this.activeFilters.findIndex(
         (f) => f.type === newFilter.type && f.value === newFilter.value
       );
@@ -45,7 +90,7 @@ export const useLinkingStore = defineStore('linking', {
         this.activeFilters.splice(index, 1);
       }
     },
-    toggleExcludeFilter(newFilter: any) {
+    toggleExcludeFilter(newFilter: Filter) {
       const index = this.excludedFilters.findIndex(
         (f) => f.type === newFilter.type && f.value === newFilter.value
       );
@@ -55,56 +100,34 @@ export const useLinkingStore = defineStore('linking', {
         this.excludedFilters.splice(index, 1);
       }
     },
-    setHighlightedPlaceIds(placeIds: string[]) {
-      this.highlightedPlaceIds = placeIds;
+    setFilters(type: FilterType, values: string[]) {
+      this.activeFilters = this.activeFilters.filter(f => f.type !== type);
+      values.forEach(value => {
+        this.activeFilters.push({ type, value });
+      });
     },
-    setHoveredFilters(filters: any[]) {
-      this.hoveredFilters = filters;
+    setHoverHighlights(highlights: Highlight[]) {
+      this.hoverHighlights = highlights;
     },
-    setHighlightedTrips(tripIds: string[]) {
-      this.highlightedTrips = tripIds;
-    },
-    setHoveredPlaceId(placeId: string | null) {
-      this.hoveredPlaceId = placeId;
-    },
-    setHoveredCell(cell: MatrixCell | null) {
-      this.hoveredCell = cell;
-    },
-    togglePersonHighlight(personId: string) {
-      const index = this.highlightedPeople.indexOf(personId);
-      if (index > -1) {
-        this.highlightedPeople.splice(index, 1);
-      } else {
-        this.highlightedPeople.push(personId);
+    addHoverHighlight(highlight: Highlight) {
+      if (!this.hoverHighlights.some(h => h.type === highlight.type && h.value === highlight.value)) {
+        this.hoverHighlights.push(highlight);
       }
     },
-    toggleTopicHighlight(topicId: string) {
-      const index = this.highlightedTopics.indexOf(topicId);
+    removeHoverHighlight(highlight: Highlight) {
+      const index = this.hoverHighlights.findIndex(h => h.type === highlight.type && h.value === highlight.value);
       if (index > -1) {
-        this.highlightedTopics.splice(index, 1);
-      } else {
-        this.highlightedTopics.push(topicId);
+        this.hoverHighlights.splice(index, 1);
       }
     },
     setEntityId(id: string) {
       this.selectedEntityId = id;
     },
-    setIndustry(industry: string) {
-      this.selectedIndustry = industry;
-    },
-    setPersonId(id: string) {
-      if (!this.highlightedPeople.includes(id)) {
-        this.highlightedPeople = [id];
-      }
-    },
     clearAllFilters() {
       this.activeFilters = [];
       this.excludedFilters = [];
-      this.brushedPlaces = [];
-      this.highlightedPeople = [];
-      this.highlightedTopics = [];
+      this.hoverHighlights = [];
       this.selectedEntityId = '';
-      this.selectedIndustry = '';
     },
   },
 });

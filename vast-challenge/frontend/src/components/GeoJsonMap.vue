@@ -33,7 +33,7 @@
 <script>
 import * as d3 from 'd3';
 import { useEntityStore } from '../stores/entityStore';
-import { useLinkingStore } from '../stores/linkingStore';
+import { useLinkingStore, FilterType } from '../stores/linkingStore';
 import { useMapStore } from '../stores/mapStore';
 import { mapState } from 'pinia';
 import { toRaw } from 'vue';
@@ -42,6 +42,7 @@ import { zoneColors } from '../utils/colors';
 export default {
   data() {
     return {
+      FilterType,
       showHelp: false,
       width: 0,
       height: 0,
@@ -64,11 +65,7 @@ export default {
   },
 
   watch: {
-    'linkingStore.highlightedPlaceIds': {
-      handler() { this.drawPlaces(); },
-      deep: true,
-    },
-    'linkingStore.highlightedTrips': {
+    'linkingStore.hoverHighlights': {
       handler() { this.drawPlaces(); },
       deep: true,
     },
@@ -77,10 +74,6 @@ export default {
       deep: true,
     },
     excludedFilters: {
-      handler() { this.drawPlaces(); },
-      deep: true,
-    },
-    brushedPlaces: {
       handler() { this.drawPlaces(); },
       deep: true,
     },
@@ -94,9 +87,15 @@ export default {
 
   computed: {
     ...mapState(useEntityStore, ['places']),
-    ...mapState(useLinkingStore, ['brushedPlaces', 'activeFilters', 'excludedFilters']),
+    ...mapState(useLinkingStore, ['activeFilters', 'excludedFilters']),
     mapStore() { return useMapStore(); },
     linkingStore() { return useLinkingStore(); },
+    highlightedPlaceIds() {
+      return this.linkingStore.hoverHighlights.filter(h => h.type === 'place').map(h => h.value);
+    },
+    highlightedTrips() {
+      return this.linkingStore.hoverHighlights.filter(h => h.type === 'trip').map(h => h.value);
+    },
   },
 
   mounted() {
@@ -260,7 +259,7 @@ export default {
         .on('end', ({ selection }) => {
           this.isBrushing = false;
           if (selection) this.handleBrushSelection(selection);
-          else this.linkingStore.setBrushedPlaces([]);
+          else this.linkingStore.setFilters(this.FilterType.PLACE, []);
         });
 
       this.svg.append('g')
@@ -272,13 +271,13 @@ export default {
       const [[x0, y0], [x1, y1]] = selection;
       const allPlaces = toRaw(this.places).filter(p => p.lon!=null&&p.lat!=null);
       const currentTransform = d3.zoomTransform(this.g.node());
-      const selectedPlaces = [];        
+      const selectedPlaces = [];
       allPlaces.forEach(place => {
         const [px,py] = this.projection([place.lat,place.lon]);
         const [tx,ty] = currentTransform.apply([px,py]);
         if (tx>=x0&&tx<=x1&&ty>=y0&&ty<=y1) selectedPlaces.push(place.name);
       });
-      this.linkingStore.setBrushedPlaces(selectedPlaces);
+      this.linkingStore.setFilters(this.FilterType.PLACE, selectedPlaces);
     },
 
     forwardEventToBrush(e) {
@@ -299,30 +298,29 @@ export default {
       if (!this.g||!this.projection||!this.places) return;
       // keep marker sizing consistent with zoom
       const { k = 1 } = d3.zoomTransform(this.g.node());
-      const { highlightedPlaceIds, highlightedTrips } = this.linkingStore;
+      const { highlightedPlaceIds, highlightedTrips } = this;
       const tooltip = this.tooltip;
       let allPlaces = toRaw(this.places).filter(p=>p.lon!=null&&p.lat!=null);
       const activeFilters = this.activeFilters;
       const excludedFilters = this.excludedFilters;
-      const brushedNames = new Set(this.brushedPlaces);
-      const hasFilters = activeFilters.length>0||brushedNames.size>0||excludedFilters.length>0;
+      const hasFilters = activeFilters.length > 0 || excludedFilters.length > 0;
       if (hasFilters) allPlaces = allPlaces.filter(d => {
-        const passesActive = activeFilters.length===0||activeFilters.every(f=>{
+        const passesActive = activeFilters.length === 0 || activeFilters.every(f => {
+          if (!d.id) return false;
+          if (f.type === 'island') return this.mapStore.getParentFeatureByPlaceId(d.id) === f.value;
+          if (f.type === 'zone') return d.zone === f.value;
+          if (f.type === 'in_graph') return Array.isArray(d.in_graph) && d.in_graph.includes(f.value);
+          if (f.type === 'place') return d.name === f.value;
+          return true; // Ignore other filter types for now
+        });
+        const passesExcl = excludedFilters.length === 0 || !excludedFilters.some(f => {
           if (!d.id) return false;
           if (f.type==='island') return this.mapStore.getParentFeatureByPlaceId(d.id)===f.value;
           if (f.type==='zone') return d.zone===f.value;
-          if (f.type==='in_graph') return Array.isArray(d.in_graph)&&d.in_graph.includes(f.value);
+          if (f.type === 'in_graph') return Array.isArray(d.in_graph) && d.in_graph.includes(f.value);
           return false;
         });
-        const passesExcl = excludedFilters.length===0||!excludedFilters.some(f=>{
-          if (!d.id) return false;
-          if (f.type==='island') return this.mapStore.getParentFeatureByPlaceId(d.id)===f.value;
-          if (f.type==='zone') return d.zone===f.value;
-          if (f.type==='in_graph') return Array.isArray(d.in_graph)&&d.in_graph.includes(f.value);
-          return false;
-        });
-        const passesBrush = brushedNames.size===0||brushedNames.has(d.name);
-        return passesActive&&passesBrush&&passesExcl;
+        return passesActive && passesExcl;
       });
 
       if (this.placesLayer) this.placesLayer.remove();
@@ -336,25 +334,25 @@ export default {
         // base radius 6px, stroke 2px if highlighted
         .attr('r', 6 / k)
         .attr('r',  d=>{
-          const highlighted = highlightedPlaceIds.includes(d.id)
-            || (highlightedTrips.length>0&&d.trip_ids?.some(id=>highlightedTrips.includes(id)));
+          const highlighted = this.highlightedPlaceIds.includes(d.id)
+            || (this.highlightedTrips.length>0&&d.trip_ids?.some(id=>this.highlightedTrips.includes(id)));
           return (highlighted?10:6) / k;
         })
         .attr('fill', d=>this.zoneColors[d.zone]||this.zoneColors.default)
         .attr('stroke', '#ef4444')
         .attr('stroke-width', d=>{
-          const highlighted = highlightedPlaceIds.includes(d.id)
-            || (highlightedTrips.length>0&&d.trip_ids?.some(id=>highlightedTrips.includes(id)));
+          const highlighted = this.highlightedPlaceIds.includes(d.id)
+            || (this.highlightedTrips.length>0&&d.trip_ids?.some(id=>this.highlightedTrips.includes(id)));
           return (highlighted?4:0) / k;
         })
         .style('opacity', d => {
-          const highlighted = highlightedPlaceIds.includes(d.id)
-            || (highlightedTrips.length>0&&d.trip_ids?.some(id=>highlightedTrips.includes(id)));
-          const hasHighlight = highlightedPlaceIds.length>0||highlightedTrips.length>0;
+          const highlighted = this.highlightedPlaceIds.includes(d.id)
+            || (this.highlightedTrips.length>0&&d.trip_ids?.some(id=>this.highlightedTrips.includes(id)));
+          const hasHighlight = this.highlightedPlaceIds.length>0||this.highlightedTrips.length>0;
           return hasHighlight ? (highlighted?1:0.1) : 1;
         })
         .on('mouseover', (e,d)=>{ if (!this.isBrushing) {
-          this.linkingStore.setHoveredPlaceId(d.id);
+          this.linkingStore.setHoverHighlights([{ type: 'place', value: d.id }]);
           tooltip.classed('hidden',false)
             .html(`<div class="font-semibold text-blue-700">${d.name||'Unknown Place'}</div>
                    <div>Zone: ${d.zone||'N/A'}</div>
@@ -363,7 +361,7 @@ export default {
         }})
         .on('mousemove', e=>{ if (!this.isBrushing) tooltip.style('left',`${e.pageX+10}px`).style('top',`${e.pageY-28}px`); })
         .on('mouseout', ()=>{ if (!this.isBrushing) {
-          this.linkingStore.setHoveredPlaceId(null);
+          this.linkingStore.setHoverHighlights([]);
           tooltip.classed('hidden',true);
         }})
         .on('mousedown', this.forwardEventToBrush);

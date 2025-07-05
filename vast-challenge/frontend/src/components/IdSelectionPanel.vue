@@ -3,7 +3,7 @@
     <div>
       <label for="person-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Select
         Person:</label>
-      <Select id="person-select" :modelValue="linkingStore.highlightedPeople[0]" @update:modelValue="updatePersonId"
+      <Select id="person-select" :modelValue="linkingStore.selectedPerson" @update:modelValue="updatePersonId"
         :options="personOptions" optionLabel="label" optionValue="value" placeholder="Select a Person" class="w-full" />
     </div>
     <div>
