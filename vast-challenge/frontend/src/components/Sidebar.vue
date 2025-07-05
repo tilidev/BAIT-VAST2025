@@ -97,7 +97,6 @@
 import { defineComponent } from 'vue';
 import ThemeSwitcher from './ThemeSwitcher.vue';
 import TripDrilldownFilter from './mini-visualizations/TripDrilldownFilter.vue';
-import { useFilterStore } from '../stores/filterStore';
 import IdSelectionPanel from './IdSelectionPanel.vue';
 import ScaleOptions from './ScaleOptions.vue';
 
@@ -120,11 +119,6 @@ export default defineComponent({
     }
   },
   emits: ['toggleSidebar', 'update:activeTab'],
-  data() {
-    return {
-      filterStore: useFilterStore()
-    };
-  },
   methods: {
     toggleSidebar() {
       this.$emit('toggleSidebar');
