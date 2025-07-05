@@ -95,9 +95,6 @@ export default {
     width: 'draw',
     height: 'draw',
     // Watch all props that affect drawing
-    'linkingStore.highlightedPeople': 'draw',
-    'linkingStore.highlightedTopics': 'draw',
-    'linkingStore.hoveredCell': 'draw',
     data: 'draw',
     rowLabels: 'draw',
     colLabels: 'draw',
@@ -132,7 +129,10 @@ export default {
         .append('svg')
         .attr('width', width)
         .attr('height', height)
-        .attr('class', 'rounded-lg shadow-md border');
+        .attr('class', 'rounded-lg shadow-md border')
+        .on('mouseleave', () => {
+          this.linkingStore.setHoveredCell(null);
+        });
 
       this.tooltip = d3.select("body")
         .append("div")
