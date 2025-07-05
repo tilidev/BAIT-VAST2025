@@ -3,20 +3,20 @@
     <div>
       <label for="person-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Select
         Person:</label>
-      <Select id="person-select" :modelValue="filterStore.selectedPersonId" @update:modelValue="updatePersonId"
+      <Select id="person-select" :modelValue="linkingStore.highlightedPeople[0]" @update:modelValue="updatePersonId"
         :options="personOptions" optionLabel="label" optionValue="value" placeholder="Select a Person" class="w-full" />
     </div>
     <div>
       <label for="entity-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Select
         Entity:</label>
-      <Select id="entity-select" :modelValue="filterStore.selectedEntityId" @update:modelValue="updateEntityId"
+      <Select id="entity-select" :modelValue="linkingStore.selectedEntityId" @update:modelValue="updateEntityId"
         :options="organizationOptions" optionLabel="label" optionValue="value" placeholder="Select an Entity"
         class="w-full" />
     </div>
     <div>
       <label for="industry-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Select
         Industry:</label>
-      <Select id="industry-select" :modelValue="filterStore.selectedIndustry" @update:modelValue="updateIndustry"
+      <Select id="industry-select" :modelValue="linkingStore.selectedIndustry" @update:modelValue="updateIndustry"
         :options="industryOptions" optionLabel="label" optionValue="value" placeholder="Select an Industry"
         class="w-full" />
     </div>
@@ -25,7 +25,7 @@
 
 <script>
 import Select from 'primevue/select';
-import { useFilterStore } from '../stores/filterStore';
+import { useLinkingStore } from '../stores/linkingStore';
 import { useEntityStore } from '../stores/entityStore';
 import { useVisualizationDataStore } from '../stores/visualizationDataStore';
 
@@ -35,7 +35,7 @@ export default {
   },
   data() {
     return {
-      filterStore: useFilterStore(),
+      linkingStore: useLinkingStore(),
       entityStore: useEntityStore(),
       visualizationDataStore: useVisualizationDataStore()
     };
@@ -62,13 +62,13 @@ export default {
   },
   methods: {
     updatePersonId(value) {
-      this.filterStore.setPersonId(value);
+      this.linkingStore.setPersonId(value);
     },
     updateEntityId(value) {
-      this.filterStore.setEntityId(value);
+      this.linkingStore.setEntityId(value);
     },
     updateIndustry(value) {
-      this.filterStore.setIndustry(value);
+      this.linkingStore.setIndustry(value);
     }
   },
   async mounted() {

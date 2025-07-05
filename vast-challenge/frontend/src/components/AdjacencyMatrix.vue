@@ -4,6 +4,7 @@
 
 <script>
 import * as d3 from 'd3';
+import { useLinkingStore } from '../stores/linkingStore';
 
 export default {
   name: 'AdjacencyMatrix',
@@ -73,10 +74,14 @@ export default {
     return {
       svg: null,
       tooltip: null,
+      linkingStore: useLinkingStore(),
     };
   },
   mounted() {
     this.draw();
+    this.linkingStore.$subscribe(() => {
+      this.updateHighlight(this.svg.select('g'));
+    });
   },
   beforeUnmount() {
     if (this.tooltip) {
@@ -90,6 +95,9 @@ export default {
     width: 'draw',
     height: 'draw',
     // Watch all props that affect drawing
+    'linkingStore.highlightedPeople': 'draw',
+    'linkingStore.highlightedTopics': 'draw',
+    'linkingStore.hoveredCell': 'draw',
     data: 'draw',
     rowLabels: 'draw',
     colLabels: 'draw',
@@ -210,25 +218,15 @@ export default {
               .classed("hidden", false)
               .html(tooltipFormatter(d.cellData));
           }
-
-          svgGroup.selectAll(".row-label")
-            .filter(label => label === d.row)
-            .style("font-weight", "bold");
-
-          svgGroup.selectAll(".column-label")
-            .filter(label => label === d.col)
-            .style("font-weight", "bold");
+          this.linkingStore.setHoveredCell(d);
         })
         .on("mousemove", event => this.tooltip.style("left", (event.pageX + 10) + "px").style("top", (event.pageY - 28) + "px"))
         .on("mouseout", () => {
           this.tooltip.classed("hidden", true);
-          svgGroup.selectAll(".row-label").style("font-weight", "normal");
-          svgGroup.selectAll(".column-label text").style("font-weight", "normal");
+          this.linkingStore.setHoveredCell(null);
         })
         .on("click", (event, d) => {
           if (d.cellData && d.cellData.value !== null) {
-            this.selectedCell = { row: d.row, col: d.col };
-            this.updateHighlight(svgGroup);
             this.$emit('cell-click', { left: d.row, right: d.col });
           }
         });
@@ -243,7 +241,10 @@ export default {
         .attr("dy", ".32em")
         .attr("text-anchor", "end")
         .style("font-size", "10px") // Smaller font size for row labels
-        .text(d => rowLabelFormatter ? rowLabelFormatter(d) : d.toString());
+        .text(d => rowLabelFormatter ? rowLabelFormatter(d) : d.toString())
+        .on("click", (event, d) => {
+          this.linkingStore.togglePersonHighlight(d);
+        });
 
       // Column labels
       svgGroup.selectAll(".column-label")
@@ -261,19 +262,55 @@ export default {
         .attr("dy", ".32em")
         .attr("text-anchor", "start")
         .style("font-size", "10px") // Smaller font size for column labels
-        .text(d => colLabelFormatter ? colLabelFormatter(d) : d.toString());
+        .text(d => colLabelFormatter ? colLabelFormatter(d) : d.toString())
+        .on("click", (event, d) => {
+          this.linkingStore.toggleTopicHighlight(d);
+        });
+
       this.updateHighlight(svgGroup);
     },
     updateHighlight(svgGroup) {
+      if (!svgGroup) return;
+
+      const { highlightedPeople, highlightedTopics, hoveredCell } = this.linkingStore;
+
+      // Reset all styles first
       svgGroup.selectAll(".cell")
         .style("stroke", "#ccc").style("stroke-width", 1)
-        .style("stroke-linejoin", "miter");
-      if (this.selectedCell) {
-        svgGroup.selectAll(".cell").filter(d =>
-          d.row === this.selectedCell.row && d.col === this.selectedCell.col
-        )
-        .style("stroke", "#fd5825").style("stroke-width", 4)
-        .style("stroke-linejoin", "round").style("stroke-linecap", "round").raise();
+        .style("opacity", 1);
+      svgGroup.selectAll(".row-label").style("font-weight", "normal");
+      svgGroup.selectAll(".column-label text").style("font-weight", "normal");
+
+      // Apply highlighting based on store state
+      if (highlightedPeople.length > 0 || highlightedTopics.length > 0) {
+        svgGroup.selectAll(".cell").style("opacity", 0.3);
+      }
+
+      svgGroup.selectAll(".cell")
+        .filter(d => highlightedPeople.includes(d.row) || highlightedTopics.includes(d.col))
+        .style("opacity", 1);
+
+      svgGroup.selectAll(".row-label")
+        .filter(d => highlightedPeople.includes(d))
+        .style("font-weight", "bold");
+
+      svgGroup.selectAll(".column-label text")
+        .filter(d => highlightedTopics.includes(d))
+        .style("font-weight", "bold");
+
+      if (hoveredCell) {
+        svgGroup.selectAll(".cell")
+          .filter(d => d.row === hoveredCell.row && d.col === hoveredCell.col)
+          .style("stroke", "#fd5825").style("stroke-width", 4)
+          .style("stroke-linejoin", "round").style("stroke-linecap", "round").raise();
+
+        svgGroup.selectAll(".row-label")
+          .filter(label => label === hoveredCell.row)
+          .style("font-weight", "bold");
+
+        svgGroup.selectAll(".column-label text")
+          .filter(label => label === hoveredCell.col)
+          .style("font-weight", "bold");
       }
     },
   },
