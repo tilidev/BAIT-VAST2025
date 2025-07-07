@@ -14,54 +14,8 @@
       </p>
     </div>
 
-    <!-- RIGHT: Controls + Scale + Detail -->
+    <!-- RIGHT: Scale + Detail -->
     <div class="flex-1 flex flex-col space-y-6">
-      <!-- Controls Row -->
-      <div class="flex flex-wrap justify-center gap-4 font-sans">
-        <label class="flex items-center gap-2">
-          Active Dataset:
-          <select
-            v-model="activeDataset"
-            @change="updateStylesOnly"
-            class="px-2 py-1 border rounded"
-          >
-            <option v-for="ds in datasets" :key="ds" :value="ds">{{ ds }}</option>
-          </select>
-        </label>
-
-        <label class="flex items-center gap-2">
-          <input
-            type="checkbox"
-            v-model="excludeOrganizations"
-            @change="() => { onFilterToggle(); updateStylesOnly(); }"
-            class="mr-1"
-          />
-          Exclude ENTITY_ORGANIZATION
-        </label>
-
-        <!-- <label class="flex items-center gap-2">
-          Left Industry:
-          <select
-            v-model="leftIndustry"
-            @change="onFilterToggle"
-            class="px-2 py-1 border rounded"
-          >
-            <option v-for="ind in industries" :key="ind" :value="ind">{{ ind }}</option>
-          </select>
-        </label>
-
-        <label class="flex items-center gap-2">
-          Right Industry:
-          <select
-            v-model="rightIndustry"
-            @change="onFilterToggle"
-            class="px-2 py-1 border rounded"
-          >
-            <option v-for="ind in industries" :key="ind" :value="ind">{{ ind }}</option>
-          </select>
-        </label> -->
-      </div>
-
       <!-- Scale + Detail Panel -->
       <div class="flex">
         <!-- Scale Column -->
@@ -191,11 +145,30 @@
 <script>
 import * as d3 from 'd3';
 import IndustrySimilarityHeatmap from './IndustrySimilarityHeatmap.vue';
+import { useScaleStore } from '../stores/scaleStore';
+import { storeToRefs } from 'pinia';
 
 export default {
   name: 'IndustrySentimentBubbles',
   components : {
     IndustrySimilarityHeatmap
+  },
+  setup() {
+    const store = useScaleStore();
+    const {
+      activeDataset,
+      excludeOrganizations,
+      leftIndustry,
+      rightIndustry,
+    } = storeToRefs(store);
+
+    return {
+      activeDataset,
+      excludeOrganizations,
+      leftIndustry,
+      rightIndustry,
+      store,
+    };
   },
   data() {
     return {
@@ -206,12 +179,6 @@ export default {
       rightNodes: [],
       leftSim: null,
       rightSim: null,
-      activeDataset: 'all',
-      datasets: [],
-      industries: [],
-      leftIndustry: 'large vessel',
-      rightIndustry: 'tourism',
-      excludeOrganizations: false,
       selectedEntityNode: null
     };
   },
@@ -226,6 +193,15 @@ export default {
       return d3.scaleLinear().domain([-1, 1]).range([15, -15])(rel);
     }
   },
+  watch: {
+    activeDataset() {
+      this.updateStylesOnly();
+    },
+    excludeOrganizations() {
+      this.onFilterToggle();
+      this.updateStylesOnly();
+    },
+  },
   mounted() {
     this.fetchData();
   },
@@ -234,8 +210,8 @@ export default {
       const res = await fetch('/api/industry-pro-contra-sentiments');
       const data = await res.json();
       this.allData = data.filter(d => d.agg_sentiment !== 0);
-      this.datasets = [...new Set(this.allData.map(d => d.dataset))];
-      this.industries = [...new Set(this.allData.map(d => d.industry))];
+      this.store.setDatasets([...new Set(this.allData.map(d => d.dataset))]);
+      this.store.setIndustries([...new Set(this.allData.map(d => d.industry))]);
       this.splitNodesBySupportedSide();
       // initial render & simulation start
       this.renderChart(this.leftNodes, this.$refs.svgLeft, d3.forceSimulation(), 'left');
@@ -245,8 +221,8 @@ export default {
     onSimilarityCellClick({ left, right }) {
       // update the two industries and re-run the sim
       console.log("Doing a click")
-      this.leftIndustry  = left;
-      this.rightIndustry = right;
+      this.store.setLeftIndustry(left);
+      this.store.setRightIndustry(right);
       this.onFilterToggle();
       this.updateStylesOnly();
     },
