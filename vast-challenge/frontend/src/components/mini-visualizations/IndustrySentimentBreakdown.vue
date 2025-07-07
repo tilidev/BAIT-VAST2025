@@ -1,5 +1,5 @@
 <template>
-  <div class="p-4 border rounded-lg shadow-md bg-white">
+  <div class="w-full h-full">
     <h3 class="text-lg font-semibold mb-3 text-gray-700">Industry Sentiment Breakdown</h3>
     <div v-if="isLoading" class="text-center text-gray-500">Loading data...</div>
     <div v-else-if="error" class="text-center text-red-500">Error loading data: {{ error }}</div>
@@ -20,6 +20,7 @@ import * as d3 from 'd3';
 import { mapState } from 'pinia';
 import GroupedBarChart from '../charts/GroupedBarChart.vue';
 import { useVisualizationDataStore } from '../../stores/visualizationDataStore';
+import { useFilterStore } from '../../stores/filterStore';
 import { createSentimentColorScale, sentimentColorScale } from '../../utils/colors.ts'
 
 export default {
@@ -27,21 +28,18 @@ export default {
   components: {
     GroupedBarChart,
   },
-  props: {
-    industry: {
-      type: String,
-      required: true,
-    },
-  },
   data() {
     return {
-      chartContainer: null,
-      chartWidth: 400,
-      chartHeight: 300,
+      chartWidth: 0,
+      chartHeight: 0,
       chartMargin: { top: 30, right: 30, bottom: 40, left: 60 },
+      resizeObserver: null,
     };
   },
   computed: {
+    ...mapState(useFilterStore, {
+      industry: 'selectedIndustry',
+    }),
     ...mapState(useVisualizationDataStore, {
       rawData: 'industrySentimentRawData',
       isLoading: 'isLoadingIndustrySentimentRawData',
@@ -51,6 +49,9 @@ export default {
       if (this.rawData.length === 0) return [];
       const industries = new Set(this.rawData.map(item => item.industry));
       return Array.from(industries).sort();
+    },
+    showChart() {
+      return !this.isLoading && !this.error && this.industry && this.processedData.length > 0;
     },
     processedData() {
       if (!this.industry || this.rawData.length === 0) {
@@ -99,7 +100,41 @@ export default {
     yAxisLabelFormatter(d) {
       return d.toString();
     },
+    updateChartSize() {
+      if (this.$refs.chartContainer) {
+        this.chartWidth = this.$refs.chartContainer.offsetWidth;
+        this.chartHeight = this.$refs.chartContainer.offsetHeight;
+      }
+    }
   },
+  watch: {
+    showChart(isShown) {
+      this.$nextTick(() => {
+        if (isShown && this.$refs.chartContainer) {
+          this.updateChartSize();
+          this.resizeObserver.observe(this.$refs.chartContainer);
+        } else if (this.$refs.chartContainer) {
+          this.resizeObserver.unobserve(this.$refs.chartContainer);
+        }
+      });
+    }
+  },
+  mounted() {
+    this.resizeObserver = new ResizeObserver(this.updateChartSize);
+    if (this.showChart) {
+      this.$nextTick(() => {
+        if (this.$refs.chartContainer) {
+          this.updateChartSize();
+          this.resizeObserver.observe(this.$refs.chartContainer);
+        }
+      });
+    }
+  },
+  beforeUnmount() {
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+    }
+  }
 };
 </script>
 

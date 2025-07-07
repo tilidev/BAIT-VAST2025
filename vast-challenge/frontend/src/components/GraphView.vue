@@ -1,19 +1,15 @@
 <template>
-  <div class="flex">
-    <AdjacencyMatrix
-      class="flex-auto"
-      :data="sentimentMatrixData"
-      :rowLabels="personLabels"
-      :colLabels="topicLabels"
-      :colorScale="sentimentColorScaleLinear"
-      :cellFilter="filterSentimentCells(filterKey)"
-      :tooltipFormatter="sentimentTooltipFormatter"
-    />
+  <div class="w-full h-full" ref="el">
+    <AdjacencyMatrix v-if="width > 0 && height > 0" class="flex-auto" :data="sentimentMatrixData"
+      :rowLabels="personLabels" :colLabels="topicLabels" :colorScale="sentimentColorScaleLinear"
+      :cellFilter="filterSentimentCells(filterKey)" :tooltipFormatter="sentimentTooltipFormatter" :width="width"
+      :height="height" />
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType } from 'vue';
+import { defineComponent, type PropType, ref } from 'vue';
+import { useElementSize } from '@vueuse/core';
 import { useGraphStore } from '../stores/graphStore';
 import AdjacencyMatrix from './AdjacencyMatrix.vue';
 import type { MatrixCell } from '../types/matrixTypes';
@@ -32,7 +28,9 @@ export default defineComponent({
   },
   setup() {
     const graphStore = useGraphStore();
-    return { graphStore };
+    const el = ref(null);
+    const { width, height } = useElementSize(el);
+    return { graphStore, el, width, height };
   },
   data() {
     return {
