@@ -5,8 +5,8 @@
       <h1 class="text-left text-lg font-bold mb-4 ">Cosine Similarity</h1>
       <IndustrySimilarityHeatmap
         :useWeightedMean="true"
-        :width="300"
-        :height="300"
+        :width="200"
+        :height="200"
         @cell-click="onSimilarityCellClick"
       />
       <p class="mt-2 text-sm text-gray-600 italic">
