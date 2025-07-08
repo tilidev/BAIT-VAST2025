@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full bg-gray-50 dark:bg-gray-900 p-4">
+  <div class="h-full">
     <div id="content" class="h-full">
       <!-- eslint-disable-next-line vue/no-v-model-argument -->
       <GridLayout v-model:layout="layout" :col-num="colNum" :row-height="30" :is-draggable="isDraggable"

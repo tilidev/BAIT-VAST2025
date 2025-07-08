@@ -1,5 +1,5 @@
 <template>
-  <div class="p-4 h-screen flex flex-col min-h-0 overflow-hidden">
+  <div class="h-screen flex flex-col min-h-0 overflow-hidden">
     <!-- Overview 50% -->
     <div class="flex-none h-1/2 flex flex-col bg-white shadow rounded-lg p-4 min-h-0">
       <h2 class="text-xl font-semibold mb-2 text-center text-gray-800">Overview Person Activity</h2>
