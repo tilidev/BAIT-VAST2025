@@ -1,11 +1,18 @@
 <template>
-  <div class="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex">
-    <Sidebar :sidebar-expanded="sidebarExpanded" :active-tab="activeTab" @toggleSidebar="toggleSidebar"
-      @update:activeTab="setActiveTab" />
+  <!-- root full-height flex container and hide overflow (make visible in main)-->
+  <div class="flex h-screen overflow-hidden bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
 
-    <!-- Main Content Area -->
-    <main class="flex-grow p-4 flex flex-col gap-4 overflow-hidden transition-all duration-300 ease-in-out">
-      <div class="flex-grow overflow-hidden">
+    <!-- Sidebar stays fixed -->
+    <Sidebar
+      :sidebar-expanded="sidebarExpanded"
+      :active-tab="activeTab"
+      @toggleSidebar="toggleSidebar"
+      @update:activeTab="setActiveTab"
+    />
+
+    <!-- Add overflow here to make only this area scrollable -->
+    <main class="flex flex-col flex-grow overflow-y-auto p-4 transition-all duration-300 ease-in-out">
+      <div class="flex-grow">
         <OverviewTab v-if="activeTab === 'overview'" />
         <DetailedAnalysisTab v-else-if="activeTab === 'detailed-analysis'" />
         <TripAnalysisTab v-else-if="activeTab === 'trip-analysis'" />
