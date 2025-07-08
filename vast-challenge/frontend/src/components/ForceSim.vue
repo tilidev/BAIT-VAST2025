@@ -310,6 +310,7 @@ export default {
       group.append('circle')
         .attr('r', d => d.radius)
         .attr('fill', d => this.getBubbleColor(d))
+        .style('opacity', d => this.isActive(d) ? 1 : 0.4)
         .attr('stroke', '#fff')
         .attr('stroke-width', 1)
         .on('click', (evt, d) => {
