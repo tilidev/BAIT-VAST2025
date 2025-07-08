@@ -11,14 +11,12 @@
     />
 
     <!-- Add overflow here to make only this area scrollable -->
-    <main class="flex flex-col flex-grow overflow-y-auto p-4 transition-all duration-300 ease-in-out">
-      <div class="flex-grow">
-        <OverviewTab v-if="activeTab === 'overview'" />
-        <DetailedAnalysisTab v-else-if="activeTab === 'detailed-analysis'" />
-        <TripAnalysisTab v-else-if="activeTab === 'trip-analysis'" />
-        <PersonAnalysisTab v-else-if="activeTab === 'person-analysis'" />
-        <ScaleTab v-else-if="activeTab === 'scale'" />
-      </div>
+    <main class="flex flex-col flex-grow overflow-y-auto p-4 transition-all duration-300 ease-in-out min-h-0">
+      <OverviewTab v-if="activeTab === 'overview'" />
+      <DetailedAnalysisTab v-else-if="activeTab === 'detailed-analysis'" />
+      <TripAnalysisTab v-else-if="activeTab === 'trip-analysis'" />
+      <PersonAnalysisTab v-else-if="activeTab === 'person-analysis'" />
+      <ScaleTab v-else-if="activeTab === 'scale'" />
     </main>
   </div>
 </template>
