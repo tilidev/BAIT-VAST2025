@@ -1,7 +1,7 @@
 <template>
   <div class="flex space-x-6 p-4">
     <!-- LEFT: Heatmap -->
-    <div class="p-4">
+    <div class="w-min">
       <h1 class="text-left text-lg font-bold mb-4 ">Cosine Similarity</h1>
       <IndustrySimilarityHeatmap
         :useWeightedMean="true"
@@ -47,7 +47,7 @@
             <div class="self-stretch border-l-2 border-dotted border-gray-400 opacity-50 mx-4 pointer-events-none"></div>
 
             <div
-              class="absolute bottom-[-8px] left-1/2 w-[700px] h-4 bg-gray-800 rounded origin-bottom transition-transform duration-500 shadow-md"
+              class="absolute bottom-[-8px] left-1/2 w-[600px] h-4 bg-gray-800 rounded origin-bottom transition-transform duration-500 shadow-md"
               :style="{ transform: `translateX(-50%) rotate(${tippingAngle}deg)` }"
             ></div>
             <div
@@ -66,7 +66,7 @@
         </div>
 
         <!-- Detail Panel -->
-        <div class="w-80 h-[85vh] bg-white shadow-lg rounded-lg border border-gray-300 flex flex-col ml-10">
+        <div class="w-80 h-[90vh] bg-white shadow-lg rounded-lg border border-gray-300 flex flex-col ml-4">
           <div
             v-if="selectedEntityNode"
             class="sticky top-0 bg-white z-10 px-4 py-3 border-b rounded-lg"
