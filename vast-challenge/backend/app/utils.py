@@ -35,7 +35,9 @@ def convert_attr_values(node_or_link: dict | Node | Relationship, attrs: list = 
 
 def serialize_neo4j_entity(node_or_link: Node | Relationship):
     if isinstance(node_or_link, Node):
-        return convert_attr_values(node_or_link)
+        res = convert_attr_values(node_or_link)
+        res['type'] = list(node_or_link._labels)[0]
+        return res
     elif isinstance(node_or_link, Relationship):
         return {
             "source": node_or_link.start_node.get('id', node_or_link.element_id),
