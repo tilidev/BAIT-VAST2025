@@ -24,18 +24,17 @@
 <script>
 import * as d3 from 'd3'
 import { useEntityStore } from '../stores/entityStore'
+const iconPaths = {
+  DISCUSSION: 'M2,2 L22,2 L22,16 L12,16 L8,20 L8,16 L2,16 Z',
+  TOPIC: 'M12,2 A5,5 0 1,1 11.999,2 Z M9,8 L9,12 L15,12 L15,8 Z M11,14 L11,18 M13,14 L13,18',
+  ENTITY_PERSON: 'M12,2 A6,6 0 1,1 11.999,2 Z M2,22 C2,16 8,14 12,14 C16,14 22,16 22,22 Z',
+  ENTITY_ORGANIZATION: 'M4,22 L4,8 L8,8 L8,4 L16,4 L16,8 L20,8 L20,22 Z M8,22 L8,14 L12,14 L12,22 Z',
+  PLACE: 'M12,2 C8,2 5,5 5,9 C5,14 12,22 12,22 C12,22 19,14 19,9 C19,5 16,2 12,2 Z M12,11.5 A2.5,2.5 0 1,1 11.999,11.5 Z',
+  PLAN: 'M4,4 L20,4 L20,22 L4,22 Z M4,8 L20,8 M8,4 L8,22'
+}
 export default {
   name: 'EgoNetwork',
-  data() {
-    return {
-      selectedType: '',
-      selectedNode: '',
-      nodes: [],
-      links: [],
-      entityStore: null,
-      ro: null
-    }
-  },
+  data() { return { selectedType: '', selectedNode: '', nodes: [], links: [], entityStore: null, ro: null } },
   computed: {
     options() {
       if (this.selectedType === 'TOPIC') return this.entityStore.topics
@@ -44,12 +43,8 @@ export default {
     }
   },
   watch: {
-    selectedType() {
-      this.selectedNode = ''
-    },
-    selectedNode(val) {
-      if (val && this.selectedType) this.fetchData()
-    }
+    selectedType() { this.selectedNode = '' },
+    selectedNode(val) { if (val && this.selectedType) this.fetchData() }
   },
   methods: {
     async fetchData() {
@@ -60,123 +55,79 @@ export default {
       this.renderChart()
     },
     formatTooltip(data) {
-      const skipKeys = new Set(['index','x','y','vx','vy','fx','fy','source','target'])
+      const skip = new Set(['index','x','y','vx','vy','fx','fy','source','target'])
       let html = ''
-      if (data.id !== undefined) {
-        html += `<div class=\"font-bold mb-1\">ID: ${data.id}</div>`
-        html += `<hr class=\"border-gray-300 my-2\"/>`
-      }
-      for (const [key, val] of Object.entries(data)) {
-        if (skipKeys.has(key) || key === 'id') continue
-        const display = Array.isArray(val)
-          ? val.join(', ')
-          : (typeof val === 'number' ? val.toFixed(2) : val)
-        html += `<div class=\"mb-1\"><span class=\"font-semibold\">${key}:</span> ${display}</div>`
+      if (data.id != null) html += `<div>ID: ${data.id}</div><hr class=\"border-gray-300 my-2\"/>`
+      if (data.type != null) html += `<div>Type: ${data.type}</div><hr class=\"border-gray-300 my-2\"/>`
+      for (const [k, v] of Object.entries(data)) {
+        if (skip.has(k) || k === 'id' || k === 'type') continue
+        const val = Array.isArray(v) ? v.join(', ') : (typeof v === 'number' ? v.toFixed(2) : v)
+        html += `<div class=\"mb-1\"><span class=\"font-semibold\">${k}:</span> ${val}</div>`
       }
       return html
     },
     renderChart() {
-      const radius = 14
+      const r = 16
       d3.select(this.$refs.chart).selectAll('*').remove()
-      const container = d3.select(this.$refs.chart)
-      const svg = container.append('svg').attr('width', '100%').attr('height', '100%')
-      const tooltip = container.append('div')
-        .attr('class', 'tooltip hidden absolute bg-white p-2 rounded-lg shadow-lg text-sm text-gray-800')
-      const width = this.$refs.chart.clientWidth
-      const height = this.$refs.chart.clientHeight
-
-      const types = Array.from(new Set(this.nodes.map(d => d.type)))
-      const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(types)
-
-      const legend = svg.append('g').attr('class', 'legend')
-      types.forEach((t, i) => {
-        const g = legend.append('g').attr('transform', `translate(20, ${20 + i * 20})`)
-        g.append('rect')
-          .attr('width', 12)
-          .attr('height', 12)
-          .attr('fill', colorScale(t))
+      const cont = d3.select(this.$refs.chart)
+      const svg = cont.append('svg').attr('width','100%').attr('height','100%')
+      const tooltip = cont.append('div').attr('class','tooltip hidden absolute bg-white p-2 rounded-lg shadow-lg text-sm text-gray-800')
+      const w = this.$refs.chart.clientWidth, h = this.$refs.chart.clientHeight
+      const types = [...new Set(this.nodes.map(d => d.type))]
+      const color = d3.scaleOrdinal(d3.schemeCategory10).domain(types)
+      // Legend with icons
+      const legend = svg.append('g').attr('class','legend')
+      types.forEach((t,i) => {
+        const g = legend.append('g').attr('transform', `translate(20, ${20 + i * 24})`)
+        g.append('path')
+          .attr('d', iconPaths[t] || '')
+          .attr('fill', color(t))
+          .attr('transform', 'translate(0,0) scale(0.7)')
         g.append('text')
-          .attr('x', 18)
-          .attr('y', 10)
-          .attr('font-size', '12px')
-          .attr('fill', '#333')
+          .attr('x', 20)
+          .attr('y', 8)
+          .attr('font-size','12px')
+          .attr('fill','#333')
           .text(t)
       })
-
-      const simulation = d3.forceSimulation(this.nodes)
+      const sim = d3.forceSimulation(this.nodes)
         .force('link', d3.forceLink(this.links).id(d => d.id).distance(200).strength(1))
         .force('charge', d3.forceManyBody().strength(-200))
-        .force('center', d3.forceCenter(width / 2, height / 2))
-        .force('collision', d3.forceCollide().radius(radius + 1))
-        .force('x', d3.forceX(width / 2).strength(0.1))
-        .force('y', d3.forceY(height / 2).strength(0.1))
-
-      const egoNode = this.nodes.find(n => n.id === this.selectedNode)
-      if (egoNode) {
-        egoNode.fx = width / 2
-        egoNode.fy = height / 2
-      }
-
-      const link = svg.append('g').attr('stroke', '#999').attr('stroke-opacity', 0.6)
+        .force('collision', d3.forceCollide().radius(r+2))
+      const ego = this.nodes.find(n => n.id === this.selectedNode)
+      if (ego) { ego.fx = w/2; ego.fy = h/2 }
+      const link = svg.append('g')
         .selectAll('line').data(this.links).enter().append('line')
-        .attr('stroke-width', d => Math.sqrt(d.value || 1) * 2)
-        .on('mouseover', (event, d) => {
-          d3.select(event.currentTarget)
-            .attr('stroke', '#f00')
-            .attr('stroke-opacity', 1)
-          tooltip.html(this.formatTooltip(d)).classed('hidden', false)
-        })
-        .on('mousemove', event => {
-          tooltip.style('left', (event.layerX + 10) + 'px').style('top', (event.layerY + 10) + 'px')
-        })
-        .on('mouseout', (event) => {
-          d3.select(event.currentTarget).attr('stroke', '#999').attr('stroke-opacity', 0.6)
-          tooltip.classed('hidden', true)
-        })
-
-      const node = svg.append('g')
-        .selectAll('circle').data(this.nodes).enter().append('circle')
-        .attr('r', d => d.id === this.selectedNode ? radius * 1.5 : radius)
-        .attr('fill', d => colorScale(d.type))
-        .attr('stroke', '#fff')
-        .attr('stroke-width', 1)
+        .attr('stroke','#999').attr('stroke-opacity',0.6)
+        .attr('stroke-width', d=>Math.sqrt(d.value||1)*3)
+        .on('mouseover',(e,d)=>{d3.select(e.currentTarget).attr('stroke','#f00').attr('stroke-opacity',1);tooltip.html(this.formatTooltip(d)).classed('hidden',false)})
+        .on('mousemove', e=>tooltip.style('left',e.pageX+10+'px').style('top',e.pageY+10+'px'))
+        .on('mouseout',e=>{d3.select(e.currentTarget).attr('stroke','#999').attr('stroke-opacity',0.6);tooltip.classed('hidden',true)})
+      const nodeG = svg.append('g').selectAll('g').data(this.nodes).enter().append('g')
         .call(d3.drag()
-          .on('start', (event, d) => { if (!event.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y })
-          .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y })
-          .on('end', (event, d) => { if (!event.active) simulation.alphaTarget(0); if (d.id !== this.selectedNode) { d.fx = null; d.fy = null } }))
-        .on('mouseover', (event, d) => {
-          d3.select(event.currentTarget).attr('stroke', '#000').attr('stroke-width', 2)
-          tooltip.html(this.formatTooltip(d)).classed('hidden', false)
-        })
-        .on('mousemove', event => {
-          tooltip.style('left', (event.layerX + 10) + 'px').style('top', (event.layerY + 10) + 'px')
-        })
-        .on('mouseout', (event, d) => {
-          d3.select(event.currentTarget).attr('stroke', '#fff').attr('stroke-width', 1)
-          tooltip.classed('hidden', true)
-        })
-
-      simulation.on('tick', () => {
-        this.nodes.forEach(d => {
-          d.x = Math.max(radius, Math.min(width - radius, d.x))
-          d.y = Math.max(radius, Math.min(height - radius, d.y))
-        })
-        link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
-            .attr('x2', d => d.target.x).attr('y2', d => d.target.y)
-        node.attr('cx', d => d.x).attr('cy', d => d.y)
+          .on('start',(e,d)=>{if(!e.active)sim.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y})
+          .on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y})
+          .on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);if(d.id!==this.selectedNode){d.fx=null;d.fy=null}}))
+      nodeG.append('circle')
+        .attr('r',d=>d.id===this.selectedNode?r*1.5:r)
+        .attr('fill',d=>color(d.type))
+        .attr('stroke','#fff').attr('stroke-width',1)
+      nodeG.append('path')
+        .attr('d',d=>iconPaths[d.type]||'')
+        .attr('fill','#fff')
+        .attr('transform','translate(-8,-8) scale(0.7)')
+      nodeG.on('mouseover',(e,d)=>{d3.select(e.currentTarget).select('circle').attr('stroke','#000').attr('stroke-width',2);tooltip.html(this.formatTooltip(d)).classed('hidden',false)})
+             .on('mousemove',e=>tooltip.style('left',e.pageX+10+'px').style('top',e.pageY+10+'px'))
+             .on('mouseout',e=>{d3.select(e.currentTarget).select('circle').attr('stroke','#fff').attr('stroke-width',1);tooltip.classed('hidden',true)})
+      sim.on('tick',()=>{
+        this.nodes.forEach(d=>{d.x=Math.max(r,Math.min(w-r,d.x));d.y=Math.max(r,Math.min(h-r,d.y))})
+        link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y)
+        nodeG.attr('transform',d=>`translate(${d.x},${d.y})`)
       })
     }
   },
-  mounted() {
-    this.entityStore = useEntityStore()
-    this.ro = new ResizeObserver(() => {
-      if (this.nodes.length) this.renderChart()
-    })
-    this.ro.observe(this.$refs.chart)
-  },
-  beforeUnmount() {
-    if (this.ro) this.ro.disconnect()
-  }
+  mounted(){this.entityStore=useEntityStore();this.ro=new ResizeObserver(()=>{if(this.nodes.length)this.renderChart()});this.ro.observe(this.$refs.chart)},
+  beforeUnmount(){if(this.ro)this.ro.disconnect()}
 }
 </script>
 
