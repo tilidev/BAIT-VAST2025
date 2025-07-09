@@ -3,25 +3,36 @@
     <div class="p-4 flex space-x-4">
       <div>
         <label class="block text-sm font-medium text-gray-700">Node Type</label>
-        <select v-model="selectedType" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-          <option disabled value="">Select Type</option>
-          <option value="TOPIC">Topic</option>
-          <option value="ENTITY_PERSON">Person</option>
-        </select>
+        <Select
+          v-model="selectedType"
+          :options="typeOptions"
+          option-label="label"
+          option-value="value"
+          placeholder="Select Type"
+          class="mt-1 block w-full"
+        />
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700">Node</label>
-        <select v-model="selectedNode" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-          <option disabled value="">Select Node</option>
-          <option v-for="item in options" :key="item.id" :value="item.id">{{ item.id }}</option>
-        </select>
+        <Select
+          v-model="selectedNode"
+          :options="nodeOptions"
+          option-label="label"
+          option-value="value"
+          placeholder="Select Node"
+          class="mt-1 block w-full"
+        />
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700">Filter</label>
-        <select v-model="filterValue" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-          <option value="all">All</option>
-          <option v-for="opt in filterOptions" :key="opt" :value="opt">{{ opt }}</option>
-        </select>
+        <Select
+          v-model="filterValue"
+          :options="filterOptionsData"
+          option-label="label"
+          option-value="value"
+          placeholder="Filter"
+          class="mt-1 block w-full"
+        />
       </div>
     </div>
     <div ref="chart" class="flex-1 relative w-full h-full"></div>
@@ -30,6 +41,7 @@
 
 <script>
 import * as d3 from 'd3'
+import Select from 'primevue/select';
 import { useEntityStore } from '../stores/entityStore'
 
 // Mapping node.type to PrimeIcon classes
@@ -44,6 +56,9 @@ const iconClass = {
 
 export default {
   name: 'EgoNetwork',
+  components: {
+    Select
+  },
   data() {
     return {
       selectedType: '',
@@ -58,6 +73,21 @@ export default {
     }
   },
   computed: {
+    typeOptions() {
+      return [
+        { label: 'Topic', value: 'TOPIC' },
+        { label: 'Person', value: 'ENTITY_PERSON' }
+      ];
+    },
+    nodeOptions() {
+      return this.options.map(item => ({ label: item.id, value: item.id }));
+    },
+    filterOptionsData() {
+      return [
+        { label: 'All', value: 'all' },
+        ...this.filterOptions.map(opt => ({ label: opt, value: opt }))
+      ];
+    },
     options() {
       if (this.selectedType === 'TOPIC') return this.entityStore.topics
       if (this.selectedType === 'ENTITY_PERSON') return this.entityStore.persons
