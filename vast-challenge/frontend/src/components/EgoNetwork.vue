@@ -31,6 +31,7 @@
 <script>
 import * as d3 from 'd3'
 import { useEntityStore } from '../stores/entityStore'
+
 // Mapping node.type to PrimeIcon classes
 const iconClass = {
   DISCUSSION: 'pi pi-comments',
@@ -40,6 +41,7 @@ const iconClass = {
   PLACE: 'pi pi-map',
   PLAN: 'pi pi-list-check'
 }
+
 export default {
   name: 'EgoNetwork',
   data() {
@@ -51,7 +53,8 @@ export default {
       nodes: [],
       links: [],
       entityStore: null,
-      ro: null
+      ro: null,
+      resizeTimeout: null // timeout handle for debouncing resize
     }
   },
   computed: {
@@ -78,11 +81,11 @@ export default {
       const skip = new Set(['index','x','y','vx','vy','fx','fy','source','target'])
       let html = ''
       if (data.id != null) html += `<div><strong>ID: ${data.id}</strong></div>`
-      if (data.type != null) html += `<div>Type: ${data.type}</div><hr class=\"border-gray-300 my-2\"/>`
+      if (data.type != null) html += `<div>Type: ${data.type}</div><hr class="border-gray-300 my-2"/>`
       for (const [k, v] of Object.entries(data)) {
         if (skip.has(k) || k === 'id' || k === 'type') continue
         const val = Array.isArray(v) ? v.join(', ') : (typeof v === 'number' ? v.toFixed(2) : v)
-        html += `<div class=\"mb-1\"><span class=\"font-semibold\">${k}:</span> ${val}</div>`
+        html += `<div class="mb-1"><span class="font-semibold">${k}:</span> ${val}</div>`
       }
       return html
     },
@@ -96,11 +99,11 @@ export default {
       const w = this.$refs.chart.clientWidth, h = this.$refs.chart.clientHeight
       const types = [...new Set(this.nodes.map(d => d.type))]
       const color = d3.scaleOrdinal(d3.schemeCategory10).domain(types)
+
       // Legend with PrimeIcons
       const legend = svg.append('g').attr('class','legend')
       types.forEach((t,i) => {
         const g = legend.append('g').attr('transform', `translate(20, ${20 + i * 24})`)
-        // foreignObject for icon
         g.append('foreignObject')
           .attr('width', 24).attr('height', 24)
           .attr('x', 0).attr('y', -12)
@@ -111,12 +114,15 @@ export default {
           .attr('font-size','12px').attr('fill','#333')
           .text(t)
       })
+
       const sim = d3.forceSimulation(this.nodes)
         .force('link', d3.forceLink(this.links).id(d => d.id).distance(200).strength(1))
         .force('charge', d3.forceManyBody().strength(-200))
         .force('collision', d3.forceCollide().radius(r+3))
+
       const ego = this.nodes.find(n=>n.id===this.selectedNode)
       if (ego) { ego.fx = w/2; ego.fy = h/2 }
+
       const link = svg.append('g').selectAll('line').data(this.links).enter().append('line')
         .attr('stroke','#999').attr('stroke-opacity',0.6)
         .attr('stroke-width', d=>Math.sqrt(d.value||1)*3)
@@ -131,21 +137,25 @@ export default {
           tooltip.style('left', x + 'px').style('top', y + 'px')
         })
         .on('mouseout', e=>{d3.select(e.currentTarget).attr('stroke','#999').attr('stroke-opacity',0.6);tooltip.classed('hidden',true)})
+
       const nodeG = svg.append('g').selectAll('g').data(this.nodes).enter().append('g')
         .call(d3.drag()
           .on('start',(e,d)=>{if(!e.active)sim.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y})
           .on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y})
           .on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);if(d.id!==this.selectedNode){d.fx=null;d.fy=null}}))
+
       nodeG.append('circle')
         .attr('r',d=>d.id===this.selectedNode?r*1.5:r)
         .attr('fill',d=>color(d.type))
         .attr('stroke','#fff').attr('stroke-width',1)
         .attr('opacity', d=>(this.filterValue==='all'||d.in_graph.includes(this.filterValue))?1:0.1)
+
       nodeG.append('foreignObject')
         .attr('width', 24).attr('height', 24)
         .attr('x', -8).attr('y', -14)
         .append('xhtml:div')
-        .html(d => `<i class=\"${iconClass[d.type]} text-lg\" style=\"color: #fff\"></i>`) // icon in white
+        .html(d => `<i class=\"${iconClass[d.type]} text-lg\" style=\"color: #fff\"></i>`)
+
       nodeG.on('mouseover',(e,d)=>{d3.select(e.currentTarget).select('circle').attr('stroke','#000').attr('stroke-width',2);tooltip.html(this.formatTooltip(d)).classed('hidden',false)})
              .on('mousemove', event => {
                const [mx, my] = d3.pointer(event, this.$refs.chart)
@@ -156,6 +166,7 @@ export default {
                tooltip.style('left', x + 'px').style('top', y + 'px')
              })
              .on('mouseout', e=>{d3.select(e.currentTarget).select('circle').attr('stroke','#fff').attr('stroke-width',1);tooltip.classed('hidden',true)})
+
       sim.on('tick',()=>{
         this.nodes.forEach(d=>{d.x=Math.max(r,Math.min(w-r,d.x));d.y=Math.max(r,Math.min(h-r,d.y))})
         link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y)
@@ -163,8 +174,21 @@ export default {
       })
     }
   },
-  mounted(){this.entityStore=useEntityStore();this.ro=new ResizeObserver(()=>{if(this.nodes.length)this.renderChart()});this.ro.observe(this.$refs.chart)},
-  beforeUnmount(){if(this.ro)this.ro.disconnect()}
+  mounted() {
+    this.entityStore = useEntityStore()
+    // Debounced resize: only render when resizing stops
+    this.ro = new ResizeObserver(() => {
+      if (this.resizeTimeout) clearTimeout(this.resizeTimeout)
+      this.resizeTimeout = setTimeout(() => {
+        if (this.nodes.length) this.renderChart()
+      }, 250)
+    })
+    this.ro.observe(this.$refs.chart)
+  },
+  beforeUnmount() {
+    if (this.ro) this.ro.disconnect()
+    if (this.resizeTimeout) clearTimeout(this.resizeTimeout)
+  }
 }
 </script>
 
