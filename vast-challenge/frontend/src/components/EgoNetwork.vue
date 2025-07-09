@@ -16,6 +16,13 @@
           <option v-for="item in options" :key="item.id" :value="item.id">{{ item.id }}</option>
         </select>
       </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Filter</label>
+        <select v-model="filterValue" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+          <option value="all">All</option>
+          <option v-for="opt in filterOptions" :key="opt" :value="opt">{{ opt }}</option>
+        </select>
+      </div>
     </div>
     <div ref="chart" class="flex-1 relative w-full h-full"></div>
   </div>
@@ -34,7 +41,17 @@ const iconPaths = {
 }
 export default {
   name: 'EgoNetwork',
-  data() { return { selectedType: '', selectedNode: '', nodes: [], links: [], entityStore: null, ro: null } },
+  data() { return {
+      selectedType: '',
+      selectedNode: '',
+      filterValue: 'all',
+      filterOptions: ['fi','tr'],
+      nodes: [],
+      links: [],
+      entityStore: null,
+      ro: null
+    }}
+  ,
   computed: {
     options() {
       if (this.selectedType === 'TOPIC') return this.entityStore.topics
@@ -44,7 +61,8 @@ export default {
   },
   watch: {
     selectedType() { this.selectedNode = '' },
-    selectedNode(val) { if (val && this.selectedType) this.fetchData() }
+    selectedNode(val) { if (val && this.selectedType) this.fetchData() },
+    filterValue() { if (this.nodes.length) this.renderChart() }
   },
   methods: {
     async fetchData() {
@@ -61,7 +79,7 @@ export default {
       if (data.type != null) html += `<div>Type: ${data.type}</div><hr class=\"border-gray-300 my-2\"/>`
       for (const [k, v] of Object.entries(data)) {
         if (skip.has(k) || k === 'id' || k === 'type') continue
-        const val = Array.isArray(v) ? v.join(', ') : (typeof v === 'number' ? v.toFixed(2) : v)
+        const val = Array.isArray(v)? v.join(', '): (typeof v==='number'? v.toFixed(2): v)
         html += `<div class=\"mb-1\"><span class=\"font-semibold\">${k}:</span> ${val}</div>`
       }
       return html
@@ -79,30 +97,22 @@ export default {
       const legend = svg.append('g').attr('class','legend')
       types.forEach((t,i) => {
         const g = legend.append('g').attr('transform', `translate(20, ${20 + i * 24})`)
-        g.append('path')
-          .attr('d', iconPaths[t] || '')
-          .attr('fill', color(t))
-          .attr('transform', 'translate(0,0) scale(0.7)')
-        g.append('text')
-          .attr('x', 20)
-          .attr('y', 8)
-          .attr('font-size','12px')
-          .attr('fill','#333')
-          .text(t)
+        g.append('path').attr('d', iconPaths[t]||'').attr('fill', color(t)).attr('transform','scale(0.7)')
+        g.append('text').attr('x',20).attr('y',8).attr('font-size','12px').attr('fill','#333').text(t)
       })
       const sim = d3.forceSimulation(this.nodes)
         .force('link', d3.forceLink(this.links).id(d => d.id).distance(200).strength(1))
         .force('charge', d3.forceManyBody().strength(-200))
         .force('collision', d3.forceCollide().radius(r+2))
-      const ego = this.nodes.find(n => n.id === this.selectedNode)
-      if (ego) { ego.fx = w/2; ego.fy = h/2 }
-      const link = svg.append('g')
-        .selectAll('line').data(this.links).enter().append('line')
+      const ego = this.nodes.find(n=>n.id===this.selectedNode)
+      if(ego){ego.fx=w/2;ego.fy=h/2}
+      const link = svg.append('g').selectAll('line').data(this.links).enter().append('line')
         .attr('stroke','#999').attr('stroke-opacity',0.6)
         .attr('stroke-width', d=>Math.sqrt(d.value||1)*3)
+        .attr('opacity', d=>(this.filterValue==='all'||d.in_graph.includes(this.filterValue))?1:0.1)
         .on('mouseover',(e,d)=>{d3.select(e.currentTarget).attr('stroke','#f00').attr('stroke-opacity',1);tooltip.html(this.formatTooltip(d)).classed('hidden',false)})
         .on('mousemove', e=>tooltip.style('left',e.pageX+10+'px').style('top',e.pageY+10+'px'))
-        .on('mouseout',e=>{d3.select(e.currentTarget).attr('stroke','#999').attr('stroke-opacity',0.6);tooltip.classed('hidden',true)})
+        .on('mouseout', e=>{d3.select(e.currentTarget).attr('stroke','#999').attr('stroke-opacity',0.6);tooltip.classed('hidden',true)})
       const nodeG = svg.append('g').selectAll('g').data(this.nodes).enter().append('g')
         .call(d3.drag()
           .on('start',(e,d)=>{if(!e.active)sim.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y})
@@ -112,10 +122,12 @@ export default {
         .attr('r',d=>d.id===this.selectedNode?r*1.5:r)
         .attr('fill',d=>color(d.type))
         .attr('stroke','#fff').attr('stroke-width',1)
+        .attr('opacity', d=>(this.filterValue==='all'||d.in_graph.includes(this.filterValue))?1:0.1)
       nodeG.append('path')
         .attr('d',d=>iconPaths[d.type]||'')
         .attr('fill','#fff')
         .attr('transform','translate(-8,-8) scale(0.7)')
+        .attr('opacity', d=>(this.filterValue==='all'||d.in_graph.includes(this.filterValue))?1:0.1)
       nodeG.on('mouseover',(e,d)=>{d3.select(e.currentTarget).select('circle').attr('stroke','#000').attr('stroke-width',2);tooltip.html(this.formatTooltip(d)).classed('hidden',false)})
              .on('mousemove',e=>tooltip.style('left',e.pageX+10+'px').style('top',e.pageY+10+'px'))
              .on('mouseout',e=>{d3.select(e.currentTarget).select('circle').attr('stroke','#fff').attr('stroke-width',1);tooltip.classed('hidden',true)})
