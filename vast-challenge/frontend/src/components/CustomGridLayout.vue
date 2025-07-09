@@ -41,6 +41,7 @@ import OverallSentimentDistribution from './mini-visualizations/OverallSentiment
 import PersonSentimentAcrossDatasets from './mini-visualizations/PersonSentimentAcrossDatasets.vue';
 import TopicSentimentOverview from './mini-visualizations/TopicSentimentOverview.vue';
 import TripDrilldownFilter from './mini-visualizations/TripDrilldownFilter.vue';
+import EgoNetwork from './EgoNetwork.vue';
 
 interface LayoutItem {
   x: number;
@@ -71,6 +72,7 @@ export default defineComponent({
     PersonSentimentAcrossDatasets,
     TopicSentimentOverview,
     TripDrilldownFilter,
+    EgoNetwork
   },
   props: {
     initialLayout: {
