@@ -91,12 +91,21 @@ export default {
     },
     renderChart() {
       const r = 16
-      d3.select(this.$refs.chart).selectAll('*').remove()
-      const cont = d3.select(this.$refs.chart)
+      const chartEl = this.$refs.chart
+      // Clear previous render
+      d3.select(chartEl).selectAll('*').remove()
+
+      // Reset node simulation state for fresh layout
+      this.nodes.forEach(d => {
+        delete d.x; delete d.y; delete d.vx; delete d.vy; delete d.fx; delete d.fy
+      })
+
+      const cont = d3.select(chartEl)
       const svg = cont.append('svg').attr('width','100%').attr('height','100%')
       const tooltip = cont.append('div')
         .attr('class','tooltip hidden absolute bg-white p-2 rounded-lg shadow-lg text-sm text-gray-800')
-      const w = this.$refs.chart.clientWidth, h = this.$refs.chart.clientHeight
+
+      const w = chartEl.clientWidth, h = chartEl.clientHeight
       const types = [...new Set(this.nodes.map(d => d.type))]
       const color = d3.scaleOrdinal(d3.schemeCategory10).domain(types)
 
@@ -116,7 +125,7 @@ export default {
       })
 
       const sim = d3.forceSimulation(this.nodes)
-        .force('link', d3.forceLink(this.links).id(d => d.id).distance(w/5).strength(1))
+        .force('link', d3.forceLink(this.links).id(d => d.id).distance(Math.min(w,h)/4).strength(1))
         .force('charge', d3.forceManyBody().strength(-200))
         .force('collision', d3.forceCollide().radius(r+3))
 
@@ -129,7 +138,7 @@ export default {
         .attr('opacity', d=>(this.filterValue==='all'||d.in_graph.includes(this.filterValue))?1:0.1)
         .on('mouseover',(e,d)=>{d3.select(e.currentTarget).attr('stroke','#f00').attr('stroke-opacity',1);tooltip.html(this.formatTooltip(d)).classed('hidden',false)})
         .on('mousemove', event => {
-          const [mx, my] = d3.pointer(event, this.$refs.chart)
+          const [mx, my] = d3.pointer(event, chartEl)
           const tt = tooltip.node(), tw = tt.offsetWidth, th = tt.offsetHeight
           let x = mx + 10, y = my + 10
           if (x + tw > w) x = mx - tw - 10
@@ -158,7 +167,7 @@ export default {
 
       nodeG.on('mouseover',(e,d)=>{d3.select(e.currentTarget).select('circle').attr('stroke','#000').attr('stroke-width',2);tooltip.html(this.formatTooltip(d)).classed('hidden',false)})
              .on('mousemove', event => {
-               const [mx, my] = d3.pointer(event, this.$refs.chart)
+               const [mx, my] = d3.pointer(event, chartEl)
                const tt = tooltip.node(), tw = tt.offsetWidth, th = tt.offsetHeight
                let x = mx + 10, y = my + 10
                if (x + tw > w) x = mx - tw - 10
@@ -176,12 +185,12 @@ export default {
   },
   mounted() {
     this.entityStore = useEntityStore()
-    // Debounced resize: only render when resizing stops
+    // Debounced resize: rerender after 100ms of no resize events
     this.ro = new ResizeObserver(() => {
       if (this.resizeTimeout) clearTimeout(this.resizeTimeout)
       this.resizeTimeout = setTimeout(() => {
         if (this.nodes.length) this.renderChart()
-      }, 250)
+      }, 100) // shortened debounce
     })
     this.ro.observe(this.$refs.chart)
   },
