@@ -1,6 +1,10 @@
 <template>
-  <div class="relative">
-    <svg :width="width" :height="height" class="bg-white border">
+  <div ref="container" class="w-full h-full relative">
+    <svg
+      class="bg-white border block w-full h-full"
+      :viewBox="`0 0 ${containerWidth} ${containerHeight}`"
+      preserveAspectRatio="none"
+    >
       <g :transform="`translate(${margin.left}, ${margin.top})`">
         <!-- Axes and ticks -->
         <g v-for="(metric, i) in metrics" :key="metric">
@@ -16,10 +20,9 @@
           </text>
         </g>
 
-        <!-- Polylines with axis-wise jitter on hover -->
+        <!-- Polylines -->
         <g>
           <g v-for="line in lines" :key="line.id">
-            <!-- Invisible thick path for hover detection -->
             <polyline
               :points="computePoints(line.values)"
               stroke="transparent"
@@ -30,7 +33,6 @@
               @mouseleave="handleLeave"
               @click="$emit('select', line.id)"
             />
-            <!-- jittered line -->
             <polyline
               :points="computePoints(line.values)"
               :stroke="line.color"
@@ -61,27 +63,27 @@
 export default {
   name: 'PCPChart',
   props: {
-    lines: { type: Array,  required: true },
-    metrics: { type: Array,  required: true },
+    lines: { type: Array, required: true },
+    metrics: { type: Array, required: true },
     metricLabels: { type: Object, required: true },
     domains: { type: Object, required: true },
-    width: { type: Number, default: 600 },
-    height: { type: Number, default: 350 },
   },
   data() {
     return {
       margin: { top: 20, right: 30, bottom: 40, left: 30 },
       hoveredPoints: null,
       hoveredId: null,
-      jitter: 10
+      jitter: 10,
+      containerWidth: 0,
+      containerHeight: 0
     };
   },
   computed: {
     innerWidth() {
-      return this.width - this.margin.left - this.margin.right;
+      return this.containerWidth - this.margin.left - this.margin.right;
     },
     innerHeight() {
-      return this.height - this.margin.top - this.margin.bottom;
+      return this.containerHeight - this.margin.top - this.margin.bottom;
     },
     adjustedDomains() {
       const adj = {};
@@ -95,19 +97,26 @@ export default {
       const groups = {};
       this.lines.forEach(line => {
         const sig = this.metrics.map(m => line.values[m] || 0).join('|');
-        groups[sig] = groups[sig] || [];
-        groups[sig].push(line.id);
+        (groups[sig] = groups[sig] || []).push(line.id);
       });
       const info = {};
-      Object.values(groups).forEach(group => {
-        group.forEach((id, idx) => {
-          info[id] = { idx, count: group.length };
-        });
-      });
+      Object.values(groups).forEach(group => group.forEach((id, idx) => (info[id] = { idx, count: group.length })));
       return info;
     }
   },
+  mounted() {
+    this.observeSize();
+  },
   methods: {
+    observeSize() {
+      const resizeObserver = new ResizeObserver(entries => {
+        for (let entry of entries) {
+          this.containerWidth = entry.contentRect.width;
+          this.containerHeight = entry.contentRect.height;
+        }
+      });
+      resizeObserver.observe(this.$refs.container);
+    },
     xScale(i) {
       return (this.innerWidth / (this.metrics.length - 1)) * i;
     },
@@ -118,11 +127,8 @@ export default {
     },
     computePoints(values) {
       return this.metrics
-        .map((m, i) => [
-          this.xScale(i),
-          this.yScale(m, values[m] || 0)
-        ])
-        .map(pt => pt.join(',')).join(' ');
+        .map((m, i) => `${this.xScale(i)},${this.yScale(m, values[m] || 0)}`)
+        .join(' ');
     },
     getOffset(id) {
       if (this.hoveredId !== id) return { x: 0, y: 0 };
@@ -132,12 +138,7 @@ export default {
     },
     handleHover(line, event) {
       this.hoveredId = line.id;
-      this.hoveredPoints = this.metrics.map((m, i) => ({
-        metric: m,
-        x: this.xScale(i),
-        y: this.yScale(m, line.values[m] || 0),
-        value: line.values[m] || 0
-      }));
+      this.hoveredPoints = this.metrics.map((m, i) => ({ metric: m, x: this.xScale(i), y: this.yScale(m, line.values[m] || 0), value: line.values[m] || 0 }));
       this.$emit('hover', line.id, event);
     },
     handleLeave() {
@@ -150,4 +151,5 @@ export default {
 </script>
 
 <style scoped>
+/* No extra styles; sizing via ResizeObserver and viewBox */
 </style>

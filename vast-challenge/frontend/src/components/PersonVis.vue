@@ -1,61 +1,47 @@
 <template>
   <div class="p-4 h-screen flex flex-col">
-    <!-- Overview PCP -->
-    <div ref="overviewContainer" class="bg-white shadow rounded-lg p-4 mb-4 flex-shrink-0">
+    <!-- Overview 50% -->
+    <div class="flex-none h-1/2 flex flex-col bg-white shadow rounded-lg p-4">
       <h2 class="text-xl font-semibold mb-2 text-center text-gray-800">Overview Person Activity</h2>
-      <PCPChart
-        v-if="persons.length"
-        :metrics="metrics"
-        :metricLabels="metricLabels"
-        :domains="overviewDomains"
-        :lines="overviewLines"
-        :width="overviewChartWidth"
-        :height="overviewChartHeight"
-        @hover="onHover"
-        @leave="onLeave"
-        @select="selectPerson"
-      >
-        <template #tooltip>
-          <div
-            v-if="tooltip.visible"
-            :style="{ top: tooltip.y + 'px', left: tooltip.x + 'px' }"
-            class="absolute bg-white p-2 border rounded shadow-lg text-xs"
-          >
-            <div><strong class="text-gray-900">{{ tooltip.data.name }}</strong> <span class="text-gray-600">({{ tooltip.data.id }})</span></div>
-            <div class="text-gray-700">Role: <span class="font-medium">{{ tooltip.data.role || 'N/A' }}</span></div>
-            <div class="text-gray-700">Datasets: <span class="font-medium">{{ tooltip.data.in_graph.join(', ') }}</span></div>
-          </div>
-        </template>
-      </PCPChart>
-      <div v-else class="text-gray-500 text-center text-sm">Loading data...</div>
-    </div>
-
-    <!-- Detail PCP -->
-    <div ref="detailContainer" class="flex-grow flex flex-col">
-      <div v-if="selectedPerson" class="flex-grow flex flex-col">
-        <h2 class="text-xl font-semibold mb-2 text-center text-gray-800">Dataset Details for {{ selectedPerson }}</h2>
-        <div class="flex-grow flex items-center justify-center">
-          <PCPChart
-            :metrics="metrics"
-            :metricLabels="metricLabels"
-            :domains="overviewDomains"
-            :lines="detailLines"
-            :width="detailChartWidth"
-            :height="detailChartHeight"
-          />
-        </div>
-        <div class="mt-3 flex justify-center space-x-4 text-sm">
-          <div v-for="dataset in datasets" :key="dataset" class="flex items-center">
-            <span
-              class="w-4 h-2 inline-block mr-1 rounded"
-              :style="{ backgroundColor: detailColors[dataset] }"
-            ></span>
-            <span class="capitalize text-gray-700">{{ dataset }}</span>
-          </div>
+      <div class="flex-grow">
+        <PCPChart
+          v-if="persons.length"
+          :metrics="metrics"
+          :metricLabels="metricLabels"
+          :domains="overviewDomains"
+          :lines="overviewLines"
+          class="w-full h-full"
+          @hover="onHover"
+          @leave="onLeave"
+          @select="selectPerson"
+        />
+        <div v-else class="flex items-center justify-center h-full text-gray-500 text-sm">
+          Loading data...
         </div>
       </div>
-      <div v-else class="h-full flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg">
-        <span class="text-gray-500 text-sm">Click a line above to view details</span>
+    </div>
+
+    <!-- Details 50% -->
+    <div class="flex-none h-1/2 flex flex-col bg-white shadow rounded-lg p-4 mt-4">
+      <h2 class="text-xl font-semibold mb-2 text-center text-gray-800">Dataset Details for {{ selectedPerson || '…' }}</h2>
+      <div class="flex-grow">
+        <PCPChart
+          v-if="selectedPerson"
+          :metrics="metrics"
+          :metricLabels="metricLabels"
+          :domains="overviewDomains"
+          :lines="detailLines"
+          class="w-full h-full"
+        />
+        <div v-else class="flex items-center justify-center h-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-gray-500 text-sm">
+          Click a line above to view details
+        </div>
+      </div>
+      <div v-if="selectedPerson" class="mt-3 flex justify-center space-x-4 text-sm">
+        <div v-for="ds in datasets" :key="ds" class="flex items-center">
+          <span class="w-4 h-2 inline-block mr-1 rounded" :style="{ backgroundColor: detailColors[ds] }"></span>
+          <span class="capitalize text-gray-700">{{ ds }}</span>
+        </div>
       </div>
     </div>
   </div>
@@ -82,11 +68,7 @@ export default {
       tooltip: { visible: false, x: 0, y: 0, data: {} },
       selectedPerson: null,
       datasets: ['jo', 'fi', 'tr'],
-      detailColors: { jo: 'black', fi: 'red', tr: 'blue' },
-      overviewChartWidth: 0,
-      overviewChartHeight: 0,
-      detailChartWidth: 0,
-      detailChartHeight: 0
+      detailColors: { jo: 'black', fi: 'red', tr: 'blue' }
     };
   },
   computed: {
@@ -118,28 +100,6 @@ export default {
     }
   },
   methods: {
-    updateSizes() {
-      this.$nextTick(() => {
-        // Overview sizing: account for container padding
-        const oCont = this.$refs.overviewContainer;
-        let oWidth = oCont?.clientWidth || 600;
-        const oStyle = window.getComputedStyle(oCont);
-        const oPadL = parseFloat(oStyle.paddingLeft) || 0;
-        const oPadR = parseFloat(oStyle.paddingRight) || 0;
-        oWidth = oWidth - oPadL - oPadR;
-        this.overviewChartWidth = oWidth;
-        this.overviewChartHeight = Math.min(oWidth * 0.5, window.innerHeight * 0.4);
-        // Detail sizing: account for padding as well
-        const dCont = this.$refs.detailContainer;
-        let dWidth = dCont?.clientWidth || oWidth;
-        const dStyle = window.getComputedStyle(dCont);
-        const dPadL = parseFloat(dStyle.paddingLeft) || 0;
-        const dPadR = parseFloat(dStyle.paddingRight) || 0;
-        dWidth = dWidth - dPadL - dPadR;
-        this.detailChartWidth = dWidth;
-        this.detailChartHeight = Math.min(dWidth * 0.5, window.innerHeight * 0.4);
-      });
-    },
     onHover(id, event) {
       this.hoverId = id;
       const person = this.persons.find(p => p.id === id) || {};
@@ -159,19 +119,14 @@ export default {
         const acts = {};
         await Promise.all(
           this.persons.map(async person => {
-            const activityRes = await fetch(
-              `/api/person-activity-plans?person_id=${encodeURIComponent(person.id)}`
-            );
-            const activityData = await activityRes.json();
-            const tripRes = await fetch(
-              `/api/num-trips-by-person?person_id=${encodeURIComponent(person.id)}`
-            );
-            const tripData = await tripRes.json();
-            const merged = {};
-            ['jo','fi','tr'].forEach(ds => {
-              merged[ds] = { ...(activityData[ds] || {}), num_trips: tripData[ds] || 0 };
-            });
-            acts[person.id] = merged;
+            const [activityData, tripData] = await Promise.all([
+              fetch(`/api/person-activity-plans?person_id=${encodeURIComponent(person.id)}`).then(r => r.json()),
+              fetch(`/api/num-trips-by-person?person_id=${encodeURIComponent(person.id)}`).then(r => r.json())
+            ]);
+            acts[person.id] = ['jo','fi','tr'].reduce((acc, ds) => {
+              acc[ds] = { ...(activityData[ds] || {}), num_trips: tripData[ds] || 0 };
+              return acc;
+            }, {});
           })
         );
         this.activities = acts;
@@ -182,14 +137,10 @@ export default {
   },
   mounted() {
     this.fetchData();
-    this.updateSizes();
-    window.addEventListener('resize', this.updateSizes);
-  },
-  beforeUnmount() {
-    window.removeEventListener('resize', this.updateSizes);
   }
 };
 </script>
 
 <style scoped>
+/* No extra styles needed; sizing via Tailwind */
 </style>
