@@ -9,7 +9,7 @@ import os
 import numpy as np
 
 from .models import IndustryProContraSentiment, Entity, BaseGraphObject, EntityTopicSentiment, GraphMembership, PersonalActivity
-from .crud import dataset_specific_nodes_and_links, entity_topic_participation, graph_skeleton, num_trips_by_person, personal_activity, query_and_results, retrieve_entities, retrieve_trips_by_person
+from .crud import dataset_specific_nodes_and_links, ego_network, entity_topic_participation, graph_skeleton, num_trips_by_person, personal_activity, query_and_results, retrieve_entities, retrieve_trips_by_person
 from .utils import cosine_similarity_with_nans, serialize_neo4j_entity
 
 # Neo4j connection details from environment variables or local development
@@ -370,6 +370,9 @@ async def retrieve_person_activity(person_id: str, driver: AsyncDriver = Depends
         }
     return result
 
-# TODO aggregations on person (meetings, discussions, plans participated, trips taken, places gone to etc.)
 
-# TODO infer date of meeting by travel plans
+@app.get("/ego-network")
+async def retrieve_ego_network(node_id: str, node_type: str, driver: AsyncDriver = Depends(get_driver)):
+    assert node_type in ["ENTITY_PERSON", "ENTITY_ORGANIZATION", "TOPIC"]
+    result = await ego_network(driver, node_id, node_type)
+    return result
