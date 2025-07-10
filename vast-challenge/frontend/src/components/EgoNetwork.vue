@@ -97,7 +97,7 @@ export default {
   watch: {
     selectedType() { this.selectedNode = '' },
     selectedNode(val) { if (val && this.selectedType) this.fetchData() },
-    filterValue() { if (this.nodes.length) this.renderChart() }
+    filterValue() { if (this.nodes.length) this.renderChart(false) }
   },
   methods: {
     async fetchData() {
@@ -124,15 +124,17 @@ export default {
       }
       return html
     },
-    renderChart() {
+    renderChart(reset_positions=true) {
       const r = 16
       const chartEl = this.$refs.chart
       d3.select(chartEl).selectAll('*').remove()
 
       // Reset node simulation state for fresh layout
-      this.nodes.forEach(d => {
-        delete d.x; delete d.y; delete d.vx; delete d.vy; delete d.fx; delete d.fy
-      })
+      if (reset_positions) {
+        this.nodes.forEach(d => {
+          delete d.x; delete d.y; delete d.vx; delete d.vy; delete d.fx; delete d.fy
+        })
+      }
 
       const cont = d3.select(chartEl)
       const svg = cont.append('svg').attr('width','100%').attr('height','100%')
@@ -158,10 +160,12 @@ export default {
           .text(t)
       })
       // spawn near to 0
-      this.nodes.forEach(d => {
-        d.x = w/2 + (Math.random() - 0.5) * 50;
-        d.y = h/2 + (Math.random() - 0.5) * 50;
-      });
+      if (reset_positions) {
+        this.nodes.forEach(d => {
+          d.x = w/2 + (Math.random() - 0.5) * 50;
+          d.y = h/2 + (Math.random() - 0.5) * 50;
+        });
+      }
       const sim = d3.forceSimulation(this.nodes)
         .force('link', d3.forceLink(this.links).id(d => d.id).distance(Math.min(w,h)/4).strength(1))
         .force('charge', d3.forceManyBody().strength(-200))
