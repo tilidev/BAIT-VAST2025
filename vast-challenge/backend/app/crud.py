@@ -220,3 +220,12 @@ async def personal_activity(driver: AsyncDriver, person_id: str):
     records = await query_and_results(driver, query, {'person_id': person_id})
     discussions = [{"node" : serialize_neo4j_entity(r['d']), "meeting" : r['m.id'], "topic" : r['t.id'], "rel_exists_in": r['rel.in_graph']} for r in records]
     return plans, discussions
+
+
+async def ego_network(driver: AsyncDriver, node_id: str, node_type: str):
+    node_type_var = "e" if node_type in ["ENTITY_PERSON", "ENTITY_ORGANIZATION"] else "t"
+    query = f"""match (t:TOPIC)-[a]-(pd:PLAN|DISCUSSION)-[b]-(e:ENTITY_PERSON|ENTITY_ORGANIZATION)
+        where {node_type_var}.id = '{node_id}'
+        optional match (pd)-[c]-(p:PLACE)
+        return *"""
+    return await query_graph(driver, query, result_transformer=serializable_graph_transformer)

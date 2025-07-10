@@ -20,6 +20,7 @@ export default defineComponent({
         { x: 4, y: 0, w: 4, h: 8, i: '1', component: 'DatasetNodeComparison' },
         { x: 0, y: 4, w: 5, h: 12, i: '2', component: 'TopicSentimentOverview' },
         // { x: 0, y: 10, w: 12, h: 8, i: '3', component: 'IndustrySimilarityHeatmap' },
+        { x: 5, y: 4, w: 7, h: 12, i: '3', component: 'EgoNetwork' },
       ],
     };
   },
