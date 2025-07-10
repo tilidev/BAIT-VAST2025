@@ -88,16 +88,20 @@ export default defineComponent({
 
       const { data, bins, width, height, margin, color, tooltipFormatter, xAxisLabelFormatter, yAxisLabelFormatter, showGridLines, showTicks } = props;
 
-      const innerWidth = width - margin.left - margin.right;
-      const innerHeight = height - margin.top - margin.bottom;
+      const w = width || 400;
+      const h = height || 300;
+      const m = margin || { top: 20, right: 30, bottom: 40, left: 60 };
 
-      svg = d3.select(chartContainer.value)
+      const innerWidth = w - m.left - m.right;
+      const innerHeight = h - m.top - m.bottom;
+
+      svg = d3.select(chartContainer.value!)
         .append("svg")
-        .attr("width", width)
-        .attr("height", height);
+        .attr("width", w)
+        .attr("height", h) as unknown as d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
 
-      const svgGroup = svg.append("g")
-        .attr("transform", `translate(${margin.left},${margin.top})`);
+      const svgGroup = svg!.append("g")
+        .attr("transform", `translate(${m.left},${m.top})`);
 
       tooltip = d3.select("body").append("div")
         .attr("class", "tooltip absolute hidden p-2 bg-white border rounded shadow-lg text-sm")
@@ -105,16 +109,26 @@ export default defineComponent({
         .style("z-index", "50");
 
       // Define the histogram layout
+      let domain = d3.extent(data) as [number, number];
+      if (domain[0] === domain[1]) {
+        domain = [domain[0] - 1, domain[1] + 1];
+      }
+
       const histogram = d3.histogram<number, number>()
         .value(d => d)
-        .domain(d3.extent(data) as [number, number])
-        .thresholds(typeof bins === 'number' ? d3.range(d3.min(data) || 0, (d3.max(data) || 0) + (d3.max(data) || 0 - d3.min(data) || 0) / bins, (d3.max(data) || 0 - d3.min(data) || 0) / bins) : bins);
+        .domain(domain);
+
+      if (typeof bins === 'number') {
+        histogram.thresholds(bins);
+      } else if (bins) {
+        histogram.thresholds(bins);
+      }
 
       const binnedData = histogram(data);
 
       // X scale for continuous values (bins)
       const x = d3.scaleLinear()
-        .domain([d3.min(binnedData, d => d.x0) || 0, d3.max(binnedData, d => d.x1) || 0])
+        .domain(domain)
         .range([0, innerWidth]);
 
       // Y scale for frequency/count
@@ -125,14 +139,14 @@ export default defineComponent({
       // X axis
       svgGroup.append("g")
         .attr("transform", `translate(0,${innerHeight})`)
-        .call(d3.axisBottom(x).tickFormat(xAxisLabelFormatter))
+        .call(d3.axisBottom(x).tickFormat(xAxisLabelFormatter || (d => d.toString())))
         .selectAll("text")
         .attr("class", "text-gray-600 text-xs"); // Tailwind classes for axis labels
 
       // Y axis
       if (showTicks) {
         svgGroup.append("g")
-          .call(d3.axisLeft(y).tickFormat(yAxisLabelFormatter))
+          .call(d3.axisLeft(y).tickFormat(yAxisLabelFormatter || (d => d.toString())))
           .selectAll("text")
           .attr("class", "text-gray-600 text-xs"); // Tailwind classes for axis labels
       }
@@ -160,9 +174,9 @@ export default defineComponent({
         .attr("y", d => y(d.length))
         .attr("width", d => Math.max(0, x(d.x1 || 0) - x(d.x0 || 0) - 1)) // -1 for a small gap between bars
         .attr("height", d => innerHeight - y(d.length))
-        .attr("fill", color)
+        .attr("fill", color || neutralBaseColor)
         .on("mouseover", (event, d) => {
-          if (tooltip) {
+          if (tooltip && tooltipFormatter) {
             tooltip
               .classed("hidden", false)
               .html(tooltipFormatter(d));
