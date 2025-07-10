@@ -354,7 +354,7 @@ export default {
         .on('mouseover', (e,d)=>{ if (!this.isBrushing) {
           this.linkingStore.setHoverHighlights([{ type: 'place', value: d.id }]);
           tooltip.classed('hidden',false)
-            .html(`<div class="font-semibold text-blue-700">${d.name||'Unknown Place'}</div>
+            .html(`<div class="font-semibold text-blue-700">${d.name||d.label||'Unknown Place'}</div>
                    <div>Zone: ${d.zone||'N/A'}</div>
                    <div>Detail: ${d.zone_detail||'N/A'}</div>
                    ${d.in_graph?.length?`<div>Graph Links: ${d.in_graph.join(', ')}</div>`:''}`);

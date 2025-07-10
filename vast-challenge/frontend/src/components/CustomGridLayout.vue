@@ -1,12 +1,22 @@
 <template>
-  <div class="h-full bg-gray-50 dark:bg-gray-900 p-4">
+  <div class="h-full">
     <div id="content" class="h-full">
       <!-- eslint-disable-next-line vue/no-v-model-argument -->
       <GridLayout v-model:layout="layout" :col-num="colNum" :row-height="30" :is-draggable="isDraggable"
         :is-resizable="isResizable" :vertical-compact="true" :use-css-transforms="true" class="h-full">
-        <GridItem v-for="item in layout" :key="item.i" :x="item.x" :y="item.y" :w="item.w" :h="item.h" :i="item.i"
-          class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-300 ease-in-out hover:shadow-xl">
+        <GridItem v-for="item in layout" :key="item.i" :i="item.i" :x="item.x" :y="item.y" :w="item.w" :h="item.h"
+          class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-300 ease-in-out hover:shadow-xl"
+          drag-allow-from=".drag-handle" drag-ignore-from=".no-drag">
           <div class="h-full w-full relative">
+            <!-- draggable handle -->
+            <div class="drag-handle absolute top-2 left-1/2 transform -translate-x-1/2 flex space-x-1 p-1 cursor-move"
+              aria-label="Drag handle">
+              <span class="block w-1 h-1 bg-gray-500 dark:bg-gray-400 rounded-full"></span>
+              <span class="block w-1 h-1 bg-gray-500 dark:bg-gray-400 rounded-full"></span>
+              <span class="block w-1 h-1 bg-gray-500 dark:bg-gray-400 rounded-full"></span>
+            </div>
+
+            <!-- remove button -->
             <button @click="removeItem(item.i)"
               class="absolute top-2 right-2 z-10 p-1 bg-gray-200 dark:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300 hover:bg-red-500 hover:text-white transition-colors duration-200"
               aria-label="Remove item">
@@ -15,7 +25,9 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            <div class="p-4 h-full w-full">
+
+            <!-- item content -->
+            <div class="no-drag p-4 h-full w-full">
               <component :is="item.component" v-bind="item.props" />
             </div>
           </div>
@@ -24,6 +36,7 @@
     </div>
   </div>
 </template>
+
 
 <script lang="ts">
 import { defineComponent, type PropType } from 'vue';
@@ -41,6 +54,7 @@ import OverallSentimentDistribution from './mini-visualizations/OverallSentiment
 import PersonSentimentAcrossDatasets from './mini-visualizations/PersonSentimentAcrossDatasets.vue';
 import TopicSentimentOverview from './mini-visualizations/TopicSentimentOverview.vue';
 import TripDrilldownFilter from './mini-visualizations/TripDrilldownFilter.vue';
+import EgoNetwork from './EgoNetwork.vue';
 import TopicSentimentDistribution from './mini-visualizations/TopicSentimentDistribution.vue';
 
 
@@ -73,6 +87,7 @@ export default defineComponent({
     PersonSentimentAcrossDatasets,
     TopicSentimentOverview,
     TripDrilldownFilter,
+    EgoNetwork,
     TopicSentimentDistribution,
   },
   props: {

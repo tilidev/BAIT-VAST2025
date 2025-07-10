@@ -103,7 +103,7 @@ export default {
               startTime: new Date(trip.visited_places[0]?.visit_rel.time),
               endTime: new Date(trip.visited_places[trip.visited_places.length - 1]?.visit_rel.time),
               startZone: trip.visited_places[0]?.place.zone,
-              visitedPlaceNames: trip.visited_places.map(p => p.place.name),
+              visitedPlaceNames: trip.visited_places.map(p => p.place.name || p.place.label),
               visitedPlaceIds: trip.visited_places.map(p => p.place.id),
               zoneCounts: zoneCounts,
             });
@@ -291,7 +291,7 @@ export default {
             ${d.trip.visited_places.map(p => `
               <li class="flex items-center">
                 <span class="w-3 h-3 rounded-full mr-2" style="background-color: ${this.zoneColors[p.place.zone] || this.zoneColors.default};"></span>
-                ${p.place.name} (${p.place.zone})
+                ${p.place.name||p.place.label} (${p.place.zone})
               </li>`).join('')}
           </ul>
         </div>

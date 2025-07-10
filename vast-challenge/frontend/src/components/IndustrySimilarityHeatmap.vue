@@ -17,6 +17,7 @@
       <AdjacencyMatrix
         :width="width"
         :height="height"
+        :margin="{ top: 80, right: 10, bottom: 10, left: 80 }"
         :data="matrixData"
         :rowLabels="industryLabels"
         :colLabels="industryLabels"
