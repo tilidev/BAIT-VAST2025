@@ -72,7 +72,11 @@
       <div v-if="sidebarExpanded" class="border-t border-gray-200 dark:border-gray-700 pt-4">
         <h2 class="text-lg font-semibold mb-2">Options</h2>
 
-        <div v-if="activeTab === 'trip-analysis'">
+        <div v-if="activeTab === 'overview'">
+          <InGraphFilter />
+        </div>
+
+        <div v-else-if="activeTab === 'trip-analysis'">
           <TripDrilldownFilter />
         </div>
 
@@ -99,6 +103,7 @@ import ThemeSwitcher from './ThemeSwitcher.vue';
 import TripDrilldownFilter from './mini-visualizations/TripDrilldownFilter.vue';
 import IdSelectionPanel from './IdSelectionPanel.vue';
 import ScaleOptions from './ScaleOptions.vue';
+import InGraphFilter from './InGraphFilter.vue';
 
 export default defineComponent({
   name: 'Sidebar',
@@ -107,6 +112,7 @@ export default defineComponent({
     TripDrilldownFilter,
     IdSelectionPanel,
     ScaleOptions,
+    InGraphFilter,
   },
   props: {
     sidebarExpanded: {
