@@ -6,16 +6,18 @@
     <div v-else-if="error" class="flex items-center justify-center h-full">
       <p class="text-red-500">Error: {{ error }}</p>
     </div>
-    <div v-else-if="sentimentData.length > 0" class="h-full w-full">
+    <div v-else-if="sentimentData.length > 0 || unfilteredSentimentData.length > 0" class="h-full w-full">
       <Histogram
         :data="sentimentData"
+        :background-data="unfilteredSentimentData"
         :width="width"
         :height="height"
         :margin="{ top: 20, right: 30, bottom: 40, left: 60 }"
         :color="'#6366f1'"
-        :bins="10"
+        :bins="20"
         :show-grid-lines="true"
         :show-ticks="true"
+        :fixed-x-domain="[-1, 1]"
       />
     </div>
     <div v-else class="flex items-center justify-center h-full">
@@ -59,6 +61,16 @@ export default defineComponent({
       }
     });
 
+    const unfilteredSentimentData = computed(() => {
+      if (isLoading.value || error.value) return [];
+      const allSentiments = graphStore.sentimentPerTopic;
+      if (!allSentiments || allSentiments.length === 0) return [];
+
+      return allSentiments.flatMap((entity: any) =>
+        entity.topic_sentiments.map((topic: any) => topic.sentiment)
+      );
+    });
+
     const sentimentData = computed(() => {
       if (isLoading.value || error.value) return [];
       const allSentiments = graphStore.sentimentPerTopic;
@@ -80,11 +92,28 @@ export default defineComponent({
         .filter((f) => f.type === 'in_graph')
         .map((f) => f.value);
 
-      let sentimentsToProcess = allSentiments;
+      const hoveredTopics = linkingStore.hoverHighlights
+        .filter((h) => h.type === 'topic')
+        .map((h) => h.value);
 
-      return sentimentsToProcess.flatMap((entity: any) =>
+      const hasActiveFilters =
+        topicFilters.length > 0 ||
+        inGraphFilters.length > 0 ||
+        excludedTopicFilters.length > 0 ||
+        excludedInGraphFilters.length > 0 ||
+        hoveredTopics.length > 0;
+
+      if (!hasActiveFilters) {
+        return unfilteredSentimentData.value;
+      }
+
+      return allSentiments.flatMap((entity: any) =>
         entity.topic_sentiments
           .filter((topic: any) => {
+            const hoverMatch =
+              hoveredTopics.length === 0 ||
+              hoveredTopics.includes(topic.topic_id);
+
             const topicMatch =
               topicFilters.length === 0 ||
               topicFilters.includes(topic.topic_id);
@@ -99,7 +128,7 @@ export default defineComponent({
               topic.sentiment_recorded_in.includes(filter)
             );
 
-            return topicMatch && inGraphMatch && !topicExcluded && !inGraphExcluded;
+            return hoverMatch && topicMatch && inGraphMatch && !topicExcluded && !inGraphExcluded;
           })
           .map((topic: any) => topic.sentiment)
       );
@@ -107,6 +136,7 @@ export default defineComponent({
 
     return {
       sentimentData,
+      unfilteredSentimentData,
       width,
       height,
       el,

@@ -60,7 +60,7 @@
 <script>
 import * as d3 from 'd3';
 import { useGraphStore } from '../../stores/graphStore';
-import { useLinkingStore, FilterType } from '../../stores/linkingStore';
+import { useLinkingStore, FilterType, HighlightType } from '../../stores/linkingStore';
 
 export default {
   name: 'TopicSentimentOverview',
@@ -211,6 +211,7 @@ export default {
         .style("font-weight", d => this.highlightedTopics.includes(d) ? "bold" : "normal")
         .on("click", (event, d) => this.toggleTopicFilter(d))
         .on("mouseover", (event, d) => {
+          this.linkingStore.addHoverHighlight({ type: HighlightType.TOPIC, value: d });
           const topicData = this.processedData.find(t => t.topicId === d);
           if (!topicData) return;
           this.tooltip
@@ -223,7 +224,8 @@ export default {
           this.tooltip.style("left", (event.pageX + 15) + "px")
             .style("top", (event.pageY - 10) + "px");
         })
-        .on("mouseout", () => {
+        .on("mouseout", (event, d) => {
+          this.linkingStore.removeHoverHighlight({ type: HighlightType.TOPIC, value: d });
           this.tooltip.classed("hidden", true);
         });
 
@@ -282,6 +284,7 @@ export default {
 
       svg.selectAll(".bar, .bg-bar")
         .on("mouseover", (event, d) => {
+          this.linkingStore.addHoverHighlight({ type: HighlightType.TOPIC, value: d.topicId });
           this.tooltip
             .classed("hidden", false)
             .html(`<div class="font-semibold text-blue-700">Topic: ${d.topicId}</div>
@@ -292,7 +295,8 @@ export default {
           this.tooltip.style("left", (event.pageX + 15) + "px")
             .style("top", (event.pageY - 10) + "px");
         })
-        .on("mouseout", () => {
+        .on("mouseout", (event, d) => {
+          this.linkingStore.removeHoverHighlight({ type: HighlightType.TOPIC, value: d.topicId });
           this.tooltip.classed("hidden", true);
         });
     },

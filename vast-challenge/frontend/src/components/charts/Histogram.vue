@@ -3,12 +3,13 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, watch, nextTick } from 'vue';
+import { defineComponent, ref, onMounted, watch, nextTick, type PropType } from 'vue';
 import * as d3 from 'd3';
 import { neutralBaseColor } from '../../utils/colors';
 
 interface HistogramProps {
   data: number[];
+  backgroundData?: number[];
   bins?: number | number[];
   width?: number;
   height?: number;
@@ -19,14 +20,19 @@ interface HistogramProps {
   yAxisLabelFormatter?: (d: any) => string;
   showGridLines?: boolean;
   showTicks?: boolean;
+  fixedXDomain?: [number, number];
 }
 
 export default defineComponent({
   name: 'Histogram',
   props: {
     data: {
-      type: Array,
+      type: Array as PropType<number[]>,
       required: true,
+      default: () => [],
+    },
+    backgroundData: {
+      type: Array as PropType<number[]>,
       default: () => [],
     },
     bins: {
@@ -69,6 +75,10 @@ export default defineComponent({
       type: Boolean,
       default: false,
     },
+    fixedXDomain: {
+      type: Object as PropType<[number, number] | null>,
+      default: null,
+    },
   },
   setup(props: HistogramProps) {
     const chartContainer = ref<HTMLElement | null>(null);
@@ -76,7 +86,8 @@ export default defineComponent({
     let tooltip: d3.Selection<HTMLDivElement, unknown, HTMLElement, any> | null = null;
 
     function drawChart() {
-      if (!chartContainer.value || props.data.length === 0) {
+      const hasData = props.data.length > 0 || (props.backgroundData && props.backgroundData.length > 0);
+      if (!chartContainer.value || !hasData) {
         if (chartContainer.value) d3.select(chartContainer.value).selectAll("*").remove();
         if (tooltip) tooltip.remove();
         return;
@@ -86,7 +97,7 @@ export default defineComponent({
       d3.select(chartContainer.value).selectAll("*").remove();
       if (tooltip) tooltip.remove();
 
-      const { data, bins, width, height, margin, color, tooltipFormatter, xAxisLabelFormatter, yAxisLabelFormatter, showGridLines, showTicks } = props;
+      const { data, backgroundData, bins, width, height, margin, color, tooltipFormatter, xAxisLabelFormatter, yAxisLabelFormatter, showGridLines, showTicks, fixedXDomain } = props;
 
       const w = width || 400;
       const h = height || 300;
@@ -108,32 +119,28 @@ export default defineComponent({
         .style("pointer-events", "none")
         .style("z-index", "50");
 
-      // Define the histogram layout
-      let domain = d3.extent(data) as [number, number];
-      if (domain[0] === domain[1]) {
-        domain = [domain[0] - 1, domain[1] + 1];
-      }
+      const allData = [...data, ...(backgroundData || [])];
+      const xDomain = fixedXDomain || d3.extent(allData) as [number, number];
 
       const histogram = d3.histogram<number, number>()
         .value(d => d)
-        .domain(domain);
-
-      if (typeof bins === 'number') {
-        histogram.thresholds(bins);
-      } else if (bins) {
-        histogram.thresholds(bins);
-      }
+        .domain(xDomain)
+        .thresholds(typeof bins === 'number' ? d3.range(xDomain[0], xDomain[1], (xDomain[1] - xDomain[0]) / bins) : bins as number[]);
 
       const binnedData = histogram(data);
+      const binnedBackgroundData = histogram(backgroundData || []);
 
-      // X scale for continuous values (bins)
       const x = d3.scaleLinear()
-        .domain(domain)
+        .domain(xDomain)
         .range([0, innerWidth]);
 
-      // Y scale for frequency/count
+      const yMax = d3.max([
+        ...binnedData.map(d => d.length),
+        ...binnedBackgroundData.map(d => d.length)
+      ]) || 0;
+
       const y = d3.scaleLinear()
-        .domain([0, d3.max(binnedData, d => d.length) || 0])
+        .domain([0, yMax])
         .range([innerHeight, 0]);
 
       // X axis
@@ -165,34 +172,50 @@ export default defineComponent({
           .attr("stroke-dasharray", "2,2");
       }
 
-      // Bars
-      svgGroup.selectAll(".bar")
-        .data(binnedData)
-        .join("rect")
-        .attr("class", "bar")
-        .attr("x", d => x(d.x0 || 0))
-        .attr("y", d => y(d.length))
-        .attr("width", d => Math.max(0, x(d.x1 || 0) - x(d.x0 || 0) - 1)) // -1 for a small gap between bars
-        .attr("height", d => innerHeight - y(d.length))
-        .attr("fill", color || neutralBaseColor)
-        .on("mouseover", (event, d) => {
-          if (tooltip && tooltipFormatter) {
-            tooltip
-              .classed("hidden", false)
-              .html(tooltipFormatter(d));
-          }
-        })
-        .on("mousemove", (event) => {
-          if (tooltip) {
-            tooltip.style("left", (event.pageX + 10) + "px")
-              .style("top", (event.pageY - 20) + "px");
-          }
-        })
-        .on("mouseout", () => {
-          if (tooltip) {
-            tooltip.classed("hidden", true);
-          }
-        });
+      // Background Bars
+      if (binnedBackgroundData.length > 0) {
+        svgGroup.selectAll(".bg-bar")
+          .data(binnedBackgroundData)
+          .join("rect")
+          .attr("class", "bg-bar")
+          .attr("x", d => x(d.x0 || 0))
+          .attr("y", d => y(d.length))
+          .attr("width", d => Math.max(0, x(d.x1 || 0) - x(d.x0 || 0) - 1))
+          .attr("height", d => innerHeight - y(d.length))
+          .attr("fill", color || neutralBaseColor)
+          .attr("opacity", 0.3);
+      }
+
+      // Foreground Bars
+      if (binnedData.length > 0) {
+        svgGroup.selectAll(".bar")
+          .data(binnedData)
+          .join("rect")
+          .attr("class", "bar")
+          .attr("x", d => x(d.x0 || 0))
+          .attr("y", d => y(d.length))
+          .attr("width", d => Math.max(0, x(d.x1 || 0) - x(d.x0 || 0) - 1))
+          .attr("height", d => innerHeight - y(d.length))
+          .attr("fill", color || neutralBaseColor)
+          .on("mouseover", (event, d) => {
+            if (tooltip && tooltipFormatter) {
+              tooltip
+                .classed("hidden", false)
+                .html(tooltipFormatter(d));
+            }
+          })
+          .on("mousemove", (event) => {
+            if (tooltip) {
+              tooltip.style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 20) + "px");
+            }
+          })
+          .on("mouseout", () => {
+            if (tooltip) {
+              tooltip.classed("hidden", true);
+            }
+          });
+      }
     }
 
     onMounted(() => {
