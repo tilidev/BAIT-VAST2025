@@ -14,7 +14,7 @@ interface HistogramProps {
   width?: number;
   height?: number;
   margin?: { top: number; right: number; bottom: number; left: number };
-  color?: string;
+  color?: string | ((value: number) => string);
   tooltipFormatter?: (d: d3.Bin<number, number>) => string;
   xAxisLabelFormatter?: (d: any) => string;
   yAxisLabelFormatter?: (d: any) => string;
@@ -52,7 +52,7 @@ export default defineComponent({
       default: () => ({ top: 20, right: 30, bottom: 40, left: 60 }),
     },
     color: {
-      type: String,
+      type: [String, Function] as PropType<string | ((value: number) => string)>,
       default: neutralBaseColor,
     },
     tooltipFormatter: {
@@ -182,7 +182,13 @@ export default defineComponent({
           .attr("y", d => y(d.length))
           .attr("width", d => Math.max(0, x(d.x1 || 0) - x(d.x0 || 0) - 1))
           .attr("height", d => innerHeight - y(d.length))
-          .attr("fill", color || neutralBaseColor)
+          .attr("fill", d => {
+            if (typeof color === 'function') {
+              const mid = (d.x0! + d.x1!) / 2;
+              return color(mid);
+            }
+            return color || neutralBaseColor;
+          })
           .attr("opacity", 0.3);
       }
 
@@ -196,7 +202,13 @@ export default defineComponent({
           .attr("y", d => y(d.length))
           .attr("width", d => Math.max(0, x(d.x1 || 0) - x(d.x0 || 0) - 1))
           .attr("height", d => innerHeight - y(d.length))
-          .attr("fill", color || neutralBaseColor)
+          .attr("fill", d => {
+            if (typeof color === 'function') {
+              const mid = (d.x0! + d.x1!) / 2;
+              return color(mid);
+            }
+            return color || neutralBaseColor;
+          })
           .on("mouseover", (event, d) => {
             if (tooltip && tooltipFormatter) {
               tooltip

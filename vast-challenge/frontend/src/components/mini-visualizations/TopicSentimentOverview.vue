@@ -124,6 +124,8 @@ export default {
       });
 
       return Object.entries(topicSentimentsMap).map(([topicId, data]) => {
+        const totalAverageSentiment = data.totalCount > 0 ? data.totalSum / data.totalCount : 0;
+        const activeAverageSentiment = data.activeCount > 0 ? data.activeSum / data.activeCount : 0;
         const peakSentiment = Object.values(data.sentimentByDataset).reduce((max, current) => {
           const avg = current.count > 0 ? current.sum / current.count : 0;
           return Math.abs(avg) > Math.abs(max) ? avg : max;
@@ -131,11 +133,12 @@ export default {
 
         return {
           topicId,
-          totalAverageSentiment: data.totalCount > 0 ? data.totalSum / data.totalCount : 0,
+          totalAverageSentiment,
           totalSentimentCount: data.totalCount,
-          activeAverageSentiment: data.activeCount > 0 ? data.activeSum / data.activeCount : 0,
+          activeAverageSentiment,
           activeSentimentCount: data.activeCount,
           peakSentiment: peakSentiment,
+          sentimentChange: this.selectedInGraphs.length > 0 ? activeAverageSentiment - totalAverageSentiment : 0,
         };
       });
     },
@@ -206,7 +209,7 @@ export default {
 
       yAxis.select(".domain").remove(); // Remove axis line
 
-      yAxis.selectAll(".tick text")
+      const yAxisLabels = yAxis.selectAll(".tick text")
         .attr("class", "cursor-pointer hover:font-bold")
         .style("font-weight", d => this.highlightedTopics.includes(d) ? "bold" : "normal")
         .on("click", (event, d) => this.toggleTopicFilter(d))
@@ -228,6 +231,21 @@ export default {
           this.linkingStore.removeHoverHighlight({ type: HighlightType.TOPIC, value: d });
           this.tooltip.classed("hidden", true);
         });
+
+      yAxis.selectAll(".tick").each(function (d) {
+        const tick = d3.select(this);
+        const topicData = data.find(t => t.topicId === d);
+
+        tick.select(".change-indicator").remove();
+
+        if (topicData && Math.abs(topicData.sentimentChange) > 0.01) {
+          tick.select("text").append("tspan")
+            .attr("class", "change-indicator")
+            .style("font-size", "10px")
+            .style("fill", topicData.sentimentChange > 0 ? "#10B981" : "#EF4444")
+            .text(topicData.sentimentChange > 0 ? " ▲" : " ▼");
+        }
+      });
 
 
       // X axis (Sentiment Score)

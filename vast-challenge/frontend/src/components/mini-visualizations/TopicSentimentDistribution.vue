@@ -13,7 +13,7 @@
         :width="width"
         :height="height"
         :margin="{ top: 20, right: 30, bottom: 40, left: 60 }"
-        :color="'#6366f1'"
+        :color="sentimentColorScaleLinear"
         :bins="20"
         :show-grid-lines="true"
         :show-ticks="true"
@@ -32,6 +32,7 @@ import { useElementSize } from '@vueuse/core';
 import { useGraphStore } from '../../stores/graphStore';
 import { useLinkingStore } from '../../stores/linkingStore';
 import Histogram from '../charts/Histogram.vue';
+import { sentimentColorScaleLinear } from '../../utils/colors';
 
 export default defineComponent({
   name: 'TopicSentimentDistribution',
@@ -142,6 +143,7 @@ export default defineComponent({
       el,
       isLoading,
       error,
+      sentimentColorScaleLinear,
     };
   },
 });
