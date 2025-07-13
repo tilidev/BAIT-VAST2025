@@ -65,7 +65,10 @@ export const useLinkingStore = defineStore('linking', {
     selectedIndustry(state): string {
       const industry = state.activeFilters.find(f => f.type === 'industry');
       return industry ? industry.value : '';
-    }
+    },
+    selectedInGraphs(state): string[] {
+      return state.activeFilters.filter(f => f.type === FilterType.IN_GRAPH).map(f => f.value);
+    },
   },
   actions: {
     setPersonId(personId: string) {
