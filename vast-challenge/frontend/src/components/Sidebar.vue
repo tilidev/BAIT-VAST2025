@@ -72,11 +72,16 @@
       <div v-if="sidebarExpanded" class="border-t border-gray-200 dark:border-gray-700 pt-4">
         <h2 class="text-lg font-semibold mb-2">Options</h2>
 
-        <div v-if="activeTab === 'trip-analysis'">
+        <div v-if="activeTab === 'overview'" class="space-y-4">
+          <EntityFilter />
+          <InGraphFilter />
+        </div>
+
+        <div v-else-if="activeTab === 'trip-analysis'">
           <TripDrilldownFilter />
         </div>
 
-        <IdSelectionPanel v-else-if="activeTab === 'detailed-analysis'" />
+        <EntityFilter v-else-if="activeTab === 'detailed-analysis'" />
 
         <ScaleOptions v-else-if="activeTab === 'scale'" />
 
@@ -97,17 +102,18 @@
 import { defineComponent } from 'vue';
 import ThemeSwitcher from './ThemeSwitcher.vue';
 import TripDrilldownFilter from './mini-visualizations/TripDrilldownFilter.vue';
-import { useFilterStore } from '../stores/filterStore';
-import IdSelectionPanel from './IdSelectionPanel.vue';
 import ScaleOptions from './ScaleOptions.vue';
+import InGraphFilter from './InGraphFilter.vue';
+import EntityFilter from './EntityFilter.vue';
 
 export default defineComponent({
   name: 'Sidebar',
   components: {
     ThemeSwitcher,
     TripDrilldownFilter,
-    IdSelectionPanel,
     ScaleOptions,
+    InGraphFilter,
+    EntityFilter,
   },
   props: {
     sidebarExpanded: {
@@ -120,11 +126,6 @@ export default defineComponent({
     }
   },
   emits: ['toggleSidebar', 'update:activeTab'],
-  data() {
-    return {
-      filterStore: useFilterStore()
-    };
-  },
   methods: {
     toggleSidebar() {
       this.$emit('toggleSidebar');

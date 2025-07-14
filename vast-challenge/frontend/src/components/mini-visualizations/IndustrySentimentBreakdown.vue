@@ -20,7 +20,6 @@ import * as d3 from 'd3';
 import { mapState } from 'pinia';
 import GroupedBarChart from '../charts/GroupedBarChart.vue';
 import { useVisualizationDataStore } from '../../stores/visualizationDataStore';
-import { useFilterStore } from '../../stores/filterStore';
 import { createSentimentColorScale, sentimentColorScale } from '../../utils/colors.ts'
 
 export default {
@@ -37,9 +36,6 @@ export default {
     };
   },
   computed: {
-    ...mapState(useFilterStore, {
-      industry: 'selectedIndustry',
-    }),
     ...mapState(useVisualizationDataStore, {
       rawData: 'industrySentimentRawData',
       isLoading: 'isLoadingIndustrySentimentRawData',

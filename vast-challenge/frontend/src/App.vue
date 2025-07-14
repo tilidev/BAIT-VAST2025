@@ -28,7 +28,6 @@ import Sidebar from './components/Sidebar.vue';
 import { useEntityStore } from './stores/entityStore';
 import { useGraphStore } from './stores/graphStore';
 import { useVisualizationDataStore } from './stores/visualizationDataStore';
-import { useFilterStore } from './stores/filterStore';
 
 const OverviewTab = defineAsyncComponent(() => import('./components/tabs/OverviewTab.vue'));
 const DetailedAnalysisTab = defineAsyncComponent(() => import('./components/tabs/DetailedAnalysisTab.vue'));
@@ -53,7 +52,6 @@ export default defineComponent({
       entityStore: useEntityStore(),
       graphStore: useGraphStore(),
       visualizationDataStore: useVisualizationDataStore(),
-      filterStore: useFilterStore()
     };
   },
   methods: {

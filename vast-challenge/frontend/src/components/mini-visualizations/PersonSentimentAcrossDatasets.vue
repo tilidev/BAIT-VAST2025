@@ -18,7 +18,7 @@
 import * as d3 from 'd3';
 import { mapState } from 'pinia';
 import { useGraphStore } from '../../stores/graphStore';
-import { useFilterStore } from '../../stores/filterStore';
+import { useLinkingStore } from '../../stores/linkingStore';
 import GroupedBarChart from '../charts/GroupedBarChart.vue';
 
 export default {
@@ -44,54 +44,55 @@ export default {
     };
   },
   computed: {
-    ...mapState(useFilterStore, {
-      personId: 'selectedPersonId',
+    ...mapState(useLinkingStore, {
+      highlightedPeople: 'highlightedPeople',
     }),
     showChart() {
       return !this.isLoading && !this.error && this.processedData.length > 0;
     },
     processedData() {
-      if (!this.graphStore.sentimentPerTopic || this.graphStore.sentimentPerTopic.length === 0) {
-        return [];
-      }
-
-      const personData = this.graphStore.sentimentPerTopic.find(
-        (entity) => entity.entity_id === this.personId
-      );
-
-      if (!personData) {
+      if (!this.graphStore.sentimentPerTopic || this.graphStore.sentimentPerTopic.length === 0 || this.highlightedPeople.length === 0) {
         return [];
       }
 
       const sentimentsByGroupAndDataset = {};
 
-      personData.topic_sentiments.forEach((ts) => {
-        if (ts.sentiment === null || ts.sentiment === undefined) return;
+      this.highlightedPeople.forEach(personId => {
+        const personData = this.graphStore.sentimentPerTopic.find(
+          (entity) => entity.entity_id === personId
+        );
 
-        const groupKey = this.sentimentGranularity === 'industry' ? (ts.topic_industry?.join(', ') || 'Unknown Industry') : ts.topic_id;
+        if (!personData) return;
 
-        let datasetsToAttribute = [];
-        if (ts.sentiment_recorded_in?.includes('tr')) datasetsToAttribute.push('tr');
-        if (ts.sentiment_recorded_in?.includes('fi')) datasetsToAttribute.push('fi');
-        if (ts.sentiment_recorded_in?.includes('jo') && !ts.sentiment_recorded_in?.includes('tr') && !ts.sentiment_recorded_in?.includes('fi')) {
-          datasetsToAttribute.push('jo');
-        }
-        if (datasetsToAttribute.length === 0 && ts.sentiment_recorded_in?.includes('jo')) {
-          datasetsToAttribute.push('jo');
-        }
+        personData.topic_sentiments.forEach((ts) => {
+          if (ts.sentiment === null || ts.sentiment === undefined) return;
 
-        datasetsToAttribute.forEach(dataset => {
-          if (!sentimentsByGroupAndDataset[groupKey]) {
-            sentimentsByGroupAndDataset[groupKey] = {
-              jo: { sum: 0, count: 0 },
-              fi: { sum: 0, count: 0 },
-              tr: { sum: 0, count: 0 },
-            };
+          const groupKey = this.sentimentGranularity === 'industry' ? (ts.topic_industry?.join(', ') || 'Unknown Industry') : ts.topic_id;
+
+          let datasetsToAttribute = [];
+          if (ts.sentiment_recorded_in?.includes('tr')) datasetsToAttribute.push('tr');
+          if (ts.sentiment_recorded_in?.includes('fi')) datasetsToAttribute.push('fi');
+          if (ts.sentiment_recorded_in?.includes('jo') && !ts.sentiment_recorded_in?.includes('tr') && !ts.sentiment_recorded_in?.includes('fi')) {
+            datasetsToAttribute.push('jo');
           }
-          sentimentsByGroupAndDataset[groupKey][dataset].sum += ts.sentiment;
-          sentimentsByGroupAndDataset[groupKey][dataset].count += 1;
+          if (datasetsToAttribute.length === 0 && ts.sentiment_recorded_in?.includes('jo')) {
+            datasetsToAttribute.push('jo');
+          }
+
+          datasetsToAttribute.forEach(dataset => {
+            if (!sentimentsByGroupAndDataset[groupKey]) {
+              sentimentsByGroupAndDataset[groupKey] = {
+                jo: { sum: 0, count: 0 },
+                fi: { sum: 0, count: 0 },
+                tr: { sum: 0, count: 0 },
+              };
+            }
+            sentimentsByGroupAndDataset[groupKey][dataset].sum += ts.sentiment;
+            sentimentsByGroupAndDataset[groupKey][dataset].count += 1;
+          });
         });
       });
+
 
       const result = [];
       for (const groupKey in sentimentsByGroupAndDataset) {
@@ -168,17 +169,16 @@ export default {
         }
       });
     },
-    personId: {
+    highlightedPeople: {
       handler() {
-        // Re-fetch data when personId or sentimentGranularity changes
         this.isLoading = true;
         this.fetchDataForDatasets();
       },
       immediate: true,
+      deep: true,
     },
     sentimentGranularity: {
       handler() {
-        // Re-fetch data when personId or sentimentGranularity changes
         this.isLoading = true;
         this.fetchDataForDatasets();
       },
