@@ -73,7 +73,7 @@
         <h2 class="text-lg font-semibold mb-2">Options</h2>
 
         <div v-if="activeTab === 'overview'" class="space-y-4">
-          <EgoNetworkFilter />
+          <EntityFilter />
           <InGraphFilter />
         </div>
 
@@ -81,7 +81,7 @@
           <TripDrilldownFilter />
         </div>
 
-        <IdSelectionPanel v-else-if="activeTab === 'detailed-analysis'" />
+        <EntityFilter v-else-if="activeTab === 'detailed-analysis'" />
 
         <ScaleOptions v-else-if="activeTab === 'scale'" />
 
@@ -102,20 +102,18 @@
 import { defineComponent } from 'vue';
 import ThemeSwitcher from './ThemeSwitcher.vue';
 import TripDrilldownFilter from './mini-visualizations/TripDrilldownFilter.vue';
-import IdSelectionPanel from './IdSelectionPanel.vue';
 import ScaleOptions from './ScaleOptions.vue';
 import InGraphFilter from './InGraphFilter.vue';
-import EgoNetworkFilter from './EgoNetworkFilter.vue';
+import EntityFilter from './EntityFilter.vue';
 
 export default defineComponent({
   name: 'Sidebar',
   components: {
     ThemeSwitcher,
     TripDrilldownFilter,
-    IdSelectionPanel,
     ScaleOptions,
     InGraphFilter,
-    EgoNetworkFilter,
+    EntityFilter,
   },
   props: {
     sidebarExpanded: {

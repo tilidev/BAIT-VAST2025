@@ -1,7 +1,7 @@
 <template>
   <div class="p-4 space-y-6 bg-gray-50 rounded-lg shadow-inner font-sans">
     <div>
-      <h3 class="text-sm font-semibold text-gray-600 mb-2">Ego Network Node</h3>
+      <h3 class="text-sm font-semibold text-gray-600 mb-2">{{ title }}</h3>
       <div class="flex rounded-md shadow-sm mb-4">
         <label
           v-for="(type, index) in typeOptions"
@@ -57,7 +57,13 @@ import { useLinkingStore } from '../stores/linkingStore';
 import { ref, computed, watch } from 'vue';
 
 export default {
-  name: 'EgoNetworkFilter',
+  name: 'EntityFilter',
+  props: {
+    title: {
+      type: String,
+      default: 'Filter'
+    }
+  },
   setup() {
     const entityStore = useEntityStore();
     const linkingStore = useLinkingStore();
@@ -67,6 +73,7 @@ export default {
     const typeOptions = [
       { label: 'Person', value: 'ENTITY_PERSON' },
       { label: 'Topic', value: 'TOPIC' },
+      { label: 'Industry', value: 'ENTITY_ORGANIZATION' },
     ];
 
     const formatLabel = (id) => {
@@ -78,33 +85,48 @@ export default {
     };
 
     const nodeOptions = computed(() => {
-      const options = selectedType.value === 'TOPIC' 
-        ? entityStore.topics 
-        : entityStore.persons;
+      let options;
+      switch (selectedType.value) {
+        case 'TOPIC':
+          options = entityStore.topics;
+          break;
+        case 'ENTITY_ORGANIZATION':
+          options = entityStore.organizations;
+          break;
+        default:
+          options = entityStore.persons;
+      }
       return options.map(item => ({ label: formatLabel(item.id), value: item.id }));
     });
 
     const selectedNode = computed(() => {
-      if (selectedType.value === 'TOPIC') {
-        return linkingStore.selectedTopic;
+      switch (selectedType.value) {
+        case 'TOPIC':
+          return linkingStore.selectedTopic;
+        case 'ENTITY_ORGANIZATION':
+          return linkingStore.selectedOrganization;
+        default:
+          return linkingStore.selectedPerson;
       }
-      return linkingStore.selectedPerson;
     });
 
     const updateSelectedType = (type) => {
       selectedType.value = type;
-      if (type === 'TOPIC') {
-        linkingStore.setPersonId('');
-      } else {
-        linkingStore.setTopicId('');
-      }
+      linkingStore.setPersonId('');
+      linkingStore.setTopicId('');
+      linkingStore.setOrganizationId('');
     };
 
     const updateSelectedNode = (nodeId) => {
-      if (selectedType.value === 'TOPIC') {
-        linkingStore.setTopicId(nodeId);
-      } else {
-        linkingStore.setPersonId(nodeId);
+      switch (selectedType.value) {
+        case 'TOPIC':
+          linkingStore.setTopicId(nodeId);
+          break;
+        case 'ENTITY_ORGANIZATION':
+          linkingStore.setOrganizationId(nodeId);
+          break;
+        default:
+          linkingStore.setPersonId(nodeId);
       }
     };
     

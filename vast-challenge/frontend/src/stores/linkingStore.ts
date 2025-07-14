@@ -66,6 +66,10 @@ export const useLinkingStore = defineStore('linking', {
       const topic = state.activeFilters.find(f => f.type === 'topic');
       return topic ? topic.value : '';
     },
+    selectedOrganization(state): string {
+      const org = state.activeFilters.find(f => f.type === 'industry');
+      return org ? org.value : '';
+    },
     selectedIndustry(state): string {
       const industry = state.activeFilters.find(f => f.type === 'industry');
       return industry ? industry.value : '';
@@ -85,6 +89,12 @@ export const useLinkingStore = defineStore('linking', {
       this.activeFilters = this.activeFilters.filter(f => f.type !== 'topic');
       if (topicId) {
         this.activeFilters.push({ type: 'topic', value: topicId });
+      }
+    },
+    setOrganizationId(organizationId: string) {
+      this.activeFilters = this.activeFilters.filter(f => f.type !== 'industry');
+      if (organizationId) {
+        this.activeFilters.push({ type: 'industry', value: organizationId });
       }
     },
     setIndustry(industry: string) {
