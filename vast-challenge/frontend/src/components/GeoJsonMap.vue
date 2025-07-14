@@ -234,9 +234,9 @@ export default {
           this.g.selectAll('circle')
             .attr('r', 6 / k)
             .attr('stroke-width', d => {
-              const isHighlighted = this.linkingStore.highlightedPlaceIds.includes(d.id)
-                || (this.linkingStore.highlightedTrips.length > 0
-                    && d.trip_ids?.some(id => this.linkingStore.highlightedTrips.includes(id)));
+              const isHighlighted = this.highlightedPlaceIds.includes(d.id)
+                || (this.highlightedTrips.length > 0
+                    && d.trip_ids?.some(id => this.highlightedTrips.includes(id)));
               return (isHighlighted ? 2 : 0) / k;
             });
 
@@ -275,13 +275,13 @@ export default {
       allPlaces.forEach(place => {
         const [px,py] = this.projection([place.lat,place.lon]);
         const [tx,ty] = currentTransform.apply([px,py]);
-        if (tx>=x0&&tx<=x1&&ty>=y0&&ty<=y1) selectedPlaces.push(place.name);
+        if (tx>=x0&&tx<=x1&&ty>=y0&&ty<=y1) selectedPlaces.push(place.id);
       });
       this.linkingStore.setFilters(this.FilterType.PLACE, selectedPlaces);
     },
 
     forwardEventToBrush(e) {
-      const brushEl = this.svg.select('.brush').node();
+      const brushEl = this.svg.select('.brush .overlay').node();
       if (!brushEl) return;
       const m = e;
       const newE = new MouseEvent('mousedown', {
@@ -305,18 +305,25 @@ export default {
       const excludedFilters = this.excludedFilters;
       const hasFilters = activeFilters.length > 0 || excludedFilters.length > 0;
       if (hasFilters) allPlaces = allPlaces.filter(d => {
-        const passesActive = activeFilters.length === 0 || activeFilters.every(f => {
+        const placeFilterValues = activeFilters.filter(f => f.type === 'place').flatMap(f => f.value);
+        const otherFilters = activeFilters.filter(f => f.type !== 'place');
+
+        const passesPlaceFilter = placeFilterValues.length === 0 || placeFilterValues.includes(d.id);
+
+        const passesOtherFilters = otherFilters.length === 0 || otherFilters.every(f => {
           if (!d.id) return false;
           if (f.type === 'island') return this.mapStore.getParentFeatureByPlaceId(d.id) === f.value;
           if (f.type === 'zone') return d.zone === f.value;
           if (f.type === 'in_graph') return Array.isArray(d.in_graph) && d.in_graph.includes(f.value);
-          if (f.type === 'place') return d.name === f.value;
-          return true; // Ignore other filter types for now
+          return true;
         });
+
+        const passesActive = passesPlaceFilter && passesOtherFilters;
+
         const passesExcl = excludedFilters.length === 0 || !excludedFilters.some(f => {
           if (!d.id) return false;
-          if (f.type==='island') return this.mapStore.getParentFeatureByPlaceId(d.id)===f.value;
-          if (f.type==='zone') return d.zone===f.value;
+          if (f.type === 'island') return this.mapStore.getParentFeatureByPlaceId(d.id) === f.value;
+          if (f.type === 'zone') return d.zone === f.value;
           if (f.type === 'in_graph') return Array.isArray(d.in_graph) && d.in_graph.includes(f.value);
           return false;
         });

@@ -144,8 +144,15 @@ export default {
 
       // Filter by sidebar selections (inclusive)
       if (filters && filters.length > 0) {
+        const placeFilterValues = filters.filter(f => f.type === 'place').flatMap(f => f.value);
+        const otherFilters = filters.filter(f => f.type !== 'place');
+
         filtered = filtered.filter((activity) => {
-          return filters.every((filter) => {
+          const passesPlaceFilter = placeFilterValues.length === 0 || activity.visited_places.some(visitedPlace => {
+            return visitedPlace.place && placeFilterValues.includes(visitedPlace.place.id);
+          });
+
+          const passesOtherFilters = otherFilters.length === 0 || otherFilters.every(filter => {
             return activity.visited_places.some((visitedPlace) => {
               const place = visitedPlace.place;
               if (!place || !place.id) return false;
@@ -157,13 +164,13 @@ export default {
                   return place.zone === filter.value;
                 case 'in_graph':
                   return place.in_graph && Array.isArray(place.in_graph) && place.in_graph.includes(filter.value);
-                case 'place':
-                  return place.name === filter.value;
                 default:
                   return false;
               }
             });
           });
+
+          return passesPlaceFilter && passesOtherFilters;
         });
       }
 

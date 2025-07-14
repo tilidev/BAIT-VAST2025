@@ -118,35 +118,30 @@ export default {
 
       // Filter by active sidebar filters
       if (this.linkingStore.activeFilters.length > 0) {
-        const placeFilters = this.linkingStore.activeFilters.filter(f => f.type === this.FilterType.PLACE).map(f => f.value);
+        const placeFilterValues = this.linkingStore.activeFilters.filter(f => f.type === this.FilterType.PLACE).flatMap(f => f.value);
         const otherFilters = this.linkingStore.activeFilters.filter(f => f.type !== this.FilterType.PLACE);
 
-        if (placeFilters.length > 0) {
-          const brushedPlaceNames = new Set(placeFilters);
-          events = events.filter(event => {
-            return event.visitedPlaceNames.some(placeName => brushedPlaceNames.has(placeName));
-          });
-        }
+        events = events.filter(event => {
+          const passesPlaceFilter = placeFilterValues.length === 0 || event.visitedPlaceIds.some(placeId => placeFilterValues.includes(placeId));
 
-        if (otherFilters.length > 0) {
-          events = events.filter(event => {
-            return otherFilters.every(filter => {
-              return event.trip.visited_places.some(visitedPlace => {
-                const place = visitedPlace.place;
-                if (!place || !place.id) return false;
-                if (filter.type === 'island') {
-                  const parentFeatureName = this.mapStore.getParentFeatureByPlaceId(place.id);
-                  return parentFeatureName === filter.value;
-                } else if (filter.type === 'zone') {
-                  return place.zone === filter.value;
-                } else if (filter.type === 'in_graph') {
-                  return place.in_graph && Array.isArray(place.in_graph) && place.in_graph.includes(filter.value);
-                }
-                return false;
-              });
+          const passesOtherFilters = otherFilters.length === 0 || otherFilters.every(filter => {
+            return event.trip.visited_places.some(visitedPlace => {
+              const place = visitedPlace.place;
+              if (!place || !place.id) return false;
+              if (filter.type === 'island') {
+                const parentFeatureName = this.mapStore.getParentFeatureByPlaceId(place.id);
+                return parentFeatureName === filter.value;
+              } else if (filter.type === 'zone') {
+                return place.zone === filter.value;
+              } else if (filter.type === 'in_graph') {
+                return place.in_graph && Array.isArray(place.in_graph) && place.in_graph.includes(filter.value);
+              }
+              return false;
             });
           });
-        }
+
+          return passesPlaceFilter && passesOtherFilters;
+        });
       }
 
       // Filter by excluded sidebar filters
