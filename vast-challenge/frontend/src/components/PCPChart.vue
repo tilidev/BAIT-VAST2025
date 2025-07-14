@@ -12,12 +12,12 @@
           
           <!-- Interactive background for axis label -->
           <rect
-            :x="(dragState.isDragging && dragState.draggedIndex === i ? dragState.dragX : xScale(i)) - getTextWidth(metricLabels[metric]) / 2 - 6"
-            :y="innerHeight + 8"
-            :width="getTextWidth(metricLabels[metric]) + 12"
+            :x="(dragState.isDragging && dragState.draggedIndex === i ? dragState.dragX : xScale(i)) - getTextWidth(metricLabels[metric]) / 2 - 8"
+            :y="innerHeight + 5"
+            :width="getTextWidth(metricLabels[metric]) + 16"
             height="20"
-            rx="10"
-            ry="10"
+            rx="9"
+            ry="9"
             :fill="getAxisBackgroundColor(i)"
             :opacity="getAxisBackgroundOpacity(i)"
             class="cursor-move"
@@ -119,7 +119,7 @@ export default {
   },
   data() {
     return {
-      margin: { top: 20, right: 30, bottom: 40, left: 30 },
+      margin: { top: 20, right: 50, bottom: 40, left: 50 },
       hoveredPoints: null,
       hoveredId: null,
       jitter: 10,
