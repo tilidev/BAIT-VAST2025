@@ -281,7 +281,7 @@ export default {
       }
     },
     getInitials(name) {
-      if (!name) return '??';
+      if (!name) return 'SN' 
       const parts = name.split(' ');
       if (parts.length > 1 && parts[1]) {
         return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
