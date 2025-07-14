@@ -50,7 +50,6 @@ import DatasetNodeComparison from './mini-visualizations/DatasetNodeComparison.v
 import EntitySentimentConsistencyMatrix from './mini-visualizations/EntitySentimentConsistencyMatrix.vue';
 import HorizontalBarFilter from './mini-visualizations/HorizontalBarFilter.vue';
 import IndustrySentimentBreakdown from './mini-visualizations/IndustrySentimentBreakdown.vue';
-import OverallSentimentDistribution from './mini-visualizations/OverallSentimentDistribution.vue';
 import PersonSentimentAcrossDatasets from './mini-visualizations/PersonSentimentAcrossDatasets.vue';
 import TopicSentimentOverview from './mini-visualizations/TopicSentimentOverview.vue';
 import TripDrilldownFilter from './mini-visualizations/TripDrilldownFilter.vue';
@@ -83,7 +82,6 @@ export default defineComponent({
     EntitySentimentConsistencyMatrix,
     HorizontalBarFilter,
     IndustrySentimentBreakdown,
-    OverallSentimentDistribution,
     PersonSentimentAcrossDatasets,
     TopicSentimentOverview,
     TripDrilldownFilter,

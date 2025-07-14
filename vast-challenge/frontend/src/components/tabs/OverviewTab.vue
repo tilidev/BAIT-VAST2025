@@ -16,7 +16,6 @@ export default defineComponent({
   data() {
     return {
       layout: [
-        { x: 0, y: 0, w: 4, h: 8, i: '0', component: 'OverallSentimentDistribution' },
         { x: 4, y: 0, w: 4, h: 8, i: '1', component: 'DatasetNodeComparison' },
         { x: 0, y: 4, w: 5, h: 12, i: '2', component: 'TopicSentimentOverview' },
         { x: 8, y: 0, w: 4, h: 8, i: '3', component: 'TopicSentimentDistribution' },
