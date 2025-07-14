@@ -83,6 +83,7 @@ export default {
     overviewLines() {
       return this.persons.map(person => ({
         id: person.id,
+        name: person.name,
         values: this.activities[person.id]?.jo || {},
         color: this.detailColors.jo,
         opacity: this.hoverId && this.hoverId !== person.id ? 0.2 : 1,
@@ -92,6 +93,7 @@ export default {
       if (!this.selectedPerson) return [];
       return this.datasets.map(ds => ({
         id: ds,
+        name: this.selectedPerson,
         values: this.activities[this.selectedPerson]?.[ds] || {},
         color: this.detailColors[ds],
         opacity: 1,
@@ -103,7 +105,13 @@ export default {
     onHover(id, event) {
       this.hoverId = id;
       const person = this.persons.find(p => p.id === id) || {};
-      this.tooltip = { visible: true, x: event.offsetX + 10, y: event.offsetY + 10, data: person };
+
+      const svg = event.target.ownerSVGElement;
+      const rect = svg.getBoundingClientRect();
+      const x = event.clientX - rect.left + 10;
+      const y = event.clientY - rect.top + 10;
+
+      this.tooltip = { visible: true, x, y, data: person };
     },
     onLeave() {
       this.hoverId = null;

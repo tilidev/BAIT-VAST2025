@@ -55,7 +55,17 @@
         </g>
       </g>
     </svg>
-    <slot name="tooltip"></slot>
+    <div
+      v-if="tooltip.visible"
+      :style="{
+        position: 'absolute',
+        left: tooltip.x + 'px',
+        top: tooltip.y + 'px'
+      }"
+      class="px-2 py-1 bg-gray-800 text-white text-xs rounded shadow-lg pointer-events-none"
+    >
+      {{ tooltip.name }}
+    </div>
   </div>
 </template>
 
@@ -75,7 +85,8 @@ export default {
       hoveredId: null,
       jitter: 10,
       containerWidth: 0,
-      containerHeight: 0
+      containerHeight: 0,
+      tooltip: { visible: false, x: 0, y: 0, name: '' }
     };
   },
   computed: {
@@ -138,12 +149,25 @@ export default {
     },
     handleHover(line, event) {
       this.hoveredId = line.id;
-      this.hoveredPoints = this.metrics.map((m, i) => ({ metric: m, x: this.xScale(i), y: this.yScale(m, line.values[m] || 0), value: line.values[m] || 0 }));
+      this.hoveredPoints = this.metrics.map((m, i) => ({
+        metric: m,
+        x: this.xScale(i),
+        y: this.yScale(m, line.values[m] || 0),
+        value: line.values[m] || 0
+      }));
+
+      const rect = this.$refs.container.getBoundingClientRect();
+      this.tooltip.x = event.clientX - rect.left + 10;
+      this.tooltip.y = event.clientY - rect.top + 10;
+      this.tooltip.name = line.name || line.id;
+      this.tooltip.visible = true;
+
       this.$emit('hover', line.id, event);
     },
     handleLeave() {
       this.hoveredPoints = null;
       this.hoveredId = null;
+      this.tooltip.visible = false;
       this.$emit('leave');
     }
   }
