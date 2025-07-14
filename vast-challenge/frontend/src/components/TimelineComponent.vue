@@ -62,8 +62,16 @@ export default {
   },
   computed: {
     persons() {
+      const personsFromStore = new Map(this.entityStore.persons.map(p => [p.id, p]));
+      const personIdsWithTrips = Object.keys(this.entityStore.personTripActivities);
 
-      return [...this.entityStore.persons].sort((a, b) => a.id.localeCompare(b.id));
+      personIdsWithTrips.forEach(id => {
+        if (!personsFromStore.has(id)) {
+          personsFromStore.set(id, { id: id, name: null });
+        }
+      });
+
+      return [...personsFromStore.values()].sort((a, b) => a.id.localeCompare(b.id));
     },
     personIds() {
 
@@ -73,7 +81,7 @@ export default {
     personZoneDistribution() {
       const distribution = {};
       this.persons.forEach(person => {
-        const personTrips = this.allEvents.filter(event => event.personId === person.id);
+        const personTrips = this.filteredEvents.filter(event => event.personId === person.id);
         const zoneCounts = personTrips.reduce((acc, trip) => {
           for (const zone in trip.zoneCounts) {
             acc[zone] = (acc[zone] || 0) + trip.zoneCounts[zone];
@@ -207,6 +215,12 @@ export default {
       },
       deep: true,
     },
+    personZoneDistribution: {
+      handler() {
+        this.$nextTick(this.drawTimeline);
+      },
+      deep: true,
+    },
   },
   mounted() {
     this.tooltip = d3.select("body")
@@ -233,14 +247,14 @@ export default {
   },
   methods: {
     pieChartTooltipFormatter(personData) {
-      const personName = personData.name;
+      const personName = personData.name || personData.id;
       const zoneData = this.personZoneDistribution[personData.id];
       if (!zoneData) return '';
 
       const totalVisits = Object.values(zoneData).reduce((a, b) => a + b, 0);
 
-      let zoneDetails = '<ul class="mt-2 space-y-1">';
       if (totalVisits > 0) {
+        let zoneDetails = '<ul class="mt-2 space-y-1">';
         const sortedZones = Object.entries(zoneData).sort((a, b) => b[1] - a[1]);
         for (const [zone, count] of sortedZones) {
           const percentage = ((count / totalVisits) * 100).toFixed(1);
@@ -253,16 +267,18 @@ export default {
             </li>
           `;
         }
+        zoneDetails += '</ul>';
+        return `
+          <div class="font-bold text-base text-gray-800 mb-1">${personName}</div>
+          <div class="text-sm text-gray-500 border-b pb-1 mb-2">Zone Visit Distribution</div>
+          ${zoneDetails}
+        `;
       } else {
-        zoneDetails += '<li>No visits recorded.</li>';
+        return `
+          <div class="font-bold text-base text-gray-800 mb-1">${personName}</div>
+          <div class="mt-2 text-gray-500 italic">No trips match the current filters.</div>
+        `;
       }
-      zoneDetails += '</ul>';
-
-      return `
-        <div class="font-bold text-base text-gray-800 mb-1">${personName}</div>
-        <div class="text-sm text-gray-500 border-b pb-1">Zone Visit Distribution</div>
-        ${zoneDetails}
-      `;
     },
     getInitials(name) {
       if (!name) return '??';
@@ -274,7 +290,7 @@ export default {
     },
     tooltipFormatter(d) {
       const person = this.persons.find(p => p.id === d.personId);
-      const personName = person ? person.name : 'Unknown';
+      const personName = person ? (person.name || person.id) : 'Unknown';
       return `
         <div class="font-semibold text-blue-700">Trip ID: ${d.trip.trip.id}</div>
         <div>Person: ${personName} (${d.personId})</div>
@@ -398,7 +414,7 @@ export default {
         const radius = Math.min(16, yScale.bandwidth() / 2 * 0.9);
         const zoneData = this.personZoneDistribution[person.id];
 
-        if (Object.keys(zoneData).length > 0) {
+        if (zoneData && Object.keys(zoneData).length > 0) {
           const pie = d3.pie().value(d => d[1]);
           const arc = d3.arc().innerRadius(0).outerRadius(radius);
           const pieData = pie(Object.entries(zoneData));
@@ -440,8 +456,10 @@ export default {
       const chartArea = svg.append('g')
         .attr("clip-path", "url(#clip)");
 
+      const drawableEvents = filteredEvents.filter(d => yScale(d.personId) !== undefined);
+
       this.eventRects = chartArea.selectAll('.event-group')
-        .data(filteredEvents)
+        .data(drawableEvents)
         .enter()
         .append('g')
         .attr('class', 'event-group')
@@ -477,7 +495,7 @@ export default {
         const totalVisits = Object.values(d.zoneCounts).reduce((a, b) => a + b, 0);
         if (totalVisits === 0) return;
 
-        const tripWidth = Math.max(0, xScale(d.endTime) - xScale(d.startTime));
+        const tripWidth = Math.max(1, xScale(d.endTime) - xScale(d.startTime));
         const tripHeight = yScale.bandwidth();
         let currentY = 0;
 
@@ -521,7 +539,7 @@ export default {
             const totalVisits = Object.values(d.zoneCounts).reduce((a, b) => a + b, 0);
             if (totalVisits === 0) return;
 
-            const tripWidth = Math.max(0, newXScale(d.endTime) - newXScale(d.startTime));
+            const tripWidth = Math.max(1, newXScale(d.endTime) - newXScale(d.startTime));
             const tripHeight = yScale.bandwidth();
             let currentY = 0;
 
