@@ -16,8 +16,11 @@
         :color="sentimentColorScaleLinear"
         :bins="20"
         :show-grid-lines="true"
-        :show-ticks="true"
+        :show-ticks="false"
         :fixed-x-domain="[-1, 1]"
+        :show-density="true"
+        density-color="rgba(79, 70, 229, 0.5)"
+        background-density-color="rgba(156, 163, 175, 0.3)"
       />
     </div>
     <div v-else class="flex items-center justify-center h-full">

@@ -21,6 +21,9 @@ interface HistogramProps {
   showGridLines?: boolean;
   showTicks?: boolean;
   fixedXDomain?: [number, number];
+  showDensity?: boolean;
+  densityColor?: string;
+  backgroundDensityColor?: string;
 }
 
 export default defineComponent({
@@ -79,30 +82,37 @@ export default defineComponent({
       type: Object as PropType<[number, number] | null>,
       default: null,
     },
+    showDensity: {
+      type: Boolean,
+      default: false,
+    },
+    densityColor: {
+      type: String,
+      default: '#000',
+    },
+    backgroundDensityColor: {
+      type: String,
+      default: '#ccc',
+    },
   },
   setup(props: HistogramProps) {
     const chartContainer = ref<HTMLElement | null>(null);
     let svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any> | null = null;
-    let tooltip: d3.Selection<HTMLDivElement, unknown, HTMLElement, any> | null = null;
 
     function drawChart() {
       const hasData = props.data.length > 0 || (props.backgroundData && props.backgroundData.length > 0);
       if (!chartContainer.value || !hasData) {
         if (chartContainer.value) d3.select(chartContainer.value).selectAll("*").remove();
-        if (tooltip) tooltip.remove();
         return;
       }
 
-      // Clear previous drawing
       d3.select(chartContainer.value).selectAll("*").remove();
-      if (tooltip) tooltip.remove();
 
-      const { data, backgroundData, bins, width, height, margin, color, tooltipFormatter, xAxisLabelFormatter, yAxisLabelFormatter, showGridLines, showTicks, fixedXDomain } = props;
+      const { data, backgroundData, bins, width, height, margin, color, tooltipFormatter, xAxisLabelFormatter, yAxisLabelFormatter, showGridLines, showTicks, fixedXDomain, showDensity, densityColor, backgroundDensityColor } = props;
 
       const w = width || 400;
       const h = height || 300;
       const m = margin || { top: 20, right: 30, bottom: 40, left: 60 };
-
       const innerWidth = w - m.left - m.right;
       const innerHeight = h - m.top - m.bottom;
 
@@ -114,13 +124,11 @@ export default defineComponent({
       const svgGroup = svg!.append("g")
         .attr("transform", `translate(${m.left},${m.top})`);
 
-      tooltip = d3.select("body").append("div")
-        .attr("class", "tooltip absolute hidden p-2 bg-white border rounded shadow-lg text-sm")
-        .style("pointer-events", "none")
-        .style("z-index", "50");
-
       const allData = [...data, ...(backgroundData || [])];
       const xDomain = fixedXDomain || d3.extent(allData) as [number, number];
+
+      const x = d3.scaleLinear().domain(xDomain).range([0, innerWidth]);
+      const y = d3.scaleLinear().range([innerHeight, 0]);
 
       const histogram = d3.histogram<number, number>()
         .value(d => d)
@@ -129,104 +137,127 @@ export default defineComponent({
 
       const binnedData = histogram(data);
       const binnedBackgroundData = histogram(backgroundData || []);
+      
+      const n = data.length || 1;
+      const n_bg = backgroundData?.length || 1;
+      const binCount = typeof bins === 'number' ? bins : (bins as number[]).length - 1;
+      const binWidth = (xDomain[1] - xDomain[0]) / binCount;
 
-      const x = d3.scaleLinear()
-        .domain(xDomain)
-        .range([0, innerWidth]);
+      if (showDensity) {
+        const optimalBandwidth = silverman(data);
+        const optimalBandwidthBg = silverman(backgroundData || []);
+        const kde = kernelDensityEstimator(kernelEpanechnikov(optimalBandwidth), x.ticks(100));
+        const kdeBg = kernelDensityEstimator(kernelEpanechnikov(optimalBandwidthBg), x.ticks(100));
+        const density = kde(data) as [number, number][];
+        const backgroundDensity = kdeBg(backgroundData || []) as [number, number][];
 
-      const yMax = d3.max([
-        ...binnedData.map(d => d.length),
-        ...binnedBackgroundData.map(d => d.length)
-      ]) || 0;
+        const maxHistDensity = d3.max(binnedData, d => d.length / (n * binWidth)) || 0;
+        const maxBgHistDensity = d3.max(binnedBackgroundData, d => d.length / (n_bg * binWidth)) || 0;
+        const maxKdeDensity = d3.max(density, d => d[1]) || 0;
+        const maxBgKdeDensity = d3.max(backgroundDensity, d => d[1]) || 0;
+        
+        const yMax = Math.max(maxHistDensity, maxBgHistDensity, maxKdeDensity, maxBgKdeDensity);
+        y.domain([0, yMax * 1.1]);
 
-      const y = d3.scaleLinear()
-        .domain([0, yMax])
-        .range([innerHeight, 0]);
-
-      // X axis
-      svgGroup.append("g")
-        .attr("transform", `translate(0,${innerHeight})`)
-        .call(d3.axisBottom(x).tickFormat(xAxisLabelFormatter || (d => d.toString())))
-        .selectAll("text")
-        .attr("class", "text-gray-600 text-xs"); // Tailwind classes for axis labels
-
-      // Y axis
-      if (showTicks) {
-        svgGroup.append("g")
-          .call(d3.axisLeft(y).tickFormat(yAxisLabelFormatter || (d => d.toString())))
-          .selectAll("text")
-          .attr("class", "text-gray-600 text-xs"); // Tailwind classes for axis labels
+        drawDensityPlots(density, backgroundDensity);
+      } else {
+        const yMaxHist = d3.max([...binnedData, ...binnedBackgroundData], d => d.length) || 0;
+        y.domain([0, yMaxHist * 1.1]);
       }
 
-      // Y-axis grid lines
-      if (showGridLines) {
-        svgGroup.append("g")
-          .attr("class", "grid")
-          .call(d3.axisLeft(y)
-            .ticks(5)
-            .tickSize(-innerWidth)
-            .tickFormat(null) // Use null to suppress tick labels for grid lines
-          )
-          .selectAll("line")
-          .attr("stroke", "#e5e7eb")
-          .attr("stroke-dasharray", "2,2");
+      drawAxesAndGrid();
+      drawBars();
+
+      function drawDensityPlots(density: [number, number][], backgroundDensity: [number, number][]) {
+        const line = d3.line()
+          .curve(d3.curveBasis)
+          .x(d => x((d as [number, number])[0]))
+          .y(d => y((d as [number, number])[1]));
+
+        const area = d3.area()
+          .curve(d3.curveBasis)
+          .x(d => x((d as [number, number])[0]))
+          .y0(innerHeight)
+          .y1(d => y((d as [number, number])[1]));
+
+        const defs = svgGroup.append("defs");
+        const gradient = defs.append("linearGradient").attr("id", "density-gradient").attr("x1", "0%").attr("y1", "0%").attr("x2", "0%").attr("y2", "100%");
+        gradient.append("stop").attr("offset", "0%").attr("stop-color", densityColor || '#000').attr("stop-opacity", 0.8);
+        gradient.append("stop").attr("offset", "100%").attr("stop-color", densityColor || '#000').attr("stop-opacity", 0);
+        const bgGradient = defs.append("linearGradient").attr("id", "bg-density-gradient").attr("x1", "0%").attr("y1", "0%").attr("x2", "0%").attr("y2", "100%");
+        bgGradient.append("stop").attr("offset", "0%").attr("stop-color", backgroundDensityColor || '#ccc').attr("stop-opacity", 0.5);
+        bgGradient.append("stop").attr("offset", "100%").attr("stop-color", backgroundDensityColor || '#ccc').attr("stop-opacity", 0);
+
+        if (backgroundData && backgroundData.length > 0) {
+          svgGroup.append("path").datum(backgroundDensity).attr("fill", `url(#bg-density-gradient)`).attr("stroke", "none").attr("d", area as any);
+        }
+        if (data.length > 0) {
+          svgGroup.append("path").datum(density).attr("fill", `url(#density-gradient)`).attr("d", area as any);
+          svgGroup.append("path").datum(density).attr("fill", "none").attr("stroke", densityColor || '#000').attr("stroke-width", 1.5).attr("stroke-linejoin", "round").attr("d", line as any);
+        }
       }
 
-      // Background Bars
-      if (binnedBackgroundData.length > 0) {
-        svgGroup.selectAll(".bg-bar")
-          .data(binnedBackgroundData)
-          .join("rect")
-          .attr("class", "bg-bar")
-          .attr("x", d => x(d.x0 || 0))
-          .attr("y", d => y(d.length))
-          .attr("width", d => Math.max(0, x(d.x1 || 0) - x(d.x0 || 0) - 1))
-          .attr("height", d => innerHeight - y(d.length))
-          .attr("fill", d => {
-            if (typeof color === 'function') {
-              const mid = (d.x0! + d.x1!) / 2;
-              return color(mid);
-            }
-            return color || neutralBaseColor;
-          })
-          .attr("opacity", 0.3);
+      function drawAxesAndGrid() {
+        svgGroup.append("g").attr("transform", `translate(0,${innerHeight})`).call(d3.axisBottom(x).tickFormat(xAxisLabelFormatter || (d => d.toString()))).selectAll("text").attr("class", "text-gray-600 text-xs");
+        if (showTicks) {
+          svgGroup.append("g").call(d3.axisLeft(y).tickFormat(yAxisLabelFormatter || (d => d.toString()))).selectAll("text").attr("class", "text-gray-600 text-xs");
+        }
+        if (showGridLines) {
+          svgGroup.append("g").attr("class", "grid").call(d3.axisLeft(y).ticks(5).tickSize(-innerWidth).tickFormat(null)).selectAll("line").attr("stroke", "#e5e7eb").attr("stroke-dasharray", "2,2");
+        }
       }
 
-      // Foreground Bars
-      if (binnedData.length > 0) {
-        svgGroup.selectAll(".bar")
-          .data(binnedData)
-          .join("rect")
-          .attr("class", "bar")
-          .attr("x", d => x(d.x0 || 0))
-          .attr("y", d => y(d.length))
-          .attr("width", d => Math.max(0, x(d.x1 || 0) - x(d.x0 || 0) - 1))
-          .attr("height", d => innerHeight - y(d.length))
-          .attr("fill", d => {
-            if (typeof color === 'function') {
-              const mid = (d.x0! + d.x1!) / 2;
-              return color(mid);
-            }
-            return color || neutralBaseColor;
-          })
-          .on("mouseover", (event, d) => {
-            if (tooltip && tooltipFormatter) {
-              tooltip
-                .classed("hidden", false)
-                .html(tooltipFormatter(d));
-            }
-          })
-          .on("mousemove", (event) => {
-            if (tooltip) {
-              tooltip.style("left", (event.pageX + 10) + "px")
-                .style("top", (event.pageY - 20) + "px");
-            }
-          })
-          .on("mouseout", () => {
-            if (tooltip) {
+      function drawBars() {
+        const tooltip = d3.select("body").append("div").attr("class", "tooltip absolute hidden p-2 bg-white border rounded shadow-lg text-sm").style("pointer-events", "none").style("z-index", "50");
+        
+        if (binnedBackgroundData.length > 0) {
+          svgGroup.selectAll(".bg-bar").data(binnedBackgroundData).join("rect")
+            .attr("class", "bg-bar")
+            .attr("x", d => x(d.x0 || 0))
+            .attr("y", d => showDensity ? y(d.length / (n_bg * binWidth)) : y(d.length))
+            .attr("width", d => Math.max(0, x(d.x1 || 0) - x(d.x0 || 0) - 1))
+            .attr("height", d => showDensity ? innerHeight - y(d.length / (n_bg * binWidth)) : innerHeight - y(d.length))
+            .attr("fill", d => typeof color === 'function' ? color((d.x0! + d.x1!) / 2) : color || neutralBaseColor)
+            .attr("opacity", 0.3);
+        }
+        if (binnedData.length > 0) {
+          svgGroup.selectAll(".bar").data(binnedData).join("rect")
+            .attr("class", "bar")
+            .attr("x", d => x(d.x0 || 0))
+            .attr("y", d => showDensity ? y(d.length / (n * binWidth)) : y(d.length))
+            .attr("width", d => Math.max(0, x(d.x1 || 0) - x(d.x0 || 0) - 1))
+            .attr("height", d => showDensity ? innerHeight - y(d.length / (n * binWidth)) : innerHeight - y(d.length))
+            .attr("fill", d => typeof color === 'function' ? color((d.x0! + d.x1!) / 2) : color || neutralBaseColor)
+            .on("mouseover", (event, d) => {
+              tooltip.classed("hidden", false).html(tooltipFormatter!(d));
+            })
+            .on("mousemove", (event) => {
+              tooltip.style("left", (event.pageX + 10) + "px").style("top", (event.pageY - 20) + "px");
+            })
+            .on("mouseout", () => {
               tooltip.classed("hidden", true);
-            }
-          });
+            });
+        }
+      }
+
+      function kernelDensityEstimator(kernel: (v: number) => number, X: number[]) {
+        return function (V: number[]) {
+          return X.map(x => [x, d3.mean(V, v => kernel(x - v))]);
+        };
+      }
+
+      function kernelEpanechnikov(k: number) {
+        return function (v: number) {
+          return Math.abs(v /= k) <= 1 ? 0.75 * (1 - v * v) / k : 0;
+        };
+      }
+
+      function silverman(data: number[]) {
+        if (data.length === 0) return 0.1;
+        const stdDev = d3.deviation(data) || 0;
+        const n = data.length;
+        // Using Scott's rule for bandwidth selection, which is often more robust for multimodal distributions.
+        return 1.06 * stdDev * Math.pow(n, -0.2);
       }
     }
 
@@ -234,13 +265,9 @@ export default defineComponent({
       nextTick(drawChart);
     });
 
-    watch(
-      () => props,
-      () => {
-        nextTick(drawChart);
-      },
-      { deep: true }
-    );
+    watch(() => props, () => {
+      nextTick(drawChart);
+    }, { deep: true });
 
     return {
       chartContainer,
