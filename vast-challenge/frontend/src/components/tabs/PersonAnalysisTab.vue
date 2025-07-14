@@ -14,6 +14,7 @@
           @hover="onHover"
           @leave="onLeave"
           @select="selectPerson"
+          @reorder-axes="reorderAxes"
         />
         <div v-else class="flex items-center justify-center h-full text-gray-500 text-sm">
           Loading data...
@@ -32,6 +33,7 @@
           :domains="overviewDomains"
           :lines="detailLines"
           class="w-full h-full"
+          @reorder-axes="reorderAxes"
         />
         <div v-else class="flex items-center justify-center h-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-gray-500 text-sm">
           Click a line above to view details
@@ -111,6 +113,12 @@ export default {
     },
     selectPerson(id) {
       this.selectedPerson = id;
+    },
+    reorderAxes(fromIndex, toIndex) {
+      const newMetrics = [...this.metrics];
+      const [movedItem] = newMetrics.splice(fromIndex, 1);
+      newMetrics.splice(toIndex, 0, movedItem);
+      this.metrics = newMetrics;
     },
     async fetchData() {
       try {
