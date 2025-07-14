@@ -168,154 +168,199 @@ export default {
     }
   },
   methods: {
+    formatTopicId(topicId) {
+      return topicId
+        .replace(/_/g, ' ')
+        .replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+    },
     toggleTopicFilter(topicId) {
       this.linkingStore.toggleFilter({ type: FilterType.TOPIC, value: topicId });
     },
-    drawChart() {
-      if (!this.$refs.chartContainer || this.processedData.length === 0) {
-        if (this.$refs.chartContainer) d3.select(this.$refs.chartContainer).selectAll("*").remove();
-        return;
-      }
-      d3.select(this.$refs.chartContainer).selectAll("*").remove();
+    initChart() {
+      if (!this.$refs.chartContainer) return;
+      const container = d3.select(this.$refs.chartContainer);
+      container.selectAll('*').remove();
 
-      const data = this.processedData;
-
-      const margin = { top: 20, right: 50, bottom: 40, left: 150 }; // Increased left margin for topic IDs
+      const margin = { top: 20, right: 50, bottom: 40, left: 150 };
       const width = this.$refs.chartContainer.offsetWidth - margin.left - margin.right;
       const height = this.$refs.chartContainer.offsetHeight - margin.top - margin.bottom;
 
+      const svg = container.append('svg')
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom)
+        .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
 
-      const svg = d3.select(this.$refs.chartContainer)
-        .append("svg")
-        .attr("width", width + margin.left + margin.right)
-        .attr("height", height + margin.top + margin.bottom)
-        .append("g")
-        .attr("transform", `translate(${margin.left},${margin.top})`);
+      svg.append('g').attr('class', 'x-axis');
+      svg.append('g').attr('class', 'y-axis');
+      svg.append('g').attr('class', 'grid');
+      svg.append('line').attr('class', 'center-line');
+
+      this.drawChart();
+    },
+    drawChart() {
+      if (!this.$refs.chartContainer || this.processedData.length === 0) {
+        if (this.$refs.chartContainer) d3.select(this.$refs.chartContainer).selectAll('*').remove();
+        return;
+      }
+
+      const data = this.processedData;
+      const transitionDuration = 750;
+
+      const margin = { top: 20, right: 50, bottom: 40, left: 150 };
+      const width = this.$refs.chartContainer.offsetWidth - margin.left - margin.right;
+      const height = this.$refs.chartContainer.offsetHeight - margin.top - margin.bottom;
+
+      const svg = d3.select(this.$refs.chartContainer).select('svg g');
+      if (svg.empty()) {
+        this.initChart();
+        return;
+      }
 
       const y = d3.scaleBand()
         .domain(data.map(d => d.topicId))
         .range([0, height])
-        .padding(0.1);
+        .padding(0.2);
 
       const x = d3.scaleLinear()
-        .domain([-1, 1]) // Sentiment range
+        .domain([-1, 1])
         .range([0, width]);
 
       const colorScale = d3.scaleSequential(d3.interpolateRdYlBu).domain([1, -1]);
 
-      // Y axis (Topic IDs)
-      const yAxis = svg.append("g")
-        .call(d3.axisLeft(y).tickSize(0));
+      const t = svg.transition().duration(transitionDuration);
 
-      yAxis.select(".domain").remove(); // Remove axis line
+      const yAxis = svg.select('.y-axis');
+      yAxis.select('.domain').remove();
 
-      const yAxisLabels = yAxis.selectAll(".tick text")
-        .attr("class", "cursor-pointer hover:font-bold")
-        .style("font-weight", d => this.highlightedTopics.includes(d) ? "bold" : "normal")
-        .on("click", (event, d) => this.toggleTopicFilter(d))
-        .on("mouseover", (event, d) => {
-          this.linkingStore.addHoverHighlight({ type: HighlightType.TOPIC, value: d });
-          const topicData = this.processedData.find(t => t.topicId === d);
-          if (!topicData) return;
-          this.tooltip
-            .classed("hidden", false)
-            .html(`<div class="font-semibold text-blue-700">Topic: ${topicData.topicId}</div>
-                   <div>Avg. Sentiment (Active): ${topicData.activeAverageSentiment.toFixed(2)} (${topicData.activeSentimentCount} records)</div>
-                   <div>Avg. Sentiment (Total): ${topicData.totalAverageSentiment.toFixed(2)} (${topicData.totalSentimentCount} records)</div>`);
-        })
-        .on("mousemove", (event) => {
-          this.tooltip.style("left", (event.pageX + 15) + "px")
-            .style("top", (event.pageY - 10) + "px");
-        })
-        .on("mouseout", (event, d) => {
-          this.linkingStore.removeHoverHighlight({ type: HighlightType.TOPIC, value: d });
-          this.tooltip.classed("hidden", true);
-        });
+      // Data-join for the labels
+      const yAxisLabels = yAxis.selectAll('.tick')
+        .data(data, d => d.topicId);
 
-      yAxis.selectAll(".tick").each(function (d) {
-        const tick = d3.select(this);
-        const topicData = data.find(t => t.topicId === d);
+      // Remove old labels
+      yAxisLabels.exit()
+        .transition(t)
+        .style('opacity', 0)
+        .remove();
 
-        tick.select(".change-indicator").remove();
+      // Add new labels
+      const enterGroup = yAxisLabels.enter().append('g')
+        .attr('class', 'tick')
+        .attr('transform', d => `translate(0, ${y(d.topicId) + y.bandwidth() / 2})`)
+        .style('opacity', 0);
 
-        if (topicData && Math.abs(topicData.sentimentChange) > 0.01) {
-          tick.select("text").append("tspan")
-            .attr("class", "change-indicator")
-            .style("font-size", "10px")
-            .style("fill", topicData.sentimentChange > 0 ? "#10B981" : "#EF4444")
-            .text(topicData.sentimentChange > 0 ? " ▲" : " ▼");
-        }
-      });
+      enterGroup.append('text')
+        .attr('dy', '0.32em')
+        .attr('x', -9)
+        .attr('text-anchor', 'end');
 
+      // Update all labels (new and existing)
+      const allLabels = enterGroup.merge(yAxisLabels);
 
-      // X axis (Sentiment Score)
-      svg.append("g")
-        .attr("transform", `translate(0,${height})`)
-        .call(d3.axisBottom(x).ticks(5)); // Fewer ticks for sentiment range
+      allLabels.transition(t)
+        .attr('transform', d => `translate(0, ${y(d.topicId) + y.bandwidth() / 2})`)
+        .style('opacity', 1);
 
-      // X-axis grid lines
-      svg.append("g")
-        .attr("class", "grid")
-        .attr("transform", `translate(0,${height})`)
-        .call(d3.axisBottom(x)
-          .ticks(10) // More ticks for grid lines
-          .tickSize(-height)
-          .tickFormat("")
-        )
-        .selectAll("line")
-        .attr("stroke-opacity", 0.1);
-      svg.select(".grid .domain").remove(); // Remove domain line from grid
-
-      // Center line at 0 sentiment
-      svg.append("line")
-        .attr("x1", x(0))
-        .attr("x2", x(0))
-        .attr("y1", 0)
-        .attr("y2", height)
-        .attr("stroke", "grey")
-        .attr("stroke-dasharray", "2,2");
-
-      // Background bars (Total Sentiment) - Sleeve
-      svg.selectAll(".bg-bar")
-        .data(data)
-        .join("rect")
-        .attr("class", "bg-bar")
-        .attr("y", d => y(d.topicId))
-        .attr("x", d => d.totalAverageSentiment < 0 ? x(d.totalAverageSentiment) : x(0))
-        .attr("width", d => Math.abs(x(d.totalAverageSentiment) - x(0)))
-        .attr("height", y.bandwidth())
-        .attr("fill", d => colorScale(d.totalAverageSentiment))
-        .attr("opacity", 0.3);
-
-      // Foreground bars (Active Sentiment)
-      const barHeight = y.bandwidth() * 0.6;
-      const barYOffset = (y.bandwidth() - barHeight) / 2;
-      svg.selectAll(".bar")
-        .data(data)
-        .join("rect")
-        .attr("class", "bar")
-        .attr("y", d => y(d.topicId) + barYOffset)
-        .attr("x", d => d.activeAverageSentiment < 0 ? x(d.activeAverageSentiment) : x(0))
-        .attr("width", d => Math.abs(x(d.activeAverageSentiment) - x(0)))
-        .attr("height", barHeight)
-        .attr("fill", d => colorScale(d.activeAverageSentiment));
-
-      svg.selectAll(".bar, .bg-bar")
-        .on("mouseover", (event, d) => {
+      allLabels.select('text')
+        .text(d => this.formatTopicId(d.topicId))
+        .attr('class', 'cursor-pointer hover:font-bold')
+        .style('font-size', '12px')
+        .style('font-weight', d => this.highlightedTopics.includes(d.topicId) ? 'bold' : 'normal')
+        .on('click', (event, d) => this.toggleTopicFilter(d.topicId))
+        .on('mouseover', (event, d) => {
           this.linkingStore.addHoverHighlight({ type: HighlightType.TOPIC, value: d.topicId });
-          this.tooltip
-            .classed("hidden", false)
+          this.tooltip.classed('hidden', false)
             .html(`<div class="font-semibold text-blue-700">Topic: ${d.topicId}</div>
                    <div>Avg. Sentiment (Active): ${d.activeAverageSentiment.toFixed(2)} (${d.activeSentimentCount} records)</div>
                    <div>Avg. Sentiment (Total): ${d.totalAverageSentiment.toFixed(2)} (${d.totalSentimentCount} records)</div>`);
         })
-        .on("mousemove", (event) => {
-          this.tooltip.style("left", (event.pageX + 15) + "px")
-            .style("top", (event.pageY - 10) + "px");
+        .on('mousemove', (event) => {
+          this.tooltip.style('left', `${event.pageX + 15}px`).style('top', `${event.pageY - 10}px`);
         })
-        .on("mouseout", (event, d) => {
+        .on('mouseout', (event, d) => {
           this.linkingStore.removeHoverHighlight({ type: HighlightType.TOPIC, value: d.topicId });
-          this.tooltip.classed("hidden", true);
+          this.tooltip.classed('hidden', true);
+        });
+
+      allLabels.each(function (d) {
+        const tick = d3.select(this);
+        tick.selectAll('.change-indicator').remove();
+        if (Math.abs(d.sentimentChange) > 0.01) {
+          tick.select('text').append('tspan')
+            .attr('class', 'change-indicator')
+            .style('font-size', '10px')
+            .style('fill', d.sentimentChange > 0 ? '#10B981' : '#EF4444')
+            .text(d.sentimentChange > 0 ? ' ▲' : ' ▼');
+        }
+      });
+
+      svg.select('.x-axis')
+        .attr('transform', `translate(0,${height})`)
+        .transition(t)
+        .call(d3.axisBottom(x).ticks(5));
+
+      svg.select('.grid')
+        .attr('transform', `translate(0,${height})`)
+        .call(d3.axisBottom(x).ticks(10).tickSize(-height).tickFormat(''))
+        .selectAll('line').attr('stroke-opacity', 0.1);
+      svg.select('.grid .domain').remove();
+
+      svg.select('.center-line')
+        .attr('x1', x(0)).attr('x2', x(0))
+        .attr('y1', 0).attr('y2', height)
+        .attr('stroke', 'grey').attr('stroke-dasharray', '2,2');
+
+      const bgBars = svg.selectAll('.bg-bar')
+        .data(data, d => d.topicId)
+        .join(
+          enter => enter.append('rect').attr('class', 'bg-bar')
+            .attr('y', d => y(d.topicId))
+            .attr('x', x(0)).attr('width', 0),
+          update => update,
+          exit => exit.transition(t).attr('width', 0).attr('x', x(0)).remove()
+        );
+
+      bgBars.transition(t)
+        .attr('y', d => y(d.topicId))
+        .attr('x', d => d.totalAverageSentiment < 0 ? x(d.totalAverageSentiment) : x(0))
+        .attr('width', d => Math.abs(x(d.totalAverageSentiment) - x(0)))
+        .attr('height', y.bandwidth())
+        .attr('fill', d => colorScale(d.totalAverageSentiment))
+        .attr('opacity', 0.3);
+
+      const barHeight = y.bandwidth() * 0.6;
+      const barYOffset = (y.bandwidth() - barHeight) / 2;
+      const bars = svg.selectAll('.bar')
+        .data(data, d => d.topicId)
+        .join(
+          enter => enter.append('rect').attr('class', 'bar')
+            .attr('y', d => y(d.topicId) + barYOffset)
+            .attr('x', x(0)).attr('width', 0),
+          update => update,
+          exit => exit.transition(t).attr('width', 0).attr('x', x(0)).remove()
+        );
+
+      bars.transition(t)
+        .attr('y', d => y(d.topicId) + barYOffset)
+        .attr('x', d => d.activeAverageSentiment < 0 ? x(d.activeAverageSentiment) : x(0))
+        .attr('width', d => Math.abs(x(d.activeAverageSentiment) - x(0)))
+        .attr('height', barHeight)
+        .attr('fill', d => colorScale(d.activeAverageSentiment));
+
+      svg.selectAll('.bar, .bg-bar')
+        .on('mouseover', (event, d) => {
+          this.linkingStore.addHoverHighlight({ type: HighlightType.TOPIC, value: d.topicId });
+          this.tooltip.classed('hidden', false)
+            .html(`<div class="font-semibold text-blue-700">Topic: ${d.topicId}</div>
+                   <div>Avg. Sentiment (Active): ${d.activeAverageSentiment.toFixed(2)} (${d.activeSentimentCount} records)</div>
+                   <div>Avg. Sentiment (Total): ${d.totalAverageSentiment.toFixed(2)} (${d.totalSentimentCount} records)</div>`);
+        })
+        .on('mousemove', (event) => {
+          this.tooltip.style('left', `${event.pageX + 15}px`).style('top', `${event.pageY - 10}px`);
+        })
+        .on('mouseout', (event, d) => {
+          this.linkingStore.removeHoverHighlight({ type: HighlightType.TOPIC, value: d.topicId });
+          this.tooltip.classed('hidden', true);
         });
     },
   },
@@ -327,7 +372,6 @@ export default {
         }
       },
       deep: true,
-      immediate: true
     },
     sortOrder() {
       if (this.showChart) {
@@ -355,11 +399,11 @@ export default {
         this.$nextTick(() => {
           if (this.$refs.chartContainer) {
             this.resizeObserver.observe(this.$refs.chartContainer);
-            this.drawChart();
+            this.initChart();
           }
         });
       } else {
-        if (this.$refs.chartContainer) {
+        if (this.$refs.chartContainer && this.resizeObserver) {
           this.resizeObserver.unobserve(this.$refs.chartContainer);
         }
       }
@@ -374,7 +418,7 @@ export default {
     this.error = null;
     this.resizeObserver = new ResizeObserver(() => {
       if (this.showChart) {
-        this.drawChart();
+        this.initChart();
       }
     });
     try {
@@ -386,6 +430,14 @@ export default {
       this.error = e.message || "An unknown error occurred";
     } finally {
       this.isLoading = false;
+      if (this.showChart) {
+        this.$nextTick(() => {
+          if (this.$refs.chartContainer) {
+            this.resizeObserver.observe(this.$refs.chartContainer);
+            this.initChart();
+          }
+        });
+      }
     }
   },
   beforeUnmount() {
