@@ -596,13 +596,18 @@ export default {
       const { hoverHighlights } = this.linkingStore;
       const highlightedTrips = hoverHighlights.filter(h => h.type === 'trip').map(h => h.value);
       const highlightedPlaces = hoverHighlights.filter(h => h.type === 'place').map(h => h.value);
+      const isTripHover = hoverHighlights.some(h => h.type === 'trip');
 
       this.eventRects
         .each(function (d) {
           const group = d3.select(this);
-          const isTripHighlighted = highlightedTrips.includes(d.trip.trip.id);
-          const isPlaceHighlighted = d.visitedPlaceIds.some(id => highlightedPlaces.includes(id));
-          const isHighlighted = isTripHighlighted || isPlaceHighlighted;
+          let isHighlighted = false;
+
+          if (isTripHover) {
+            isHighlighted = highlightedTrips.includes(d.trip.trip.id);
+          } else {
+            isHighlighted = d.visitedPlaceIds.some(id => highlightedPlaces.includes(id));
+          }
 
           group.selectAll('rect')
             .style('stroke', isHighlighted ? 'red' : 'none')
