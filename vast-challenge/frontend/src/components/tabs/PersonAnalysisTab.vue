@@ -24,7 +24,20 @@
 
     <!-- Details 50% -->
     <div class="flex-none h-1/2 flex flex-col bg-white shadow rounded-lg p-4 mt-4 min-h-0">
-      <h2 class="text-xl font-semibold mb-2 text-center text-gray-800">Dataset Details for {{ selectedPerson || '…' }}</h2>
+      <div class="mb-2 text-center">
+        <h2 class="text-xl font-semibold text-gray-800">
+          Dataset Details for 
+          <span v-if="selectedPerson" class="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-lg font-semibold border-2 border-blue-200 shadow-sm ml-2">
+            {{ getPersonName(selectedPerson) }}
+          </span>
+          <span v-else class="inline-block px-3 py-1 bg-gray-100 text-gray-500 rounded-lg border-2 border-gray-200 ml-2">
+            Select a person above
+          </span>
+        </h2>
+        <div v-if="selectedPerson && getPersonRole(selectedPerson)" class="mt-1 text-sm text-gray-600">
+          Role: {{ getPersonRole(selectedPerson) }}
+        </div>
+      </div>
       <div class="flex-grow min-h-0">
         <PCPChart
           v-if="selectedPerson"
@@ -85,6 +98,8 @@ export default {
     overviewLines() {
       return this.persons.map(person => ({
         id: person.id,
+        name: person.name || person.id,
+        role: person.role || '',
         values: this.activities[person.id]?.jo || {},
         color: this.detailColors.jo,
         opacity: this.hoverId && this.hoverId !== person.id ? 0.2 : 1,
@@ -105,7 +120,16 @@ export default {
     onHover(id, event) {
       this.hoverId = id;
       const person = this.persons.find(p => p.id === id) || {};
-      this.tooltip = { visible: true, x: event.offsetX + 10, y: event.offsetY + 10, data: person };
+      // Enhanced hover data with metrics and role
+      this.tooltip = { 
+        visible: true, 
+        x: event.offsetX + 10, 
+        y: event.offsetY + 10, 
+        data: {
+          ...person,
+          metrics: this.activities[id]?.jo || {}
+        }
+      };
     },
     onLeave() {
       this.hoverId = null;
@@ -119,6 +143,14 @@ export default {
       const [movedItem] = newMetrics.splice(fromIndex, 1);
       newMetrics.splice(toIndex, 0, movedItem);
       this.metrics = newMetrics;
+    },
+    getPersonName(personId) {
+      const person = this.persons.find(p => p.id === personId);
+      return person ? (person.name || person.id) : personId;
+    },
+    getPersonRole(personId) {
+      const person = this.persons.find(p => p.id === personId);
+      return person ? person.role : '';
     },
     async fetchData() {
       try {

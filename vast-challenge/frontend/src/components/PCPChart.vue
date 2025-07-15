@@ -101,9 +101,20 @@
         left: tooltip.x + 'px',
         top: tooltip.y + 'px'
       }"
-      class="px-2 py-1 bg-gray-800 text-white text-xs rounded shadow-lg pointer-events-none"
+      class="pointer-events-none p-3 rounded-lg shadow-lg bg-white border border-gray-200 text-sm text-gray-800 transition max-w-xs z-50"
     >
-      {{ tooltip.name }}
+      <div class="font-semibold text-blue-700">{{ tooltip.name }}</div>
+      <div v-if="tooltip.role" class="text-gray-600 text-xs mt-1">
+        Role: {{ tooltip.role }}
+      </div>
+      <div v-if="tooltip.metrics" class="mt-2 space-y-1">
+        <div v-for="(value, metric) in filteredMetrics" :key="metric" class="flex justify-between text-xs">
+          <div v-if="metricLabels[metric]">
+            <span class="text-gray-600">{{ metricLabels[metric] || metric }}: </span>
+            <span class="text-gray-800 font-medium">{{ value }}</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -125,7 +136,7 @@ export default {
       jitter: 10,
       containerWidth: 0,
       containerHeight: 0,
-      tooltip: { visible: false, x: 0, y: 0, name: '' },
+      tooltip: { visible: false, x: 0, y: 0, name: '', role: '', metrics: null },
       dragState: {
         isDragging: false,
         draggedIndex: -1,
@@ -137,6 +148,13 @@ export default {
     };
   },
   computed: {
+    filteredMetrics() {
+        return Object.fromEntries(
+          Object
+            .entries(this.tooltip.metrics)
+            .filter(([metric, value]) => this.metricLabels[metric])
+      );
+    },
     innerWidth() {
       return this.containerWidth - this.margin.left - this.margin.right;
     },
@@ -211,6 +229,8 @@ export default {
       this.tooltip.x = event.clientX - rect.left + 10;
       this.tooltip.y = event.clientY - rect.top + 10;
       this.tooltip.name = line.name || line.id;
+      this.tooltip.role = line.role || '';
+      this.tooltip.metrics = line.values || {};
       this.tooltip.visible = true;
 
       this.$emit('hover', line.id, event);
@@ -219,6 +239,8 @@ export default {
       this.hoveredPoints = null;
       this.hoveredId = null;
       this.tooltip.visible = false;
+      this.tooltip.role = '';
+      this.tooltip.metrics = null;
       this.$emit('leave');
     },
     
