@@ -64,10 +64,16 @@ export default {
       this.renderChart()
     },
     formatTooltip(data) {
-      const skip = new Set(['index','x','y','vx','vy','fx','fy','source','target'])
+      const skip = new Set(['index','x','y','vx','vy','fx','fy','source','target','isCollapsed','originalCount'])
       let html = ''
       if (data.id != null) html += `<p><strong>ID: ${String(data.id).replace(/_/g, '_​')}</strong></div>`
       if (data.type != null) html += `<div>Type: ${data.type}</div><hr class="border-gray-300 my-2"/>`
+      
+      // Add collapsed edge info
+      if (data.isCollapsed) {
+        html += `<div class="mb-1"><span class="font-semibold text-blue-600">Collapsed Edge:</span> Represents ${data.originalCount} connections to this topic group</div><hr class="border-gray-300 my-2"/>`
+      }
+      
       for (const [k, v] of Object.entries(data)) {
         if (skip.has(k) || k === 'id' || k === 'type') continue
         // prepare value with word-break helpers
@@ -112,6 +118,89 @@ export default {
       })
 
       return topicGroups
+    },
+    collapseTopicEdges() {
+      if (this.selectedType !== 'ENTITY_PERSON') return this.links
+      
+      const topicGroups = this.groupNodesByTopic()
+      const collapsedLinks = []
+      const processedTopics = new Set()
+      const edgesToSkip = new Set()
+      
+      // First pass: identify all edges that should be collapsed and mark them for skipping
+      this.links.forEach((link, index) => {
+        const sourceNode = this.nodes.find(n => n.id === link.source.id || n.id === link.source)
+        const targetNode = this.nodes.find(n => n.id === link.target.id || n.id === link.target)
+        
+        // Check if this is an edge from ego to any node in a topic group (including the topic itself)
+        let topicId = null
+        
+        if (sourceNode?.id === this.selectedNode && targetNode?.type === 'TOPIC') {
+          // Direct edge from ego to topic
+          topicId = targetNode.id
+        } else if (targetNode?.id === this.selectedNode && sourceNode?.type === 'TOPIC') {
+          // Direct edge from topic to ego
+          topicId = sourceNode.id
+        } else if (sourceNode?.id === this.selectedNode && targetNode) {
+          // Edge from ego to any node - check if target belongs to a topic group
+          topicId = Object.keys(topicGroups).find(tid => topicGroups[tid].relatedNodes.includes(targetNode))
+        } else if (targetNode?.id === this.selectedNode && sourceNode) {
+          // Edge from any node to ego - check if source belongs to a topic group
+          topicId = Object.keys(topicGroups).find(tid => topicGroups[tid].relatedNodes.includes(sourceNode))
+        }
+        
+        if (topicId) {
+          edgesToSkip.add(index) // Mark this edge to be skipped
+        }
+      })
+      
+      // Second pass: create collapsed edges and keep non-collapsed edges
+      this.links.forEach((link, index) => {
+        const sourceNode = this.nodes.find(n => n.id === link.source.id || n.id === link.source)
+        const targetNode = this.nodes.find(n => n.id === link.target.id || n.id === link.target)
+        
+        if (edgesToSkip.has(index)) {
+          // This edge should be part of a collapsed edge
+          let topicId = null
+          
+          if (sourceNode?.id === this.selectedNode && targetNode?.type === 'TOPIC') {
+            topicId = targetNode.id
+          } else if (targetNode?.id === this.selectedNode && sourceNode?.type === 'TOPIC') {
+            topicId = sourceNode.id
+          } else if (sourceNode?.id === this.selectedNode && targetNode) {
+            topicId = Object.keys(topicGroups).find(tid => topicGroups[tid].relatedNodes.includes(targetNode))
+          } else if (targetNode?.id === this.selectedNode && sourceNode) {
+            topicId = Object.keys(topicGroups).find(tid => topicGroups[tid].relatedNodes.includes(sourceNode))
+          }
+          
+          if (topicId && !processedTopics.has(topicId)) {
+            // Create the collapsed edge
+            const topicNode = topicGroups[topicId].topic
+            const relatedCount = topicGroups[topicId].relatedNodes.length
+            const hasDirectTopicEdge = this.links.some(l => {
+              const sNode = this.nodes.find(n => n.id === l.source.id || n.id === l.source)
+              const tNode = this.nodes.find(n => n.id === l.target.id || n.id === l.target)
+              return ((sNode?.id === this.selectedNode && tNode?.id === topicId) ||
+                      (tNode?.id === this.selectedNode && sNode?.id === topicId))
+            })
+            
+            collapsedLinks.push({
+              source: this.selectedNode,
+              target: topicNode.id,
+              ...link, // Copy all original link properties
+              isCollapsed: true,
+              originalCount: relatedCount + (hasDirectTopicEdge ? 1 : 0)
+            })
+            processedTopics.add(topicId)
+          }
+          // Skip the original edge (don't add it to collapsedLinks)
+        } else {
+          // Keep edges that are not being collapsed
+          collapsedLinks.push(link)
+        }
+      })
+      
+      return collapsedLinks
     },
     computeConvexHull(points) {
       if (points.length < 3) return points
@@ -263,10 +352,11 @@ export default {
           
           // Position topic nodes in a circle around the ego
           topics.forEach((topicId, index) => {
-            const angle = (index / topics.length) * 2 * Math.PI
+            const angle = (index / (topics.length - 1)) * 2 * Math.PI
             const topic = topicGroups[topicId].topic
             topic.x = w/2 + Math.cos(angle) * baseRadius
             topic.y = h/2 + Math.sin(angle) * baseRadius
+            console.log(topic.x, topic.y)
             
             // Position related nodes around their topic
             const relatedNodes = topicGroups[topicId].relatedNodes
@@ -276,9 +366,11 @@ export default {
             })
           }) 
         }
-        }
+      }
       const sim = d3.forceSimulation(this.nodes)
-        .force('link', d3.forceLink(this.links).id(d => d.id).distance(Math.min(w,h)*0.225).strength(1.1))
+      
+      // Always use original links for force simulation to maintain proper physics
+      sim.force('link', d3.forceLink(this.links).id(d => d.id).distance(Math.min(w,h)*0.225).strength(1.1))
         .force('charge', d3.forceManyBody().strength(-200))
         .force('collision', d3.forceCollide().radius(r+3))
 
@@ -319,11 +411,17 @@ export default {
       const ego = this.nodes.find(n=>n.id===this.selectedNode)
       if (ego) { ego.fx = w/2; ego.fy = h/2 }
 
-      const link = svg.append('g').selectAll('line').data(this.links).enter().append('line')
-        .attr('stroke','#999').attr('stroke-opacity',0.6)
-        .attr('stroke-width', d => Math.sqrt(d.value||1)*3)
+      // Use collapsed links for rendering but original links for simulation
+      const linksToRender = this.selectedType === 'ENTITY_PERSON' ? this.collapseTopicEdges() : this.links
+
+      const link = svg.append('g').selectAll('line').data(linksToRender).enter().append('line')
+        .attr('stroke', d => d.isCollapsed ? '#2563eb' : '#999') // Blue for collapsed edges
+        .attr('stroke-opacity',0.6)
+        .attr('stroke-width', d => d.isCollapsed ? Math.sqrt(d.originalCount || 1) * 4 : Math.sqrt(d.value||1)*3)
+        .attr('stroke-dasharray', d => d.isCollapsed ? '8,4' : 'none') // Dashed for collapsed edges
         .attr('opacity', d => (this.filterValue==='all'||d.in_graph.includes(this.filterValue))?1:0.1)
         .on('mouseover', (e,d) => {
+          const originalStroke = d.isCollapsed ? '#2563eb' : '#999'
           d3.select(e.currentTarget).attr('stroke','#f00').attr('stroke-opacity',1)
           tooltip.html(this.formatTooltip(d)).classed('hidden',false)
         })
@@ -348,8 +446,9 @@ export default {
 
           tooltip.style('left', x + 'px').style('top', y + 'px')
         })
-        .on('mouseout', e => {
-          d3.select(e.currentTarget).attr('stroke','#999').attr('stroke-opacity',0.6)
+        .on('mouseout', (e,d) => {
+          const originalStroke = d.isCollapsed ? '#2563eb' : '#999'
+          d3.select(e.currentTarget).attr('stroke', originalStroke).attr('stroke-opacity',0.6)
           tooltip.classed('hidden',true)
         })
 
