@@ -1,8 +1,17 @@
 <template>
-  <aside :class="sidebarExpanded ? 'w-80' : 'w-20'"
-    class="h-screen bg-white dark:bg-gray-800 shadow-md p-4 flex flex-col transition-all duration-300 ease-in-out">
+  <div>
+    <aside :class="sidebarExpanded ? 'w-80' : 'w-20'"
+      class="h-screen bg-white dark:bg-gray-800 shadow-md p-4 flex flex-col transition-all duration-300 ease-in-out">
     <div class="flex items-center justify-between mb-6">
-      <h1 v-if="sidebarExpanded" class="text-2xl font-bold text-center">Visual Analytics Dashboard</h1>
+      <div v-if="sidebarExpanded" class="flex items-center gap-2">
+        <h1 class="text-2xl font-bold text-center">BAIT</h1>
+        <button @click="openModal" class="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </button>
+      </div>
       <button @click="toggleSidebar" class="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700">
         <svg v-if="sidebarExpanded" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
           stroke="currentColor">
@@ -75,11 +84,14 @@
     <div class="p-2 flex justify-center">
       <ThemeSwitcher />
     </div>
-  </aside>
+    </aside>
+    <ChallengeModal :is-open="isModalOpen" @close="closeModal" />
+  </div>
 </template>
 
 <script>
 import { defineComponent } from 'vue';
+import ChallengeModal from './ChallengeModal.vue';
 import ThemeSwitcher from './ThemeSwitcher.vue';
 import TripDrilldownFilter from './mini-visualizations/TripDrilldownFilter.vue';
 import ScaleOptions from './ScaleOptions.vue';
@@ -94,6 +106,12 @@ export default defineComponent({
     ScaleOptions,
     InGraphFilter,
     EntityFilter,
+    ChallengeModal,
+  },
+  data() {
+    return {
+      isModalOpen: false,
+    };
   },
   props: {
     sidebarExpanded: {
@@ -112,7 +130,13 @@ export default defineComponent({
     },
     setActiveTab(tab) {
       this.$emit('update:activeTab', tab);
-    }
+    },
+    openModal() {
+      this.isModalOpen = true;
+    },
+    closeModal() {
+      this.isModalOpen = false;
+    },
   }
 });
 </script>
