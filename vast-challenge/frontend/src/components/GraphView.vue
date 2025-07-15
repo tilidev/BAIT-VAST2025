@@ -3,14 +3,16 @@
     <AdjacencyMatrix v-if="width > 0 && height > 0" class="flex-auto" :data="sentimentMatrixData"
       :rowLabels="personLabels" :colLabels="topicLabels" :colorScale="sentimentColorScaleLinear"
       :cellFilter="filterSentimentCells(filterKey)" :tooltipFormatter="sentimentTooltipFormatter" :width="width"
-      :height="height" />
+      :height="height" :highlightedRows="highlightedPeople" :highlightedCols="highlightedTopics"
+      @row-label-click="togglePersonHighlight" @col-label-click="toggleTopicHighlight" />
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, type PropType, ref } from 'vue';
+import { defineComponent, type PropType, ref, computed } from 'vue';
 import { useElementSize } from '@vueuse/core';
 import { useGraphStore } from '../stores/graphStore';
+import { useLinkingStore } from '../stores/linkingStore';
 import AdjacencyMatrix from './AdjacencyMatrix.vue';
 import type { MatrixCell } from '../types/matrixTypes';
 import { sentimentColorScaleLinear } from '../utils/colors';
@@ -28,9 +30,33 @@ export default defineComponent({
   },
   setup() {
     const graphStore = useGraphStore();
+    const linkingStore = useLinkingStore();
     const el = ref(null);
     const { width, height } = useElementSize(el);
-    return { graphStore, el, width, height };
+
+    const highlightedPeople = computed(() => linkingStore.highlightedPeople);
+
+    const highlightedTopics = computed(() => linkingStore.highlightedTopics);
+
+    function togglePersonHighlight(personId: string) {
+      linkingStore.toggleFilter({ type: 'person', value: personId });
+    }
+
+    function toggleTopicHighlight(topicId: string) {
+      linkingStore.toggleFilter({ type: 'topic', value: topicId });
+    }
+
+    return {
+      graphStore,
+      linkingStore,
+      el,
+      width,
+      height,
+      highlightedPeople,
+      highlightedTopics,
+      togglePersonHighlight,
+      toggleTopicHighlight,
+    };
   },
   data() {
     return {

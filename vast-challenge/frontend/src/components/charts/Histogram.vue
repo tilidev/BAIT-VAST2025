@@ -3,30 +3,39 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, watch, nextTick } from 'vue';
+import { defineComponent, ref, onMounted, watch, nextTick, type PropType } from 'vue';
 import * as d3 from 'd3';
 import { neutralBaseColor } from '../../utils/colors';
 
 interface HistogramProps {
   data: number[];
+  backgroundData?: number[];
   bins?: number | number[];
   width?: number;
   height?: number;
   margin?: { top: number; right: number; bottom: number; left: number };
-  color?: string;
+  color?: string | ((value: number) => string);
   tooltipFormatter?: (d: d3.Bin<number, number>) => string;
   xAxisLabelFormatter?: (d: any) => string;
   yAxisLabelFormatter?: (d: any) => string;
   showGridLines?: boolean;
   showTicks?: boolean;
+  fixedXDomain?: [number, number];
+  showDensity?: boolean;
+  densityColor?: string;
+  backgroundDensityColor?: string;
 }
 
 export default defineComponent({
   name: 'Histogram',
   props: {
     data: {
-      type: Array,
+      type: Array as PropType<number[]>,
       required: true,
+      default: () => [],
+    },
+    backgroundData: {
+      type: Array as PropType<number[]>,
       default: () => [],
     },
     bins: {
@@ -46,7 +55,7 @@ export default defineComponent({
       default: () => ({ top: 20, right: 30, bottom: 40, left: 60 }),
     },
     color: {
-      type: String,
+      type: [String, Function] as PropType<string | ((value: number) => string)>,
       default: neutralBaseColor,
     },
     tooltipFormatter: {
@@ -69,129 +78,283 @@ export default defineComponent({
       type: Boolean,
       default: false,
     },
+    fixedXDomain: {
+      type: Object as PropType<[number, number] | null>,
+      default: null,
+    },
+    showDensity: {
+      type: Boolean,
+      default: false,
+    },
+    densityColor: {
+      type: String,
+      default: '#000',
+    },
+    backgroundDensityColor: {
+      type: String,
+      default: '#ccc',
+    },
   },
   setup(props: HistogramProps) {
     const chartContainer = ref<HTMLElement | null>(null);
     let svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any> | null = null;
-    let tooltip: d3.Selection<HTMLDivElement, unknown, HTMLElement, any> | null = null;
+    let svgGroup: d3.Selection<SVGGElement, unknown, HTMLElement, any> | null = null;
+    let x: d3.ScaleLinear<number, number> | null = null;
+    let y: d3.ScaleLinear<number, number> | null = null;
+    let innerHeight: number;
+    let innerWidth: number;
+    const transitionDuration = 500;
 
-    function drawChart() {
-      if (!chartContainer.value || props.data.length === 0) {
+    function initChart() {
+      const { width, height, margin } = props;
+      const w = width || 400;
+      const h = height || 300;
+      const m = margin || { top: 20, right: 30, bottom: 40, left: 60 };
+      innerWidth = w - m.left - m.right;
+      innerHeight = h - m.top - m.bottom;
+
+      d3.select(chartContainer.value).selectAll('*').remove();
+
+      svg = d3.select(chartContainer.value!)
+        .append('svg')
+        .attr('width', w)
+        .attr('height', h) as unknown as d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
+
+      svgGroup = svg!.append('g').attr('transform', `translate(${m.left},${m.top})`);
+
+      const allData = [...props.data, ...(props.backgroundData || [])];
+      const xDomain = props.fixedXDomain || d3.extent(allData) as [number, number];
+
+      x = d3.scaleLinear().domain(xDomain).range([0, innerWidth]);
+      y = d3.scaleLinear().range([innerHeight, 0]);
+
+      svgGroup.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${innerHeight})`);
+      svgGroup.append('g').attr('class', 'y-axis');
+      svgGroup.append('g').attr('class', 'grid');
+
+      const defs = svgGroup.append("defs");
+      const gradient = defs.append("linearGradient").attr("id", "density-gradient").attr("x1", "0%").attr("y1", "0%").attr("x2", "0%").attr("y2", "100%");
+      gradient.append("stop").attr("offset", "0%").attr("stop-color", props.densityColor || '#000').attr("stop-opacity", 0.8);
+      gradient.append("stop").attr("offset", "100%").attr("stop-color", props.densityColor || '#000').attr("stop-opacity", 0);
+      const bgGradient = defs.append("linearGradient").attr("id", "bg-density-gradient").attr("x1", "0%").attr("y1", "0%").attr("x2", "0%").attr("y2", "100%");
+      bgGradient.append("stop").attr("offset", "0%").attr("stop-color", props.backgroundDensityColor || '#ccc').attr("stop-opacity", 0.5);
+      bgGradient.append("stop").attr("offset", "100%").attr("stop-color", props.backgroundDensityColor || '#ccc').attr("stop-opacity", 0);
+
+      const tooltip = d3.select("body").append("div").attr("class", "tooltip absolute hidden p-2 bg-white border rounded shadow-lg text-sm").style("pointer-events", "none").style("z-index", "50");
+    }
+
+    function updateChart() {
+      const hasData = props.data.length > 0 || (props.backgroundData && props.backgroundData.length > 0);
+      if (!chartContainer.value || !hasData || !svgGroup || !x || !y) {
         if (chartContainer.value) d3.select(chartContainer.value).selectAll("*").remove();
-        if (tooltip) tooltip.remove();
+        if (hasData) initChart();
         return;
       }
 
-      // Clear previous drawing
-      d3.select(chartContainer.value).selectAll("*").remove();
-      if (tooltip) tooltip.remove();
+      const { data, backgroundData, bins, color, tooltipFormatter, xAxisLabelFormatter, yAxisLabelFormatter, showGridLines, showTicks, fixedXDomain, showDensity, densityColor, backgroundDensityColor } = props;
 
-      const { data, bins, width, height, margin, color, tooltipFormatter, xAxisLabelFormatter, yAxisLabelFormatter, showGridLines, showTicks } = props;
+      const allData = [...data, ...(backgroundData || [])];
+      const xDomain = fixedXDomain || d3.extent(allData) as [number, number];
+      x.domain(xDomain);
 
-      const innerWidth = width - margin.left - margin.right;
-      const innerHeight = height - margin.top - margin.bottom;
-
-      svg = d3.select(chartContainer.value)
-        .append("svg")
-        .attr("width", width)
-        .attr("height", height);
-
-      const svgGroup = svg.append("g")
-        .attr("transform", `translate(${margin.left},${margin.top})`);
-
-      tooltip = d3.select("body").append("div")
-        .attr("class", "tooltip absolute hidden p-2 bg-white border rounded shadow-lg text-sm")
-        .style("pointer-events", "none")
-        .style("z-index", "50");
-
-      // Define the histogram layout
       const histogram = d3.histogram<number, number>()
         .value(d => d)
-        .domain(d3.extent(data) as [number, number])
-        .thresholds(typeof bins === 'number' ? d3.range(d3.min(data) || 0, (d3.max(data) || 0) + (d3.max(data) || 0 - d3.min(data) || 0) / bins, (d3.max(data) || 0 - d3.min(data) || 0) / bins) : bins);
+        .domain(x.domain() as [number, number])
+        .thresholds(typeof bins === 'number' ? x.ticks(bins) : bins as number[]);
 
       const binnedData = histogram(data);
+      const binnedBackgroundData = histogram(backgroundData || []);
 
-      // X scale for continuous values (bins)
-      const x = d3.scaleLinear()
-        .domain([d3.min(binnedData, d => d.x0) || 0, d3.max(binnedData, d => d.x1) || 0])
-        .range([0, innerWidth]);
+      const n = data.length || 1;
+      const n_bg = backgroundData?.length || 1;
+      const binWidth = (xDomain[1] - xDomain[0]) / (typeof bins === 'number' ? bins : (bins as number[]).length - 1);
 
-      // Y scale for frequency/count
-      const y = d3.scaleLinear()
-        .domain([0, d3.max(binnedData, d => d.length) || 0])
-        .range([innerHeight, 0]);
+      if (showDensity) {
+        const optimalBandwidth = silverman(data);
+        const optimalBandwidthBg = silverman(backgroundData || []);
+        const kde = kernelDensityEstimator(kernelEpanechnikov(optimalBandwidth), x.ticks(100));
+        const kdeBg = kernelDensityEstimator(kernelEpanechnikov(optimalBandwidthBg), x.ticks(100));
+        const density = kde(data) as [number, number][];
+        const backgroundDensity = kdeBg(backgroundData || []) as [number, number][];
 
-      // X axis
-      svgGroup.append("g")
-        .attr("transform", `translate(0,${innerHeight})`)
-        .call(d3.axisBottom(x).tickFormat(xAxisLabelFormatter))
-        .selectAll("text")
-        .attr("class", "text-gray-600 text-xs"); // Tailwind classes for axis labels
+        const maxHistDensity = d3.max(binnedData, d => (d.length / (n * binWidth))) || 0;
+        const maxBgHistDensity = d3.max(binnedBackgroundData, d => (d.length / (n_bg * binWidth))) || 0;
+        const maxKdeDensity = d3.max(density, d => d[1]) || 0;
+        const maxBgKdeDensity = d3.max(backgroundDensity, d => d[1]) || 0;
 
-      // Y axis
+        const yMax = Math.max(maxHistDensity, maxBgHistDensity, maxKdeDensity, maxBgKdeDensity);
+        y.domain([0, yMax * 1.1 || 1]);
+
+        drawDensityPlots(density, backgroundDensity);
+      } else {
+        const yMaxHist = d3.max([...binnedData, ...binnedBackgroundData], d => d.length) || 0;
+        y.domain([0, yMaxHist * 1.1 || 1]);
+      }
+
+      drawAxesAndGrid();
+      drawBars(binnedData, binnedBackgroundData, binWidth, n, n_bg);
+    }
+
+    function drawDensityPlots(density: [number, number][], backgroundDensity: [number, number][]) {
+      const line = d3.line()
+        .curve(d3.curveBasis)
+        .x(d => x!((d as [number, number])[0]))
+        .y(d => y!((d as [number, number])[1]));
+
+      const area = d3.area()
+        .curve(d3.curveBasis)
+        .x(d => x!((d as [number, number])[0]))
+        .y0(innerHeight)
+        .y1(d => y!((d as [number, number])[1]));
+
+      if (props.backgroundData && props.backgroundData.length > 0) {
+        const bgPath = svgGroup!.selectAll<SVGPathElement, [number, number][][]>('.bg-density-area').data([backgroundDensity]);
+        bgPath.enter().append('path').attr('class', 'bg-density-area')
+          .attr('fill', `url(#bg-density-gradient)`)
+          .attr('stroke', 'none')
+          .merge(bgPath)
+          .transition().duration(transitionDuration)
+          .attr('d', area as any);
+      } else {
+        svgGroup!.selectAll('.bg-density-area').remove();
+      }
+
+      if (props.data.length > 0) {
+        const fgAreaPath = svgGroup!.selectAll<SVGPathElement, [number, number][][]>('.density-area').data([density]);
+        fgAreaPath.enter().append('path').attr('class', 'density-area')
+          .attr('fill', `url(#density-gradient)`)
+          .merge(fgAreaPath)
+          .transition().duration(transitionDuration)
+          .attr('d', area as any);
+
+        const fgLinePath = svgGroup!.selectAll<SVGPathElement, [number, number][][]>('.density-line').data([density]);
+        fgLinePath.enter().append('path').attr('class', 'density-line')
+          .attr('fill', 'none')
+          .attr('stroke', props.densityColor || '#000')
+          .attr('stroke-width', 1.5)
+          .attr('stroke-linejoin', 'round')
+          .merge(fgLinePath)
+          .transition().duration(transitionDuration)
+          .attr('d', line as any);
+      } else {
+        svgGroup!.selectAll('.density-area, .density-line').remove();
+      }
+    }
+
+    function drawAxesAndGrid() {
+      const { xAxisLabelFormatter, yAxisLabelFormatter, showTicks, showGridLines } = props;
+      const t = svg!.transition().duration(transitionDuration);
+
+      svgGroup!.select<SVGGElement>('.x-axis')
+        .transition(t as any)
+        .call(d3.axisBottom(x!).tickFormat(xAxisLabelFormatter || (d => d.toString())))
+        .selectAll("text").attr("class", "text-gray-600 text-xs");
+
       if (showTicks) {
-        svgGroup.append("g")
-          .call(d3.axisLeft(y).tickFormat(yAxisLabelFormatter))
-          .selectAll("text")
-          .attr("class", "text-gray-600 text-xs"); // Tailwind classes for axis labels
+        svgGroup!.select<SVGGElement>('.y-axis')
+          .transition(t as any)
+          .call(d3.axisLeft(y!).tickFormat(yAxisLabelFormatter || (d => d.toString())))
+          .selectAll("text").attr("class", "text-gray-600 text-xs");
+      } else {
+        svgGroup!.select<SVGGElement>('.y-axis').selectAll('*').remove();
       }
 
-      // Y-axis grid lines
       if (showGridLines) {
-        svgGroup.append("g")
-          .attr("class", "grid")
-          .call(d3.axisLeft(y)
-            .ticks(5)
-            .tickSize(-innerWidth)
-            .tickFormat(null) // Use null to suppress tick labels for grid lines
-          )
-          .selectAll("line")
-          .attr("stroke", "#e5e7eb")
-          .attr("stroke-dasharray", "2,2");
+        svgGroup!.select<SVGGElement>('.grid')
+          .transition(t as any)
+          .call(d3.axisLeft(y!).ticks(5).tickSize(-innerWidth).tickFormat(null as any))
+          .selectAll("line").attr("stroke", "#e5e7eb").attr("stroke-dasharray", "2,2");
+      } else {
+        svgGroup!.select<SVGGElement>('.grid').selectAll('*').remove();
       }
+    }
 
-      // Bars
-      svgGroup.selectAll(".bar")
-        .data(binnedData)
-        .join("rect")
+    function drawBars(binnedData: d3.Bin<number, number>[], binnedBackgroundData: d3.Bin<number, number>[], binWidth: number, n: number, n_bg: number) {
+      const { color, tooltipFormatter, showDensity } = props;
+      const tooltip = d3.select(".tooltip");
+
+      const bgBars = svgGroup!.selectAll<SVGRectElement, d3.Bin<number, number>>(".bg-bar").data(binnedBackgroundData, d => d.x0 as any);
+      bgBars.exit()
+        .transition().duration(transitionDuration)
+        .attr("y", innerHeight)
+        .attr("height", 0)
+        .remove();
+
+      bgBars.enter().append("rect")
+        .attr("class", "bg-bar")
+        .attr("x", d => x!(d.x0 || 0))
+        .attr("y", innerHeight)
+        .attr("width", d => Math.max(0, x!(d.x1 || 0) - x!(d.x0 || 0) - 1))
+        .attr("height", 0)
+        .attr("fill", d => typeof color === 'function' ? color((d.x0! + d.x1!) / 2) : color || neutralBaseColor)
+        .attr("opacity", 0.3)
+        .merge(bgBars)
+        .transition().duration(transitionDuration)
+        .attr("x", d => x!(d.x0 || 0))
+        .attr("y", d => showDensity ? y!(d.length / (n_bg * binWidth)) : y!(d.length))
+        .attr("width", d => Math.max(0, x!(d.x1 || 0) - x!(d.x0 || 0) - 1))
+        .attr("height", d => showDensity ? innerHeight - y!(d.length / (n_bg * binWidth)) : innerHeight - y!(d.length));
+
+      const bars = svgGroup!.selectAll<SVGRectElement, d3.Bin<number, number>>(".bar").data(binnedData, d => d.x0 as any);
+      bars.exit()
+        .transition().duration(transitionDuration)
+        .attr("y", innerHeight)
+        .attr("height", 0)
+        .remove();
+
+      bars.enter().append("rect")
         .attr("class", "bar")
-        .attr("x", d => x(d.x0 || 0))
-        .attr("y", d => y(d.length))
-        .attr("width", d => Math.max(0, x(d.x1 || 0) - x(d.x0 || 0) - 1)) // -1 for a small gap between bars
-        .attr("height", d => innerHeight - y(d.length))
-        .attr("fill", color)
+        .attr("x", d => x!(d.x0 || 0))
+        .attr("y", innerHeight)
+        .attr("width", d => Math.max(0, x!(d.x1 || 0) - x!(d.x0 || 0) - 1))
+        .attr("height", 0)
+        .attr("fill", d => typeof color === 'function' ? color((d.x0! + d.x1!) / 2) : color || neutralBaseColor)
         .on("mouseover", (event, d) => {
-          if (tooltip) {
-            tooltip
-              .classed("hidden", false)
-              .html(tooltipFormatter(d));
-          }
+          tooltip.classed("hidden", false).html(tooltipFormatter!(d));
         })
         .on("mousemove", (event) => {
-          if (tooltip) {
-            tooltip.style("left", (event.pageX + 10) + "px")
-              .style("top", (event.pageY - 20) + "px");
-          }
+          tooltip.style("left", (event.pageX + 10) + "px").style("top", (event.pageY - 20) + "px");
         })
         .on("mouseout", () => {
-          if (tooltip) {
-            tooltip.classed("hidden", true);
-          }
-        });
+          tooltip.classed("hidden", true);
+        })
+        .merge(bars)
+        .transition().duration(transitionDuration)
+        .attr("x", d => x!(d.x0 || 0))
+        .attr("y", d => showDensity ? y!(d.length / (n * binWidth)) : y!(d.length))
+        .attr("width", d => Math.max(0, x!(d.x1 || 0) - x!(d.x0 || 0) - 1))
+        .attr("height", d => showDensity ? innerHeight - y!(d.length / (n * binWidth)) : innerHeight - y!(d.length));
+    }
+
+    function kernelDensityEstimator(kernel: (v: number) => number, X: number[]) {
+      return function (V: number[]) {
+        return X.map(x => [x, d3.mean(V, v => kernel(x - v)) || 0]);
+      };
+    }
+
+    function kernelEpanechnikov(k: number) {
+      return function (v: number) {
+        return Math.abs(v /= k) <= 1 ? 0.75 * (1 - v * v) / k : 0;
+      };
+    }
+
+    function silverman(data: number[]) {
+      if (data.length < 2) return 0.1;
+      const stdDev = d3.deviation(data) || 0;
+      const n = data.length;
+      return 1.06 * stdDev * Math.pow(n, -0.2);
     }
 
     onMounted(() => {
-      nextTick(drawChart);
+      nextTick(() => {
+        initChart();
+        updateChart();
+      });
     });
 
-    watch(
-      () => props,
-      () => {
-        nextTick(drawChart);
-      },
-      { deep: true }
-    );
+    watch(() => props, () => {
+      nextTick(updateChart);
+    }, { deep: true });
 
     return {
       chartContainer,

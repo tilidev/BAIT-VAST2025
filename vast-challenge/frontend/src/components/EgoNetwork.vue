@@ -1,48 +1,13 @@
 <template>
   <div class="h-full flex flex-col">
-    <div class="p-4 flex space-x-4">
-      <div>
-        <label class="block text-sm font-medium text-gray-700">Node Type</label>
-        <Select
-          v-model="selectedType"
-          :options="typeOptions"
-          option-label="label"
-          option-value="value"
-          placeholder="Select Type"
-          class="mt-1 block w-full"
-        />
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-gray-700">Node</label>
-        <Select
-          v-model="selectedNode"
-          :options="nodeOptions"
-          option-label="label"
-          option-value="value"
-          placeholder="Select Node"
-          class="mt-1 block w-full"
-        />
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-gray-700">Filter</label>
-        <Select
-          v-model="filterValue"
-          :options="filterOptionsData"
-          option-label="label"
-          option-value="value"
-          placeholder="Filter"
-          class="mt-1 block w-full"
-        />
-      </div>
-    </div>
     <div ref="chart" class="flex-1 relative w-full h-full"></div>
   </div>
 </template>
 
 <script>
 import * as d3 from 'd3'
-import Select from 'primevue/select';
 import { useEntityStore } from '../stores/entityStore'
+import { useLinkingStore } from '../stores/linkingStore'
 
 // Mapping node.type to PrimeIcon classes
 const iconClass = {
@@ -56,46 +21,31 @@ const iconClass = {
 
 export default {
   name: 'EgoNetwork',
-  components: {
-    Select
-  },
   data() {
     return {
-      selectedType: '',
-      selectedNode: '',
-      filterValue: 'all',
-      filterOptions: ['fi','tr'],
       nodes: [],
       links: [],
-      entityStore: null,
+      entityStore: useEntityStore(),
+      linkingStore: useLinkingStore(),
       ro: null,
       resizeTimeout: null
     }
   },
   computed: {
-    typeOptions() {
-      return [
-        { label: 'Topic', value: 'TOPIC' },
-        { label: 'Person', value: 'ENTITY_PERSON' }
-      ];
+    selectedNode() {
+      return this.linkingStore.selectedPerson || this.linkingStore.selectedTopic
     },
-    nodeOptions() {
-      return this.options.map(item => ({ label: item.id, value: item.id }));
+    selectedType() {
+      if (this.linkingStore.selectedPerson) return 'ENTITY_PERSON'
+      if (this.linkingStore.selectedTopic) return 'TOPIC'
+      return ''
     },
-    filterOptionsData() {
-      return [
-        { label: 'All', value: 'all' },
-        ...this.filterOptions.map(opt => ({ label: opt, value: opt }))
-      ];
-    },
-    options() {
-      if (this.selectedType === 'TOPIC') return this.entityStore.topics
-      if (this.selectedType === 'ENTITY_PERSON') return this.entityStore.persons
-      return []
+    filterValue() {
+      // for now we only support one filter value
+      return this.linkingStore.selectedInGraphs.length > 0 ? this.linkingStore.selectedInGraphs[0] : 'all'
     }
   },
   watch: {
-    selectedType() { this.selectedNode = '' },
     selectedNode(val) { if (val && this.selectedType) this.fetchData() },
     filterValue() { if (this.nodes.length) this.renderChart(false) }
   },
@@ -265,7 +215,6 @@ export default {
     }
   },
   mounted() {
-    this.entityStore = useEntityStore()
     this.ro = new ResizeObserver(() => {
       if (this.resizeTimeout) clearTimeout(this.resizeTimeout)
       this.resizeTimeout = setTimeout(() => { if (this.nodes.length) this.renderChart() }, 100)

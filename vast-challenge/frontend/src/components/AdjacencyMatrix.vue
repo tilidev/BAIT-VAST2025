@@ -4,7 +4,8 @@
 
 <script>
 import * as d3 from 'd3';
-
+import { useLinkingStore } from '../stores/linkingStore';
+import {HighlightType} from '../stores/linkingStore'
 export default {
   name: 'AdjacencyMatrix',
   props: {
@@ -68,11 +69,21 @@ export default {
       type: Boolean,
       default: true,
     },
+    highlightedRows: {
+      type: Array,
+      default: () => [],
+    },
+    highlightedCols: {
+      type: Array,
+      default: () => [],
+    },
   },
   data() {
     return {
       svg: null,
       tooltip: null,
+      linkingStore: useLinkingStore(),
+      HighlightType,
     };
   },
   mounted() {
@@ -89,7 +100,6 @@ export default {
   watch: {
     width: 'draw',
     height: 'draw',
-    // Watch all props that affect drawing
     data: 'draw',
     rowLabels: 'draw',
     colLabels: 'draw',
@@ -104,6 +114,9 @@ export default {
     tooltipFormatter: 'draw',
     rowLabelFormatter: 'draw',
     colLabelFormatter: 'draw',
+    highlightedRows: 'updateHighlight',
+    highlightedCols: 'updateHighlight',
+    'linkingStore.hoverHighlights': 'updateHighlight',
   },
   methods: {
     draw() {
@@ -124,7 +137,10 @@ export default {
         .append('svg')
         .attr('width', width)
         .attr('height', height)
-        .attr('class', 'rounded-lg shadow-md border');
+        .attr('class', 'rounded-lg shadow-md border')
+        .on('mouseleave', () => {
+          this.linkingStore.setHoverHighlights([]);
+        });
 
       this.tooltip = d3.select("body")
         .append("div")
@@ -210,26 +226,16 @@ export default {
               .classed("hidden", false)
               .html(tooltipFormatter(d.cellData));
           }
-
-          svgGroup.selectAll(".row-label")
-            .filter(label => label === d.row)
-            .style("font-weight", "bold");
-
-          svgGroup.selectAll(".column-label")
-            .filter(label => label === d.col)
-            .style("font-weight", "bold");
+          this.linkingStore.setHoverHighlights([{ type: this.HighlightType.CELL, value: d }]);
         })
         .on("mousemove", event => this.tooltip.style("left", (event.pageX + 10) + "px").style("top", (event.pageY - 28) + "px"))
         .on("mouseout", () => {
           this.tooltip.classed("hidden", true);
-          svgGroup.selectAll(".row-label").style("font-weight", "normal");
-          svgGroup.selectAll(".column-label text").style("font-weight", "normal");
+          this.linkingStore.setHoverHighlights([]);
         })
         .on("click", (event, d) => {
           if (d.cellData && d.cellData.value !== null) {
-            this.selectedCell = { row: d.row, col: d.col };
-            this.updateHighlight(svgGroup);
-            this.$emit('cell-click', { left: d.row, right: d.col });
+            this.$emit('cell-click', { row: d.row, col: d.col });
           }
         });
 
@@ -243,7 +249,10 @@ export default {
         .attr("dy", ".32em")
         .attr("text-anchor", "end")
         .style("font-size", "10px") // Smaller font size for row labels
-        .text(d => rowLabelFormatter ? rowLabelFormatter(d) : d.toString());
+        .text(d => rowLabelFormatter ? rowLabelFormatter(d) : d.toString())
+        .on("click", (event, d) => {
+          this.$emit('row-label-click', d);
+        });
 
       // Column labels
       svgGroup.selectAll(".column-label")
@@ -261,19 +270,57 @@ export default {
         .attr("dy", ".32em")
         .attr("text-anchor", "start")
         .style("font-size", "10px") // Smaller font size for column labels
-        .text(d => colLabelFormatter ? colLabelFormatter(d) : d.toString());
-      this.updateHighlight(svgGroup);
+        .text(d => colLabelFormatter ? colLabelFormatter(d) : d.toString())
+        .on("click", (event, d) => {
+          this.$emit('col-label-click', d);
+        });
+
+      this.updateHighlight();
     },
-    updateHighlight(svgGroup) {
+    updateHighlight() {
+      if (!this.svg) return;
+      const svgGroup = this.svg.select('g');
+      const { highlightedRows, highlightedCols } = this.$props;
+      const hoveredCellHighlight = this.linkingStore.hoverHighlights.find(h => h.type === this.HighlightType.CELL);
+      const hoveredCell = hoveredCellHighlight ? hoveredCellHighlight.value : null;
+
+      // Reset all styles first
       svgGroup.selectAll(".cell")
         .style("stroke", "#ccc").style("stroke-width", 1)
-        .style("stroke-linejoin", "miter");
-      if (this.selectedCell) {
-        svgGroup.selectAll(".cell").filter(d =>
-          d.row === this.selectedCell.row && d.col === this.selectedCell.col
-        )
-        .style("stroke", "#fd5825").style("stroke-width", 4)
-        .style("stroke-linejoin", "round").style("stroke-linecap", "round").raise();
+        .style("opacity", 1);
+      svgGroup.selectAll(".row-label").style("font-weight", "normal");
+      svgGroup.selectAll(".column-label text").style("font-weight", "normal");
+
+      // Apply highlighting based on props
+      if (highlightedRows.length > 0 || highlightedCols.length > 0) {
+        svgGroup.selectAll(".cell").style("opacity", 0.3);
+      }
+
+      svgGroup.selectAll(".cell")
+        .filter(d => highlightedRows.includes(d.row) || highlightedCols.includes(d.col))
+        .style("opacity", 1);
+
+      svgGroup.selectAll(".row-label")
+        .filter(d => highlightedRows.includes(d))
+        .style("font-weight", "bold");
+
+      svgGroup.selectAll(".column-label text")
+        .filter(d => highlightedCols.includes(d))
+        .style("font-weight", "bold");
+
+      if (hoveredCell) {
+        svgGroup.selectAll(".cell")
+          .filter(d => d.row === hoveredCell.row && d.col === hoveredCell.col)
+          .style("stroke", "#fd5825").style("stroke-width", 4)
+          .style("stroke-linejoin", "round").style("stroke-linecap", "round").raise();
+
+        svgGroup.selectAll(".row-label")
+          .filter(label => label === hoveredCell.row)
+          .style("font-weight", "bold");
+
+        svgGroup.selectAll(".column-label text")
+          .filter(label => label === hoveredCell.col)
+          .style("font-weight", "bold");
       }
     },
   },

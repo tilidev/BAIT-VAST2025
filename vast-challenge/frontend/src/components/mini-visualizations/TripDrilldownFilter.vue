@@ -97,15 +97,15 @@ export default {
     },
   },
   watch: {
-    'linkingStore.brushedPlaces': {
+    'linkingStore.activeFilters': {
       handler() {
-        // This will trigger re-computation of tripsPerIslandWithAllCounts and tripsPerZoneWithAllCounts
+        // This will trigger re-computation
       },
       deep: true,
     },
     'linkingStore.excludedFilters': {
       handler() {
-        // This will trigger re-computation of tripsPerIslandWithAllCounts and tripsPerZoneWithAllCounts
+        // This will trigger re-computation
       },
       deep: true,
     },
@@ -127,39 +127,50 @@ export default {
   },
   methods: {
     updateHoveredFilters() {
-      const filters = [];
+      const highlights = [];
       if (this.hoveredIsland) {
-        filters.push({ type: 'island', value: this.hoveredIsland });
+        highlights.push({ type: 'island', value: this.hoveredIsland });
       }
       if (this.hoveredZone) {
-        filters.push({ type: 'zone', value: this.hoveredZone });
+        highlights.push({ type: 'zone', value: this.hoveredZone });
       }
       if (this.hoveredInGraph) {
-        filters.push({ type: 'in_graph', value: this.hoveredInGraph });
+        highlights.push({ type: 'in_graph', value: this.hoveredInGraph });
       }
-      this.linkingStore.setHoveredFilters(filters);
+      this.linkingStore.setHoverHighlights(highlights);
     },
     getFilteredActivities(activities, filters) {
       let filtered = activities;
 
       // Filter by sidebar selections (inclusive)
       if (filters && filters.length > 0) {
+        const placeFilterValues = filters.filter(f => f.type === 'place').flatMap(f => f.value);
+        const otherFilters = filters.filter(f => f.type !== 'place');
+
         filtered = filtered.filter((activity) => {
-          return filters.every((filter) => {
+          const passesPlaceFilter = placeFilterValues.length === 0 || activity.visited_places.some(visitedPlace => {
+            return visitedPlace.place && placeFilterValues.includes(visitedPlace.place.id);
+          });
+
+          const passesOtherFilters = otherFilters.length === 0 || otherFilters.every(filter => {
             return activity.visited_places.some((visitedPlace) => {
               const place = visitedPlace.place;
               if (!place || !place.id) return false;
-              if (filter.type === 'island') {
-                const parentFeatureName = this.mapStore.getParentFeatureByPlaceId(place.id);
-                return parentFeatureName === filter.value;
-              } else if (filter.type === 'zone') {
-                return place.zone === filter.value;
-              } else if (filter.type === 'in_graph') {
-                return place.in_graph && Array.isArray(place.in_graph) && place.in_graph.includes(filter.value);
+              switch (filter.type) {
+                case 'island':
+                  const parentFeatureName = this.mapStore.getParentFeatureByPlaceId(place.id);
+                  return parentFeatureName === filter.value;
+                case 'zone':
+                  return place.zone === filter.value;
+                case 'in_graph':
+                  return place.in_graph && Array.isArray(place.in_graph) && place.in_graph.includes(filter.value);
+                default:
+                  return false;
               }
-              return false;
             });
           });
+
+          return passesPlaceFilter && passesOtherFilters;
         });
       }
 
@@ -184,16 +195,6 @@ export default {
         });
       }
 
-      // Filter by map brush selection
-      if (this.linkingStore.brushedPlaces.length > 0) {
-        const brushedPlaceNames = new Set(this.linkingStore.brushedPlaces);
-        filtered = filtered.filter(activity => {
-          return activity.visited_places.some(visitedPlace =>
-            brushedPlaceNames.has(visitedPlace.place.name)
-          );
-        });
-      }
-
       return filtered;
     },
     generateBarData(filterType) {
@@ -204,19 +205,10 @@ export default {
       );
 
       let previewCountsMap = new Map();
-      const hoveredFilters = [];
-      if (this.hoveredIsland) {
-        hoveredFilters.push({ type: 'island', value: this.hoveredIsland });
-      }
-      if (this.hoveredZone) {
-        hoveredFilters.push({ type: 'zone', value: this.hoveredZone });
-      }
-      if (this.hoveredInGraph) {
-        hoveredFilters.push({ type: 'in_graph', value: this.hoveredInGraph });
-      }
+      const hoverHighlights = this.linkingStore.hoverHighlights;
 
-      if (hoveredFilters.length > 0) {
-        const combinedFilters = [...this.linkingStore.activeFilters, ...hoveredFilters];
+      if (hoverHighlights.length > 0) {
+        const combinedFilters = [...this.linkingStore.activeFilters, ...hoverHighlights];
         previewCountsMap = this.processTripData(
           this.getFilteredActivities(this.allActivities, combinedFilters),
           filterType
@@ -276,7 +268,7 @@ export default {
           [filterType]: label,
           totalCount: totalCount,
           activeCount: activeCount,
-          previewCount: hoveredFilters.length > 0 ? previewCount : 0,
+          previewCount: hoverHighlights.length > 0 ? previewCount : 0,
           isActive: activeFilterValues.has(label),
           isExcluded: excludedFilterValues.has(label),
         };

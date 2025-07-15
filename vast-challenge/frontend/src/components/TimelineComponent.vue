@@ -40,7 +40,7 @@
 <script>
 import * as d3 from 'd3';
 import { useEntityStore } from '../stores/entityStore';
-import { useLinkingStore } from '../stores/linkingStore';
+import { useLinkingStore, FilterType } from '../stores/linkingStore';
 import { useMapStore } from '../stores/mapStore';
 import { toRaw } from 'vue';
 import { zoneColors } from '../utils/colors';
@@ -48,6 +48,7 @@ import { zoneColors } from '../utils/colors';
 export default {
   data() {
     return {
+      FilterType,
       showHelp: false,
       timelineContainer: null,
       entityStore: useEntityStore(),
@@ -61,8 +62,16 @@ export default {
   },
   computed: {
     persons() {
+      const personsFromStore = new Map(this.entityStore.persons.map(p => [p.id, p]));
+      const personIdsWithTrips = Object.keys(this.entityStore.personTripActivities);
 
-      return [...this.entityStore.persons].sort((a, b) => a.id.localeCompare(b.id));
+      personIdsWithTrips.forEach(id => {
+        if (!personsFromStore.has(id)) {
+          personsFromStore.set(id, { id: id, name: null });
+        }
+      });
+
+      return [...personsFromStore.values()].sort((a, b) => a.id.localeCompare(b.id));
     },
     personIds() {
 
@@ -72,7 +81,7 @@ export default {
     personZoneDistribution() {
       const distribution = {};
       this.persons.forEach(person => {
-        const personTrips = this.allEvents.filter(event => event.personId === person.id);
+        const personTrips = this.filteredEvents.filter(event => event.personId === person.id);
         const zoneCounts = personTrips.reduce((acc, trip) => {
           for (const zone in trip.zoneCounts) {
             acc[zone] = (acc[zone] || 0) + trip.zoneCounts[zone];
@@ -117,8 +126,13 @@ export default {
 
       // Filter by active sidebar filters
       if (this.linkingStore.activeFilters.length > 0) {
+        const placeFilterValues = this.linkingStore.activeFilters.filter(f => f.type === this.FilterType.PLACE).flatMap(f => f.value);
+        const otherFilters = this.linkingStore.activeFilters.filter(f => f.type !== this.FilterType.PLACE);
+
         events = events.filter(event => {
-          return this.linkingStore.activeFilters.every(filter => {
+          const passesPlaceFilter = placeFilterValues.length === 0 || event.visitedPlaceIds.some(placeId => placeFilterValues.includes(placeId));
+
+          const passesOtherFilters = otherFilters.length === 0 || otherFilters.every(filter => {
             return event.trip.visited_places.some(visitedPlace => {
               const place = visitedPlace.place;
               if (!place || !place.id) return false;
@@ -133,6 +147,8 @@ export default {
               return false;
             });
           });
+
+          return passesPlaceFilter && passesOtherFilters;
         });
       }
 
@@ -157,24 +173,10 @@ export default {
         });
       }
 
-      // Filter by brushed places on the map
-      if (this.linkingStore.brushedPlaces.length > 0) {
-        const brushedPlaceNames = new Set(this.linkingStore.brushedPlaces);
-        events = events.filter(event => {
-          return event.visitedPlaceNames.some(placeName => brushedPlaceNames.has(placeName));
-        });
-      }
-
       return events;
     },
   },
   watch: {
-    'linkingStore.brushedPlaces': {
-      handler() {
-        this.$nextTick(this.drawTimeline);
-      },
-      deep: true,
-    },
     'linkingStore.activeFilters': {
       handler() {
         this.$nextTick(this.drawTimeline);
@@ -187,13 +189,7 @@ export default {
       },
       deep: true,
     },
-    'linkingStore.highlightedPlaceIds': {
-      handler() {
-        this.updateHighlighting();
-      },
-      deep: true,
-    },
-    'linkingStore.hoveredPlaceId': {
+    'linkingStore.hoverHighlights': {
       handler() {
         this.updateHighlighting();
       },
@@ -214,6 +210,12 @@ export default {
       deep: true,
     },
     'entityStore.persons': {
+      handler() {
+        this.$nextTick(this.drawTimeline);
+      },
+      deep: true,
+    },
+    personZoneDistribution: {
       handler() {
         this.$nextTick(this.drawTimeline);
       },
@@ -245,14 +247,14 @@ export default {
   },
   methods: {
     pieChartTooltipFormatter(personData) {
-      const personName = personData.name;
+      const personName = personData.name || personData.id;
       const zoneData = this.personZoneDistribution[personData.id];
       if (!zoneData) return '';
 
       const totalVisits = Object.values(zoneData).reduce((a, b) => a + b, 0);
 
-      let zoneDetails = '<ul class="mt-2 space-y-1">';
       if (totalVisits > 0) {
+        let zoneDetails = '<ul class="mt-2 space-y-1">';
         const sortedZones = Object.entries(zoneData).sort((a, b) => b[1] - a[1]);
         for (const [zone, count] of sortedZones) {
           const percentage = ((count / totalVisits) * 100).toFixed(1);
@@ -265,19 +267,21 @@ export default {
             </li>
           `;
         }
+        zoneDetails += '</ul>';
+        return `
+          <div class="font-bold text-base text-gray-800 mb-1">${personName}</div>
+          <div class="text-sm text-gray-500 border-b pb-1 mb-2">Zone Visit Distribution</div>
+          ${zoneDetails}
+        `;
       } else {
-        zoneDetails += '<li>No visits recorded.</li>';
+        return `
+          <div class="font-bold text-base text-gray-800 mb-1">${personName}</div>
+          <div class="mt-2 text-gray-500 italic">No trips match the current filters.</div>
+        `;
       }
-      zoneDetails += '</ul>';
-
-      return `
-        <div class="font-bold text-base text-gray-800 mb-1">${personName}</div>
-        <div class="text-sm text-gray-500 border-b pb-1">Zone Visit Distribution</div>
-        ${zoneDetails}
-      `;
     },
     getInitials(name) {
-      if (!name) return '??';
+      if (!name) return 'SN' 
       const parts = name.split(' ');
       if (parts.length > 1 && parts[1]) {
         return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -286,7 +290,7 @@ export default {
     },
     tooltipFormatter(d) {
       const person = this.persons.find(p => p.id === d.personId);
-      const personName = person ? person.name : 'Unknown';
+      const personName = person ? (person.name || person.id) : 'Unknown';
       return `
         <div class="font-semibold text-blue-700">Trip ID: ${d.trip.trip.id}</div>
         <div>Person: ${personName} (${d.personId})</div>
@@ -410,7 +414,7 @@ export default {
         const radius = Math.min(16, yScale.bandwidth() / 2 * 0.9);
         const zoneData = this.personZoneDistribution[person.id];
 
-        if (Object.keys(zoneData).length > 0) {
+        if (zoneData && Object.keys(zoneData).length > 0) {
           const pie = d3.pie().value(d => d[1]);
           const arc = d3.arc().innerRadius(0).outerRadius(radius);
           const pieData = pie(Object.entries(zoneData));
@@ -452,8 +456,10 @@ export default {
       const chartArea = svg.append('g')
         .attr("clip-path", "url(#clip)");
 
+      const drawableEvents = filteredEvents.filter(d => yScale(d.personId) !== undefined);
+
       this.eventRects = chartArea.selectAll('.event-group')
-        .data(filteredEvents)
+        .data(drawableEvents)
         .enter()
         .append('g')
         .attr('class', 'event-group')
@@ -464,8 +470,9 @@ export default {
               .classed("hidden", false)
               .html(this.tooltipFormatter(d));
             d3.select(event.currentTarget).selectAll('rect').style('opacity', 1);
-            this.linkingStore.setHighlightedPlaceIds(d.visitedPlaceIds);
-            this.linkingStore.setHighlightedTrips([d.trip.trip.id]);
+            const highlights = d.visitedPlaceIds.map(id => ({ type: 'place', value: id }));
+            highlights.push({ type: 'trip', value: d.trip.trip.id });
+            this.linkingStore.setHoverHighlights(highlights);
           }
         })
         .on("mousemove", (event) => {
@@ -479,8 +486,7 @@ export default {
           if (this.tooltip) {
             this.tooltip.classed("hidden", true);
             d3.select(event.currentTarget).selectAll('rect').style('opacity', 0.8);
-            this.linkingStore.setHighlightedPlaceIds([]);
-            this.linkingStore.setHighlightedTrips([]);
+            this.linkingStore.setHoverHighlights([]);
           }
         });
 
@@ -489,7 +495,7 @@ export default {
         const totalVisits = Object.values(d.zoneCounts).reduce((a, b) => a + b, 0);
         if (totalVisits === 0) return;
 
-        const tripWidth = Math.max(0, xScale(d.endTime) - xScale(d.startTime));
+        const tripWidth = Math.max(1, xScale(d.endTime) - xScale(d.startTime));
         const tripHeight = yScale.bandwidth();
         let currentY = 0;
 
@@ -533,7 +539,7 @@ export default {
             const totalVisits = Object.values(d.zoneCounts).reduce((a, b) => a + b, 0);
             if (totalVisits === 0) return;
 
-            const tripWidth = Math.max(0, newXScale(d.endTime) - newXScale(d.startTime));
+            const tripWidth = Math.max(1, newXScale(d.endTime) - newXScale(d.startTime));
             const tripHeight = yScale.bandwidth();
             let currentY = 0;
 
@@ -600,20 +606,27 @@ export default {
     updateHighlighting() {
       if (!this.eventRects) return;
 
-      const { highlightedTrips, hoveredPlaceId } = this.linkingStore;
+      const { hoverHighlights } = this.linkingStore;
+      const highlightedTrips = hoverHighlights.filter(h => h.type === 'trip').map(h => h.value);
+      const highlightedPlaces = hoverHighlights.filter(h => h.type === 'place').map(h => h.value);
+      const isTripHover = hoverHighlights.some(h => h.type === 'trip');
 
       this.eventRects
         .each(function (d) {
           const group = d3.select(this);
-          const isTripHighlighted = highlightedTrips.includes(d.trip.trip.id);
-          const isPlaceHovered = hoveredPlaceId && d.visitedPlaceIds.includes(hoveredPlaceId);
-          const isHighlighted = isTripHighlighted || isPlaceHovered;
+          let isHighlighted = false;
+
+          if (isTripHover) {
+            isHighlighted = highlightedTrips.includes(d.trip.trip.id);
+          } else {
+            isHighlighted = d.visitedPlaceIds.some(id => highlightedPlaces.includes(id));
+          }
 
           group.selectAll('rect')
             .style('stroke', isHighlighted ? 'red' : 'none')
             .style('stroke-width', isHighlighted ? 2 : 0)
             .style('opacity', () => {
-              if (highlightedTrips.length > 0 || hoveredPlaceId) {
+              if (hoverHighlights.length > 0) {
                 return isHighlighted ? 0.8 : 0.3;
               }
               return 0.8;

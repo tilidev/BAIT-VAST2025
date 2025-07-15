@@ -62,9 +62,7 @@ export const useEntityStore = defineStore('entity', {
       if (mapStore.features.length === 0) {
         await mapStore.loadGeoJsonData();
       }
-        console.log(places.length);
       const placesWithParent = places.map((place: Place, index: number) => {
-        console.log(`Processing place ${index + 1}:`, place);
         
         if (typeof place.lon !== 'number' || typeof place.lat !== 'number') {
           console.warn(`Skipping place ${place.id} due to invalid coordinates: lon=${place.lon}, lat=${place.lat}`);

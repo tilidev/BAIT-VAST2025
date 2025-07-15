@@ -5,18 +5,20 @@
     <div v-else-if="matrixData.length === 0" class="text-center text-gray-500">No data available to display matrix.
     </div>
     <div v-else class="w-full h-full" ref="el">
-      <AdjacencyMatrix v-if="width > 0 && height > 0" class="flex-auto" :data="matrixData" :rowLabels="rowLabels" :colLabels="colLabels"
-        :colorScale="sentimentColorScaleLinear" :tooltipFormatter="matrixTooltipFormatter"
-        :cellFilter="filterUndefinedCells" :cellRounded="true" :rotateColLabels="false" :width="width"
-        :height="height" />
+      <AdjacencyMatrix v-if="width > 0 && height > 0" class="flex-auto" :data="matrixData" :rowLabels="rowLabels"
+        :colLabels="colLabels" :colorScale="sentimentColorScaleLinear" :tooltipFormatter="matrixTooltipFormatter"
+        :cellFilter="filterUndefinedCells" :cellRounded="true" :rotateColLabels="false" :width="width" :height="height"
+        :highlightedRows="highlightedPeople" :highlightedCols="selectedIndustries"
+        @row-label-click="togglePersonHighlight" @col-label-click="toggleIndustry" />
     </div>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue';
+import { defineComponent, ref, computed } from 'vue';
 import { useElementSize } from '@vueuse/core';
 import { useGraphStore } from '../../stores/graphStore';
+import { useLinkingStore } from '../../stores/linkingStore';
 import { sentimentColorScaleLinear } from '../../utils/colors';
 import AdjacencyMatrix from '../AdjacencyMatrix.vue';
 import type { MatrixCell } from '../../types/matrixTypes';
@@ -29,7 +31,30 @@ export default defineComponent({
   setup() {
     const el = ref(null);
     const { width, height } = useElementSize(el);
-    return { el, width, height };
+    const linkingStore = useLinkingStore();
+
+    const highlightedPeople = computed(() => linkingStore.highlightedPeople);
+
+    const selectedIndustries = computed(() => linkingStore.selectedIndustries);
+
+    function togglePersonHighlight(personId: string) {
+      linkingStore.toggleFilter({ type: 'person', value: personId });
+    }
+
+    function toggleIndustry(industry: string) {
+      linkingStore.toggleFilter({ type: 'industry', value: industry });
+    }
+
+    return {
+      el,
+      width,
+      height,
+      linkingStore,
+      highlightedPeople,
+      selectedIndustries,
+      togglePersonHighlight,
+      toggleIndustry,
+    };
   },
   props: {
     entityTypesToShow: {
