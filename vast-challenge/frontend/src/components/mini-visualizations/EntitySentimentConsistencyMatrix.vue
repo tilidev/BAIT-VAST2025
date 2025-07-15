@@ -138,7 +138,7 @@ export default defineComponent({
       return result;
     },
     rowLabels() {
-      return Array.from(new Set(this.matrixData.map(d => d.rowId))).sort();
+      return Array.from(new Set(this.matrixData.map(d => d.rowId)));
     },
     colLabels() {
       return this.datasets;

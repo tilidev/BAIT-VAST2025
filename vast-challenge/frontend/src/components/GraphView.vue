@@ -69,8 +69,8 @@ export default defineComponent({
   computed: {
     sentimentMatrixData(): MatrixCell[] {
       const data: MatrixCell[] = [];
-      this.graphStore.sentimentPerTopic.forEach((entity: any) => {
-        entity.topic_sentiments.forEach((topic: any) => {
+      this.graphStore.sentimentPerTopic.forEach((entity) => {
+        entity.topic_sentiments.forEach((topic) => {
           data.push({
             rowId: entity.entity_id,
             colId: topic.topic_id,
@@ -82,11 +82,8 @@ export default defineComponent({
       return data;
     },
     personLabels(): string[] {
-      const persons = new Set<string>();
-      this.graphStore.sentimentPerTopic.forEach((entity: any) => {
-        persons.add(entity.entity_id);
-      });
-      return Array.from(persons).sort();
+      // The entities are already sorted by entity_type in the store
+      return this.graphStore.sentimentPerTopic.map((entity) => entity.entity_id);
     },
     topicLabels(): string[] {
       const topics = new Set<string>();
