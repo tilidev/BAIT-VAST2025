@@ -406,7 +406,7 @@ export default {
           // Group-based positioning for person ego networks
           const topicGroups = this.groupNodesByTopic()
           const topics = Object.keys(topicGroups)
-          const baseRadius = Math.min(w, h) * 0.25
+          const baseRadius = Math.min(w, h) * 0.3
           
           // Position related nodes in groups around the ego (skip topic nodes)
           topics.forEach((topicId, index) => {
@@ -463,8 +463,8 @@ export default {
             sim.force(`group-link-${group.topic.id}`, 
               d3.forceLink(groupLinks)
                 .id(d => d.id)
-                .distance(50)
-                .strength(0.3))
+                .distance(20)
+                .strength(0.4))
           }
         })
       }
@@ -479,7 +479,7 @@ export default {
         .attr('stroke', d => d.isCollapsed ? '#2563eb' : '#999') // Blue for collapsed edges
         .attr('stroke-opacity',0.6)
         .attr('stroke-width', d => d.isCollapsed ? Math.sqrt(d.originalCount || 1) * 4 : Math.sqrt(d.value||1)*3)
-        .attr('stroke-dasharray', d => d.isCollapsed ? '8,4' : 'none') // Dashed for collapsed edges
+        .attr('stroke-dasharray', d => d.isCollapsed ? '8,2' : 'none') // Dashed for collapsed edges
         .attr('opacity', d => (this.filterValue==='all'||d.in_graph.includes(this.filterValue))?1:0.1)
         .on('mouseover', (e,d) => {
           const originalStroke = d.isCollapsed ? '#2563eb' : '#999'
