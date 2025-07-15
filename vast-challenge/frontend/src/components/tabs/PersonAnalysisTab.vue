@@ -1,72 +1,15 @@
 <template>
-  <div class="h-screen flex flex-col min-h-0 overflow-hidden">
-    <!-- Overview 50% -->
-    <div class="flex-none h-1/2 flex flex-col bg-white shadow rounded-lg p-4 min-h-0">
-      <h2 class="text-xl font-semibold mb-2 text-center text-gray-800">Overview Person Activity</h2>
-      <div class="flex-grow min-h-0">
-        <PCPChart
-          v-if="persons.length"
-          :metrics="metrics"
-          :metricLabels="metricLabels"
-          :domains="overviewDomains"
-          :lines="overviewLines"
-          class="w-full h-full"
-          @hover="onHover"
-          @leave="onLeave"
-          @select="selectPerson"
-          @reorder-axes="reorderAxes"
-        />
-        <div v-else class="flex items-center justify-center h-full text-gray-500 text-sm">
-          Loading data...
-        </div>
-      </div>
-    </div>
-
-    <!-- Details 50% -->
-    <div class="flex-none h-1/2 flex flex-col bg-white shadow rounded-lg p-4 mt-4 min-h-0">
-      <div class="mb-2 text-center">
-        <h2 class="text-xl font-semibold text-gray-800">
-          Dataset Details for 
-          <span v-if="selectedPerson" class="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-lg font-semibold border-2 border-blue-200 shadow-sm ml-2">
-            {{ getPersonName(selectedPerson) }}
-          </span>
-          <span v-else class="inline-block px-3 py-1 bg-gray-100 text-gray-500 rounded-lg border-2 border-gray-200 ml-2">
-            Select a person above
-          </span>
-        </h2>
-        <div v-if="selectedPerson && getPersonRole(selectedPerson)" class="mt-1 text-sm text-gray-600">
-          Role: {{ getPersonRole(selectedPerson) }}
-        </div>
-      </div>
-      <div class="flex-grow min-h-0">
-        <PCPChart
-          v-if="selectedPerson"
-          :metrics="metrics"
-          :metricLabels="metricLabels"
-          :domains="overviewDomains"
-          :lines="detailLines"
-          class="w-full h-full"
-          @reorder-axes="reorderAxes"
-        />
-        <div v-else class="flex items-center justify-center h-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-gray-500 text-sm">
-          Click a line above to view details
-        </div>
-      </div>
-      <div v-if="selectedPerson" class="mt-3 flex justify-center space-x-4 text-sm">
-        <div v-for="ds in datasets" :key="ds" class="flex items-center">
-          <span class="w-4 h-2 inline-block mr-1 rounded" :style="{ backgroundColor: detailColors[ds] }"></span>
-          <span class="capitalize text-gray-700">{{ ds }}</span>
-        </div>
-      </div>
-    </div>
+  <div class="h-full">
+    <CustomGridLayout :initial-layout="layout" />
   </div>
 </template>
 
 <script>
-import PCPChart from '../PCPChart.vue';
+import CustomGridLayout from '../CustomGridLayout.vue';
+
 export default {
-  name: 'PersonVis',
-  components: { PCPChart },
+  name: 'PersonAnalysisTab',
+  components: { CustomGridLayout },
   data() {
     return {
       persons: [],
@@ -83,8 +26,29 @@ export default {
       tooltip: { visible: false, x: 0, y: 0, data: {} },
       selectedPerson: null,
       datasets: ['jo', 'fi', 'tr'],
-      detailColors: { jo: 'black', fi: 'red', tr: 'blue' }
+      detailColors: { jo: 'black', fi: 'red', tr: 'blue' },
+      layout: [],
     };
+  },
+  watch: {
+    overviewLines: {
+      handler(newVal) {
+        this.updateLayout('overview', { lines: newVal });
+      },
+      deep: true,
+    },
+    detailLines: {
+      handler(newVal) {
+        this.updateLayout('details', { lines: newVal });
+      },
+      deep: true,
+    },
+    selectedPerson(newVal) {
+      this.updateLayout('details', {
+        personName: this.getPersonName(newVal),
+        personRole: this.getPersonRole(newVal),
+      });
+    },
   },
   computed: {
     overviewDomains() {
@@ -114,27 +78,9 @@ export default {
         opacity: 1,
         strokeWidth: 2,
       }));
-    }
+    },
   },
   methods: {
-    onHover(id, event) {
-      this.hoverId = id;
-      const person = this.persons.find(p => p.id === id) || {};
-      // Enhanced hover data with metrics and role
-      this.tooltip = { 
-        visible: true, 
-        x: event.offsetX + 10, 
-        y: event.offsetY + 10, 
-        data: {
-          ...person,
-          metrics: this.activities[id]?.jo || {}
-        }
-      };
-    },
-    onLeave() {
-      this.hoverId = null;
-      this.tooltip.visible = false;
-    },
     selectPerson(id) {
       this.selectedPerson = id;
     },
@@ -143,6 +89,12 @@ export default {
       const [movedItem] = newMetrics.splice(fromIndex, 1);
       newMetrics.splice(toIndex, 0, movedItem);
       this.metrics = newMetrics;
+    },
+    updateLayout(id, props) {
+      const index = this.layout.findIndex(item => item.i === id);
+      if (index !== -1) {
+        this.layout[index].props = { ...this.layout[index].props, ...props };
+      }
     },
     getPersonName(personId) {
       const person = this.persons.find(p => p.id === personId);
@@ -170,9 +122,36 @@ export default {
           })
         );
         this.activities = acts;
+        this.initializeLayout();
       } catch (err) {
         console.error('Error loading data:', err);
       }
+    },
+    initializeLayout() {
+      this.layout = [
+        {
+          x: 0, y: 0, w: 12, h: 8, i: 'overview', component: 'PersonOverview',
+          props: {
+            metrics: this.metrics,
+            metricLabels: this.metricLabels,
+            domains: this.overviewDomains,
+            lines: this.overviewLines,
+          }
+        },
+        {
+          x: 0, y: 8, w: 12, h: 9, i: 'details', component: 'PersonDetailView',
+          props: {
+            personName: this.getPersonName(this.selectedPerson),
+            personRole: this.getPersonRole(this.selectedPerson),
+            metrics: this.metrics,
+            metricLabels: this.metricLabels,
+            domains: this.overviewDomains,
+            lines: this.detailLines,
+            datasets: this.datasets,
+            detailColors: this.detailColors,
+          }
+        },
+      ];
     }
   },
   mounted() {
@@ -180,7 +159,3 @@ export default {
   }
 };
 </script>
-
-<style scoped>
-/* sizing via Tailwind */
-</style>

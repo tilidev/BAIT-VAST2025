@@ -55,6 +55,8 @@ import TopicSentimentOverview from './mini-visualizations/TopicSentimentOverview
 import TripDrilldownFilter from './mini-visualizations/TripDrilldownFilter.vue';
 import EgoNetwork from './EgoNetwork.vue';
 import TopicSentimentDistribution from './mini-visualizations/TopicSentimentDistribution.vue';
+import PersonOverview from './PersonOverview.vue';
+import PersonDetailView from './PersonDetailView.vue';
 
 
 interface LayoutItem {
@@ -87,6 +89,8 @@ export default defineComponent({
     TripDrilldownFilter,
     EgoNetwork,
     TopicSentimentDistribution,
+    PersonOverview,
+    PersonDetailView,
   },
   props: {
     initialLayout: {
