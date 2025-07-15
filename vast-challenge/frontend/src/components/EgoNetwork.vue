@@ -1,5 +1,6 @@
 <template>
   <div class="h-full flex flex-col">
+    <h3 class="text-lg font-semibold mb-3 text-gray-700">Ego Network</h3>
     <div ref="chart" class="flex-1 relative w-full h-full"></div>
   </div>
 </template>
@@ -124,7 +125,7 @@ export default {
         });
       }
       const sim = d3.forceSimulation(this.nodes)
-        .force('link', d3.forceLink(this.links).id(d => d.id).distance(Math.min(w,h)/4).strength(1))
+        .force('link', d3.forceLink(this.links).id(d => d.id).distance(Math.min(w,h)*0.225).strength(1))
         .force('charge', d3.forceManyBody().strength(-200))
         .force('collision', d3.forceCollide().radius(r+3))
 
