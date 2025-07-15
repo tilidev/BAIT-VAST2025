@@ -12,10 +12,8 @@
 
     <!-- Add overflow here to make only this area scrollable -->
     <main class="flex flex-col flex-grow overflow-y-auto p-4 transition-all duration-300 ease-in-out min-h-0">
-      <OverviewTab v-if="activeTab === 'overview'" />
-      <DetailedAnalysisTab v-else-if="activeTab === 'detailed-analysis'" />
+      <AnalysisTab v-if="activeTab === 'analysis'" />
       <TripAnalysisTab v-else-if="activeTab === 'trip-analysis'" />
-      <PersonAnalysisTab v-else-if="activeTab === 'person-analysis'" />
       <ScaleTab v-else-if="activeTab === 'scale'" />
     </main>
   </div>
@@ -29,25 +27,21 @@ import { useEntityStore } from './stores/entityStore';
 import { useGraphStore } from './stores/graphStore';
 import { useVisualizationDataStore } from './stores/visualizationDataStore';
 
-const OverviewTab = defineAsyncComponent(() => import('./components/tabs/OverviewTab.vue'));
-const DetailedAnalysisTab = defineAsyncComponent(() => import('./components/tabs/DetailedAnalysisTab.vue'));
+const AnalysisTab = defineAsyncComponent(() => import('./components/tabs/AnalysisTab.vue'));
 const TripAnalysisTab = defineAsyncComponent(() => import('./components/tabs/TripAnalysisTab.vue'));
-const PersonAnalysisTab = defineAsyncComponent(() => import('./components/tabs/PersonAnalysisTab.vue'));
 const ScaleTab = defineAsyncComponent(() => import('./components/tabs/ScaleTab.vue'));
 
 export default defineComponent({
   name: 'App',
   components: {
     Sidebar,
-    OverviewTab,
-    DetailedAnalysisTab,
+    AnalysisTab,
     TripAnalysisTab,
-    PersonAnalysisTab,
     ScaleTab,
   },
   data() {
     return {
-      activeTab: 'overview',
+      activeTab: 'analysis',
       sidebarExpanded: true,
       entityStore: useEntityStore(),
       graphStore: useGraphStore(),
