@@ -10,7 +10,7 @@ import numpy as np
 
 from .models import IndustryProContraSentiment, Entity, BaseGraphObject, EntityTopicSentiment, GraphMembership, PersonalActivity
 from .crud import dataset_specific_nodes_and_links, ego_network, entity_topic_participation, graph_skeleton, num_trips_by_person, personal_activity, query_and_results, retrieve_entities, retrieve_trips_by_person
-from .utils import cosine_similarity_with_nans, serialize_neo4j_entity
+from .utils import cosine_similarity_with_nans, serialize_neo4j_entity, is_database_empty, load_initial_data
 
 # Neo4j connection details from environment variables or local development
 NEO4J_URI = f"bolt://{os.getenv('DB_HOST', 'localhost')}:7687"
@@ -33,6 +33,15 @@ async def lifespan(app: FastAPI):
         )
         await driver.verify_connectivity()
         print("Successfully connected to Neo4j.")
+        
+        # Check if database is empty and load data if needed
+        if await is_database_empty(driver):
+            print("Database is empty. Loading initial data...")
+            await load_initial_data()
+            print("Initial data loading completed.")
+        else:
+            print("Database already contains data. Skipping initial data load.")
+            
     except Exception as e:
         print(f"Failed to connect to Neo4j: {e}")
         raise e

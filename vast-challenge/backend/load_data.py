@@ -2,6 +2,7 @@ import json
 from collections import defaultdict
 import datetime
 from neo4j import GraphDatabase
+import os
 
 
 def remove_null_vals(elements):
@@ -347,7 +348,7 @@ def to_database(all_nodes, all_links):
         This docstring was generated with the assistance of AI.
     """
 
-    URI = "bolt://localhost:7687"
+    URI = f"bolt://{os.getenv('DB_HOST', 'vast-challenge-database')}:7687"
 
     driver = GraphDatabase.driver(URI, auth=('neo4j', 'ava25-DB!!'))
     driver.verify_connectivity()
