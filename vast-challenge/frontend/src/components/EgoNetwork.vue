@@ -112,8 +112,15 @@ export default {
       // spawn near to 0
       if (reset_positions) {
         this.nodes.forEach(d => {
-          d.x = w/2 + (Math.random() - 0.5) * 50;
-          d.y = h/2 + (Math.random() - 0.5) * 50;
+          console.log(d.type)
+          let outerOffset = d.type != this.selectedType && ['ENTITY_PERSON', 'TOPIC'].includes(d.type)
+          if (outerOffset) {
+            d.x = w/2 + 200
+            d.y = h/2 + 200
+          } else {
+            d.x = w/2 + (Math.random() - 0.5) * 100;
+            d.y = h/2 + (Math.random() - 0.5) * 50;
+          }
         });
       }
       const sim = d3.forceSimulation(this.nodes)
