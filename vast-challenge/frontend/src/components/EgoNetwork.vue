@@ -1,7 +1,11 @@
 <template>
   <div class="h-full flex flex-col">
     <h3 class="text-lg font-semibold mb-3 text-gray-700">Ego Network</h3>
-    <div ref="chart" class="flex-1 relative w-full h-full"></div>
+    <div ref="chart" class="flex-1 relative w-full h-full">
+      <div v-if="!selectedNode && !currentlyRenderedInDOM" class="absolute inset-0 flex items-center justify-center text-gray-500 text-lg">
+        Select a node to view its ego network
+      </div>
+    </div>
   </div>
 </template>
 
@@ -29,7 +33,8 @@ export default {
       entityStore: useEntityStore(),
       linkingStore: useLinkingStore(),
       ro: null,
-      resizeTimeout: null
+      resizeTimeout: null,
+      currentlyRenderedInDOM: false
     }
   },
   computed: {
@@ -110,22 +115,28 @@ export default {
           .attr('font-size','12px').attr('fill','#333')
           .text(t)
       })
-      // spawn near to 0
+      // spawn nodes with strategic positioning
       if (reset_positions) {
         this.nodes.forEach(d => {
-          console.log(d.type)
-          let outerOffset = d.type != this.selectedType && ['ENTITY_PERSON', 'TOPIC'].includes(d.type)
-          if (outerOffset) {
-            d.x = w/2 + 200
-            d.y = h/2 + 200
-          } else {
-            d.x = w/2 + (Math.random() - 0.5) * 100;
-            d.y = h/2 + (Math.random() - 0.5) * 50;
+          if (d.id === this.selectedNode) return;
+          
+          let baseRadius = Math.min(w, h) * 0.1;
+          let spreadMultiplier = 1;
+          
+          if (d.type != this.selectedType && ['ENTITY_PERSON', 'TOPIC'].includes(d.type)) {
+            spreadMultiplier = 5;
+            baseRadius = Math.min(w, h) * 0.25;
           }
+          
+          const angle = Math.random() * 2 * Math.PI;
+          const radius = baseRadius + (Math.random() * baseRadius * 0.5 * spreadMultiplier);
+          
+          d.x = w/2 + Math.cos(angle) * radius + 100;
+          d.y = h/2 + Math.sin(angle) * radius;
         });
       }
       const sim = d3.forceSimulation(this.nodes)
-        .force('link', d3.forceLink(this.links).id(d => d.id).distance(Math.min(w,h)*0.225).strength(1))
+        .force('link', d3.forceLink(this.links).id(d => d.id).distance(Math.min(w,h)*0.225).strength(1.5))
         .force('charge', d3.forceManyBody().strength(-200))
         .force('collision', d3.forceCollide().radius(r+3))
 
@@ -220,6 +231,8 @@ export default {
             .attr('x2', d => d.target.x).attr('y2', d => d.target.y)
         nodeG.attr('transform', d => `translate(${d.x},${d.y})`)
       })
+
+      this.currentlyRenderedInDOM = true
     }
   },
   mounted() {
