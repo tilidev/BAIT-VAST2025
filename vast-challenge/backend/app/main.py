@@ -1,3 +1,4 @@
+import asyncio
 from itertools import product
 import time
 from typing import Literal
@@ -26,32 +27,55 @@ async def lifespan(app: FastAPI):
     # Startup: Initialize Neo4j driver
     global driver
     print(f"Connecting to Neo4j at {NEO4J_URI}")
-    try:
-        driver = AsyncGraphDatabase.driver(
-            NEO4J_URI,
-            auth=basic_auth(NEO4J_USER, NEO4J_PASSWORD)
-        )
-        await driver.verify_connectivity()
-        print("Successfully connected to Neo4j.")
-        
-        # Check if database is empty and load data if needed
-        if await is_database_empty(driver):
-            print("Database is empty. Loading initial data...")
-            await load_initial_data()
-            print("Initial data loading completed.")
-        else:
-            print("Database already contains data. Skipping initial data load.")
+    
+    max_retries = 5
+    retry_delay = 5  # seconds
+    
+    for attempt in range(max_retries):
+        try:
+            driver = AsyncGraphDatabase.driver(
+                NEO4J_URI,
+                auth=basic_auth(NEO4J_USER, NEO4J_PASSWORD)
+            )
+            await driver.verify_connectivity()
+            print("Successfully connected to Neo4j.")
             
-    except Exception as e:
-        print(f"Failed to connect to Neo4j: {e}")
-        raise e
+            # Check if database is empty and load data if needed
+            try:
+                if await is_database_empty(driver):
+                    print("Database is empty. Loading initial data...")
+                    success = await load_initial_data()
+                    if success:
+                        print("Initial data loading completed.")
+                    else:
+                        print("Initial data loading failed, but continuing...")
+                else:
+                    print("Database already contains data. Skipping initial data load.")
+            except Exception as data_error:
+                print(f"Error during data loading check/process: {data_error}")
+                print("Continuing without initial data load...")
+            
+            break  # Successfully connected, exit retry loop
+            
+        except Exception as e:
+            print(f"Attempt {attempt + 1}/{max_retries} - Failed to connect to Neo4j: {e}")
+            if attempt < max_retries - 1:
+                print(f"Retrying in {retry_delay} seconds...")
+                await asyncio.sleep(retry_delay)
+            else:
+                print("Max retries reached. Starting backend without Neo4j connection.")
+                print("Database-dependent endpoints will return 503 Service Unavailable.")
+                driver = None
 
     yield
 
     if driver:
-        print("Closing Neo4j connection.")
-        await driver.close()
-        print("Neo4j connection closed.")
+        try:
+            print("Closing Neo4j connection.")
+            await driver.close()
+            print("Neo4j connection closed.")
+        except Exception as e:
+            print(f"Error closing Neo4j connection: {e}")
 
 app = FastAPI(lifespan=lifespan)
 
@@ -64,17 +88,69 @@ async def read_root():
 async def get_driver() -> AsyncDriver:
     if not driver:
         raise HTTPException(
-            status_code=500, detail="Neo4j driver is not initialized")
-    return driver
+            status_code=503, 
+            detail="Neo4j database is not available. Please check database connection and try again later."
+        )
+    
+    # Additional connectivity check
+    try:
+        await driver.verify_connectivity()
+        return driver
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Neo4j database connection lost: {str(e)}"
+        )
 
 
 @app.get("/health")
-async def health_check(driver: AsyncDriver = Depends(get_driver)):
+async def health_check():
+    """
+    Health check endpoint that works regardless of database status.
+    """
+    result = {
+        "status": "ok",
+        "backend": "running",
+        "neo4j_connection": "unknown"
+    }
+    
+    if driver:
+        try:
+            await driver.verify_connectivity()
+            result["neo4j_connection"] = "connected"
+        except Exception as e:
+            result["neo4j_connection"] = "disconnected"
+            result["neo4j_error"] = str(e)
+    else:
+        result["neo4j_connection"] = "not_initialized"
+    
+    return result
+
+
+@app.get("/database-status")
+async def database_status():
+    """
+    Dedicated endpoint to check database connectivity.
+    """
+    if not driver:
+        return {
+            "status": "unavailable",
+            "message": "Database driver not initialized"
+        }
+    
     try:
         await driver.verify_connectivity()
-        return {"status": "ok", "neo4j_connection": "connected"}
+        # Additional check - try a simple query
+        records, summary, keys = await driver.execute_query("RETURN 1 as test")
+        return {
+            "status": "connected",
+            "message": "Database is reachable and responding"
+        }
     except Exception as e:
-        return {"status": "error", "neo4j_connection": "disconnected", "error": str(e)}
+        return {
+            "status": "error",
+            "message": f"Database connection failed: {str(e)}"
+        }
 
 
 # Add other API endpoints here
