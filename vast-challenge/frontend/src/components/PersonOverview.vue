@@ -11,7 +11,6 @@
         class="w-full h-full"
         @hover="onHover"
         @leave="onLeave"
-        @select="onSelect"
         @reorder-axes="onReorderAxes"
       />
       <div v-else class="flex items-center justify-center h-full text-gray-500 text-sm">
@@ -33,16 +32,13 @@ export default {
     domains: Object,
     lines: Array,
   },
-  emits: ['hover', 'leave', 'select', 'reorder-axes'],
+  emits: ['hover', 'leave', 'reorder-axes'],
   methods: {
     onHover(id, event) {
       this.$emit('hover', id, event);
     },
     onLeave() {
       this.$emit('leave');
-    },
-    onSelect(id) {
-      this.$emit('select', id);
     },
     onReorderAxes(fromIndex, toIndex) {
       this.$emit('reorder-axes', fromIndex, toIndex);
