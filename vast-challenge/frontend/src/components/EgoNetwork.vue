@@ -66,7 +66,7 @@ export default {
     formatTooltip(data) {
       const skip = new Set(['index','x','y','vx','vy','fx','fy','source','target','isCollapsed','originalCount'])
       let html = ''
-      if (data.id != null) html += `<p><strong>ID: ${String(data.id).replace(/_/g, '_​')}</strong></div>`
+      if (data.id != null) html += `<p class="font-bold text-blue-600">ID: ${String(data.id).replace(/_/g, '_​')}</div>`
       if (data.type != null) html += `<div>Type: ${data.type}</div><hr class="border-gray-300 my-2"/>`
       
       // Add collapsed edge info
@@ -132,16 +132,16 @@ export default {
         const sourceNode = this.nodes.find(n => n.id === link.source.id || n.id === link.source)
         const targetNode = this.nodes.find(n => n.id === link.target.id || n.id === link.target)
         
-        // Check if this is an edge from ego to any node in a topic group (including the topic itself)
+        // Skip any edges involving topic nodes only for person ego networks (they won't be rendered)
+        if (this.selectedType === 'ENTITY_PERSON' && (sourceNode?.type === 'TOPIC' || targetNode?.type === 'TOPIC')) {
+          edgesToSkip.add(index)
+          return
+        }
+        
+        // Check if this is an edge from ego to any node in a topic group
         let topicId = null
         
-        if (sourceNode?.id === this.selectedNode && targetNode?.type === 'TOPIC') {
-          // Direct edge from ego to topic
-          topicId = targetNode.id
-        } else if (targetNode?.id === this.selectedNode && sourceNode?.type === 'TOPIC') {
-          // Direct edge from topic to ego
-          topicId = sourceNode.id
-        } else if (sourceNode?.id === this.selectedNode && targetNode) {
+        if (sourceNode?.id === this.selectedNode && targetNode) {
           // Edge from ego to any node - check if target belongs to a topic group
           topicId = Object.keys(topicGroups).find(tid => topicGroups[tid].relatedNodes.includes(targetNode))
         } else if (targetNode?.id === this.selectedNode && sourceNode) {
@@ -160,43 +160,44 @@ export default {
         const targetNode = this.nodes.find(n => n.id === link.target.id || n.id === link.target)
         
         if (edgesToSkip.has(index)) {
-          // This edge should be part of a collapsed edge
-          let topicId = null
-          
-          if (sourceNode?.id === this.selectedNode && targetNode?.type === 'TOPIC') {
-            topicId = targetNode.id
-          } else if (targetNode?.id === this.selectedNode && sourceNode?.type === 'TOPIC') {
-            topicId = sourceNode.id
-          } else if (sourceNode?.id === this.selectedNode && targetNode) {
-            topicId = Object.keys(topicGroups).find(tid => topicGroups[tid].relatedNodes.includes(targetNode))
-          } else if (targetNode?.id === this.selectedNode && sourceNode) {
-            topicId = Object.keys(topicGroups).find(tid => topicGroups[tid].relatedNodes.includes(sourceNode))
-          }
-          
-          if (topicId && !processedTopics.has(topicId)) {
-            // Create the collapsed edge
-            const topicNode = topicGroups[topicId].topic
-            const relatedCount = topicGroups[topicId].relatedNodes.length
-            const hasDirectTopicEdge = this.links.some(l => {
-              const sNode = this.nodes.find(n => n.id === l.source.id || n.id === l.source)
-              const tNode = this.nodes.find(n => n.id === l.target.id || n.id === l.target)
-              return ((sNode?.id === this.selectedNode && tNode?.id === topicId) ||
-                      (tNode?.id === this.selectedNode && sNode?.id === topicId))
-            })
+          // This edge should be part of a collapsed edge (for non-topic nodes in person networks)
+          if (this.selectedType === 'ENTITY_PERSON' && sourceNode?.type !== 'TOPIC' && targetNode?.type !== 'TOPIC') {
+            let topicId = null
             
-            collapsedLinks.push({
-              source: this.selectedNode,
-              target: topicNode.id,
-              ...link, // Copy all original link properties
-              isCollapsed: true,
-              originalCount: relatedCount + (hasDirectTopicEdge ? 1 : 0)
-            })
-            processedTopics.add(topicId)
+            if (sourceNode?.id === this.selectedNode && targetNode) {
+              topicId = Object.keys(topicGroups).find(tid => topicGroups[tid].relatedNodes.includes(targetNode))
+            } else if (targetNode?.id === this.selectedNode && sourceNode) {
+              topicId = Object.keys(topicGroups).find(tid => topicGroups[tid].relatedNodes.includes(sourceNode))
+            }
+            
+            if (topicId && !processedTopics.has(topicId)) {
+              // Create a representative collapsed edge to the first node in the group
+              const relatedNodes = topicGroups[topicId].relatedNodes
+              if (relatedNodes.length > 0) {
+                const representativeNode = relatedNodes[0] // Use first node as representative
+                
+                collapsedLinks.push({
+                  source: this.selectedNode,
+                  target: representativeNode.id,
+                  ...link, // Copy all original link properties
+                  isCollapsed: true,
+                  originalCount: relatedNodes.length
+                })
+                processedTopics.add(topicId)
+              }
+            }
           }
           // Skip the original edge (don't add it to collapsedLinks)
         } else {
-          // Keep edges that are not being collapsed
-          collapsedLinks.push(link)
+          // Keep edges that are not being collapsed (and don't involve topic nodes for person networks)
+          if (this.selectedType === 'ENTITY_PERSON') {
+            if (sourceNode?.type !== 'TOPIC' && targetNode?.type !== 'TOPIC') {
+              collapsedLinks.push(link)
+            }
+          } else {
+            // For non-person ego networks, keep all non-collapsed edges
+            collapsedLinks.push(link)
+          }
         }
       })
       
@@ -232,18 +233,33 @@ export default {
       lower.pop()
       return lower.concat(upper)
     },
-    drawTopicGroups(svg, topicGroups) {
-      const padding = 30
+    drawTopicGroups(svg, topicGroups, tooltip, chartEl, w, h) {
+      const padding = 40 // Increased padding for better visual separation
       
       Object.entries(topicGroups).forEach(([topicId, group]) => {
         if (group.relatedNodes.length === 0) return
         
-        const allNodes = [group.topic, ...group.relatedNodes]
-        const points = allNodes.map(node => ({ x: node.x, y: node.y }))
+        // Only use related nodes for hull calculation when topic nodes are hidden (person ego networks)
+        const points = this.selectedType === 'ENTITY_PERSON' 
+          ? group.relatedNodes.map(node => ({ x: node.x, y: node.y }))
+          : [group.topic, ...group.relatedNodes].map(node => ({ x: node.x, y: node.y }))
         
-        if (points.length < 2) return
+        if (points.length < 1) return
         
-        if (points.length === 2) {
+        if (points.length === 1) {
+          // Draw circle around single point
+          const p = points[0]
+          const radius = padding
+          const hull = []
+          for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * 2 * Math.PI
+            hull.push({
+              x: p.x + Math.cos(angle) * radius,
+              y: p.y + Math.sin(angle) * radius
+            })
+          }
+          this.drawHull(svg, hull, topicId, tooltip, chartEl, w, h)
+        } else if (points.length === 2) {
           // Draw line between two points with padding
           const [p1, p2] = points
           const dx = p2.x - p1.x
@@ -261,7 +277,7 @@ export default {
             { x: p1.x - perpX * padding, y: p1.y - perpY * padding }
           ]
           
-          this.drawHull(svg, hull, group.topic.id)
+          this.drawHull(svg, hull, topicId, tooltip, chartEl, w, h)
         } else {
           // Add padding to points
           const center = {
@@ -281,11 +297,11 @@ export default {
           })
           
           const hull = this.computeConvexHull(paddedPoints)
-          this.drawHull(svg, hull, group.topic.id)
+          this.drawHull(svg, hull, topicId, tooltip, chartEl, w, h)
         }
       })
     },
-    drawHull(svg, hull, topicId) {
+    drawHull(svg, hull, topicId, tooltip, chartEl, w, h) {
       const types = [...new Set(this.nodes.map(d => d.type))]
       const color = d3.scaleOrdinal(d3.schemeCategory10).domain(types)
       const topicColor = color('TOPIC')
@@ -294,6 +310,9 @@ export default {
         .x(d => d.x)
         .y(d => d.y)
         .curve(d3.curveCardinalClosed.tension(0.3))
+      
+      // Find the topic node data for tooltip
+      const topicNode = this.nodes.find(n => n.id === topicId)
       
       svg.append('path')
         .datum(hull)
@@ -305,16 +324,55 @@ export default {
         .attr('stroke-width', 2)
         .attr('stroke-opacity', 0.4)
         .attr('stroke-dasharray', '5,5')
-        .style('pointer-events', 'none')
+        .style('pointer-events', 'all')
+        .style('cursor', 'pointer')
+        .on('mouseover', (e) => {
+          d3.select(e.currentTarget)
+            .attr('fill-opacity', 0.2)
+            .attr('stroke-opacity', 0.8)
+          if (topicNode) {
+            tooltip.html(this.formatTooltip(topicNode)).classed('hidden', false)
+          }
+        })
+        .on('mousemove', event => {
+          const [mx, my] = d3.pointer(event, chartEl)
+          const tt = tooltip.node()
+
+          const spaceRight = w - mx - 12
+          const spaceLeft  = mx - 12
+          let useLeft = false
+          let allowedW = Math.min(600, spaceRight)
+          if (spaceRight < tt.offsetWidth && spaceLeft > spaceRight) {
+            useLeft = true
+            allowedW = Math.min(600, spaceLeft)
+          }
+          tooltip.style('max-width', allowedW + 'px')
+
+          const ttW = tt.offsetWidth, ttH = tt.offsetHeight
+          let x = useLeft ? mx - ttW - 10 : mx + 10
+          let y = my + 10
+          if (y + ttH > h) y = my - ttH - 10
+
+          tooltip.style('left', x + 'px').style('top', y + 'px')
+        })
+        .on('mouseout', (e) => {
+          d3.select(e.currentTarget)
+            .attr('fill-opacity', 0.1)
+            .attr('stroke-opacity', 0.4)
+          tooltip.classed('hidden', true)
+        })
     },
     renderChart(reset_positions=true) {
       const r = 16
       const chartEl = this.$refs.chart
       d3.select(chartEl).selectAll('*').remove()
 
-      // Reset node simulation state for fresh layout
+      // Reset node simulation state for fresh layout (only for non-topic nodes when person ego network)
       if (reset_positions) {
-        this.nodes.forEach(d => {
+        const nodesToReset = this.selectedType === 'ENTITY_PERSON' 
+          ? this.nodes.filter(n => n.type !== 'TOPIC')
+          : this.nodes
+        nodesToReset.forEach(d => {
           delete d.x; delete d.y; delete d.vx; delete d.vy; delete d.fx; delete d.fy
         })
       }
@@ -350,27 +408,35 @@ export default {
           const topics = Object.keys(topicGroups)
           const baseRadius = Math.min(w, h) * 0.25
           
-          // Position topic nodes in a circle around the ego
+          // Position related nodes in groups around the ego (skip topic nodes)
           topics.forEach((topicId, index) => {
-            const angle = (index / (topics.length - 1)) * 2 * Math.PI
-            const topic = topicGroups[topicId].topic
-            topic.x = w/2 + Math.cos(angle) * baseRadius
-            topic.y = h/2 + Math.sin(angle) * baseRadius
-            console.log(topic.x, topic.y)
+            const angle = (index / Math.max(topics.length - 1, 1)) * 2 * Math.PI
+            const groupCenterX = w/2 + Math.cos(angle) * baseRadius
+            const groupCenterY = h/2 + Math.sin(angle) * baseRadius
             
-            // Position related nodes around their topic
+            // Position related nodes around their group center
             const relatedNodes = topicGroups[topicId].relatedNodes
             relatedNodes.forEach((node, nodeIndex) => {
-              node.x = w/2 + (topic.x - w/2)/2
-              node.y = h/2 + (topic.y - h/2)/2
+              const nodeAngle = (nodeIndex / Math.max(relatedNodes.length - 1, 1)) * Math.PI / 2 // Spread within quarter circle
+              const nodeRadius = 40
+              node.x = groupCenterX + Math.cos(nodeAngle) * nodeRadius
+              node.y = groupCenterY + Math.sin(nodeAngle) * nodeRadius
             })
           }) 
         }
       }
-      const sim = d3.forceSimulation(this.nodes)
+      const sim = d3.forceSimulation(this.selectedType === 'ENTITY_PERSON' ? this.nodes.filter(n => n.type !== 'TOPIC') : this.nodes)
       
-      // Always use original links for force simulation to maintain proper physics
-      sim.force('link', d3.forceLink(this.links).id(d => d.id).distance(Math.min(w,h)*0.225).strength(1.1))
+      // Filter out links involving topic nodes for the simulation only for person ego networks
+      const simulationLinks = this.selectedType === 'ENTITY_PERSON' 
+        ? this.links.filter(link => {
+            const sourceNode = this.nodes.find(n => n.id === link.source.id || n.id === link.source)
+            const targetNode = this.nodes.find(n => n.id === link.target.id || n.id === link.target)
+            return sourceNode?.type !== 'TOPIC' && targetNode?.type !== 'TOPIC'
+          })
+        : this.links
+      
+      sim.force('link', d3.forceLink(simulationLinks).id(d => d.id).distance(Math.min(w,h)*0.225).strength(1.1))
         .force('charge', d3.forceManyBody().strength(-200))
         .force('collision', d3.forceCollide().radius(r+3))
 
@@ -378,32 +444,27 @@ export default {
       if (this.selectedType === 'ENTITY_PERSON') {
         const topicGroups = this.groupNodesByTopic()
         
-        // Create attraction forces within topic groups
+        // Create attraction forces within topic groups (only for related nodes)
         Object.values(topicGroups).forEach(group => {
-          if (group.relatedNodes.length === 0) return
+          if (group.relatedNodes.length <= 1) return
           
-          const allNodesInGroup = [group.topic, ...group.relatedNodes]
-          
-          // Use current topic position, not initial position
-          const topicNode = group.topic
-          
-          // Add attraction between nodes in the same group using forceLink instead of forceCenter
+          // Add links between nodes in the same group for cohesion
           const groupLinks = []
-          
-          // Connect all nodes in group to the topic node (star pattern)
-          group.relatedNodes.forEach(node => {
-            groupLinks.push({
-              source: topicNode.id,
-              target: node.id
-            })
-          })
+          for (let i = 0; i < group.relatedNodes.length; i++) {
+            for (let j = i + 1; j < group.relatedNodes.length; j++) {
+              groupLinks.push({
+                source: group.relatedNodes[i].id,
+                target: group.relatedNodes[j].id
+              })
+            }
+          }
           
           if (groupLinks.length > 0) {
             sim.force(`group-link-${group.topic.id}`, 
               d3.forceLink(groupLinks)
                 .id(d => d.id)
-                .distance(60)
-                .strength(0.5))
+                .distance(50)
+                .strength(0.3))
           }
         })
       }
@@ -452,7 +513,17 @@ export default {
           tooltip.classed('hidden',true)
         })
 
-      const nodeG = svg.append('g').selectAll('g').data(this.nodes).enter().append('g')
+      // Draw initial topic groups for person ego networks (before nodes so hulls are behind)
+      let hullsGroup = null
+      if (this.selectedType === 'ENTITY_PERSON') {
+        hullsGroup = svg.append('g').attr('class', 'hulls-group')
+        setTimeout(() => {
+          const topicGroups = this.groupNodesByTopic()
+          this.drawTopicGroups(hullsGroup, topicGroups, tooltip, chartEl, w, h)
+        }, 100)
+      }
+
+      const nodeG = svg.append('g').attr('class', 'nodes-group').selectAll('g').data(this.selectedType === 'ENTITY_PERSON' ? this.nodes.filter(n => n.type !== 'TOPIC') : this.nodes).enter().append('g')
         .call(d3.drag()
           .on('start', (e,d) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y })
           .on('drag', (e,d) => { d.fx = e.x; d.fy = e.y })
@@ -501,26 +572,25 @@ export default {
       })
 
       sim.on('tick', () => {
-        this.nodes.forEach(d => { d.x = Math.max(r, Math.min(w-r, d.x)); d.y = Math.max(r, Math.min(h-r, d.y)) })
+        // Only update positions for nodes in simulation
+        const nodesToUpdate = this.selectedType === 'ENTITY_PERSON' 
+          ? this.nodes.filter(n => n.type !== 'TOPIC')
+          : this.nodes
+        nodesToUpdate.forEach(d => { 
+          d.x = Math.max(r, Math.min(w-r, d.x)); 
+          d.y = Math.max(r, Math.min(h-r, d.y)) 
+        })
         link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
             .attr('x2', d => d.target.x).attr('y2', d => d.target.y)
         nodeG.attr('transform', d => `translate(${d.x},${d.y})`)
         
         // Redraw topic group hulls on each tick for person ego networks
-        if (this.selectedType === 'ENTITY_PERSON') {
-          svg.selectAll('.topic-hull').remove()
+        if (this.selectedType === 'ENTITY_PERSON' && hullsGroup) {
+          hullsGroup.selectAll('.topic-hull').remove()
           const topicGroups = this.groupNodesByTopic()
-          this.drawTopicGroups(svg, topicGroups)
+          this.drawTopicGroups(hullsGroup, topicGroups, tooltip, chartEl, w, h)
         }
       })
-
-      // Draw initial topic groups for person ego networks
-      if (this.selectedType === 'ENTITY_PERSON') {
-        setTimeout(() => {
-          const topicGroups = this.groupNodesByTopic()
-          this.drawTopicGroups(svg, topicGroups)
-        }, 100)
-      }
 
       this.currentlyRenderedInDOM = true
     }
