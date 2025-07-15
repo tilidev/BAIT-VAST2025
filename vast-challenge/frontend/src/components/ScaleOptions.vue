@@ -1,5 +1,6 @@
 <template>
   <div class="p-4 space-y-6 bg-gray-50 rounded-lg shadow-inner font-sans">
+    <IndustrySimilarityHeatmap :width="250" :height="250" />
     <!-- Dataset Selection -->
     <div>
       <h3 class="text-sm font-semibold text-gray-600 mb-2">Active Dataset</h3>
@@ -57,9 +58,13 @@
 import { defineComponent } from 'vue';
 import { useScaleStore } from '../stores/scaleStore';
 import { storeToRefs } from 'pinia';
+import IndustrySimilarityHeatmap from './IndustrySimilarityHeatmap.vue';
 
 export default defineComponent({
   name: 'ScaleOptions',
+  components: {
+    IndustrySimilarityHeatmap,
+  },
   setup() {
     const store = useScaleStore();
     const {

@@ -1,19 +1,5 @@
 <template>
   <div class="flex space-x-6 p-4">
-    <!-- LEFT: Heatmap -->
-    <div class="w-min">
-      <h1 class="text-left text-lg font-bold mb-4 ">Cosine Similarity</h1>
-      <IndustrySimilarityHeatmap
-        :useWeightedMean="true"
-        :width="200"
-        :height="200"
-        @cell-click="onSimilarityCellClick"
-      />
-      <p class="mt-2 text-sm text-gray-600 italic">
-        To see the industries with the strongest conflicting interests, click the cell with the most negative similarity value. This will tip the bias scale furthest and make the metaphor most informative.
-      </p>
-    </div>
-
     <!-- RIGHT: Scale + Detail -->
     <div class="flex-1 flex flex-col space-y-6">
       <!-- Scale + Detail Panel -->
@@ -144,15 +130,11 @@
 
 <script>
 import * as d3 from 'd3';
-import IndustrySimilarityHeatmap from './IndustrySimilarityHeatmap.vue';
 import { useScaleStore } from '../stores/scaleStore';
 import { storeToRefs } from 'pinia';
 
 export default {
   name: 'IndustrySentimentBubbles',
-  components : {
-    IndustrySimilarityHeatmap
-  },
   setup() {
     const store = useScaleStore();
     const {
@@ -201,6 +183,12 @@ export default {
       this.onFilterToggle();
       this.updateStylesOnly();
     },
+    leftIndustry() {
+      this.onFilterToggle();
+    },
+    rightIndustry() {
+      this.onFilterToggle();
+    }
   },
   mounted() {
     this.fetchData();
@@ -216,15 +204,6 @@ export default {
       // initial render & simulation start
       this.renderChart(this.leftNodes, this.$refs.svgLeft, d3.forceSimulation(), 'left');
       this.renderChart(this.rightNodes, this.$refs.svgRight, d3.forceSimulation(), 'right');
-    },
-
-    onSimilarityCellClick({ left, right }) {
-      // update the two industries and re-run the sim
-      console.log("Doing a click")
-      this.store.setLeftIndustry(left);
-      this.store.setRightIndustry(right);
-      this.onFilterToggle();
-      this.updateStylesOnly();
     },
 
     onFilterToggle() {
