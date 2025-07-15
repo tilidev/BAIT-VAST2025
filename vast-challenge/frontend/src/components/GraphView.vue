@@ -1,10 +1,13 @@
 <template>
-  <div class="w-full h-full" ref="el">
-    <AdjacencyMatrix v-if="width > 0 && height > 0" class="flex-auto" :data="sentimentMatrixData"
+  <div class="flex flex-col w-full h-full">
+    <h3 class="text-lg font-semibold mb-3 text-gray-700">Topic Sentiments {{filterKey}}</h3>
+    <div class="flex-1 w-full" ref="el">
+      <AdjacencyMatrix v-if="width > 0 && height > 0" class="w-full h-full" :data="sentimentMatrixData"
       :rowLabels="personLabels" :colLabels="topicLabels" :colorScale="sentimentColorScaleLinear"
       :cellFilter="filterSentimentCells(filterKey)" :tooltipFormatter="sentimentTooltipFormatter" :width="width"
       :height="height" :highlightedRows="highlightedPeople" :highlightedCols="highlightedTopics"
       @row-label-click="togglePersonHighlight" @col-label-click="toggleTopicHighlight" />
+    </div>
   </div>
 </template>
 
@@ -93,7 +96,7 @@ export default defineComponent({
         });
       });
       return Array.from(topics).sort();
-    },
+    }
   },
   methods: {
     filterSentimentCells(filterValue: string): (cell: MatrixCell) => boolean {
