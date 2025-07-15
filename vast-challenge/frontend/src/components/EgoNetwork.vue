@@ -80,6 +80,144 @@ export default {
       }
       return html
     },
+    groupNodesByTopic() {
+      if (this.selectedType !== 'ENTITY_PERSON') return {}
+      
+      const topicGroups = {}
+      this.nodes.forEach(node => {
+        if (node.type === 'TOPIC') {
+          if (!topicGroups[node.id]) {
+            topicGroups[node.id] = {
+              topic: node,
+              relatedNodes: []
+            }
+          }
+        }
+      })
+
+      // Find nodes connected to each topic through links
+      this.links.forEach(link => {
+        const sourceNode = this.nodes.find(n => n.id === link.source.id || n.id === link.source)
+        const targetNode = this.nodes.find(n => n.id === link.target.id || n.id === link.target)
+        
+        if (sourceNode?.type === 'TOPIC' && targetNode && targetNode.type !== 'TOPIC' && targetNode.id !== this.selectedNode) {
+          if (topicGroups[sourceNode.id]) {
+            topicGroups[sourceNode.id].relatedNodes.push(targetNode)
+          }
+        } else if (targetNode?.type === 'TOPIC' && sourceNode && sourceNode.type !== 'TOPIC' && sourceNode.id !== this.selectedNode) {
+          if (topicGroups[targetNode.id]) {
+            topicGroups[targetNode.id].relatedNodes.push(sourceNode)
+          }
+        }
+      })
+
+      return topicGroups
+    },
+    computeConvexHull(points) {
+      if (points.length < 3) return points
+      
+      // Graham scan algorithm for convex hull
+      function cross(O, A, B) {
+        return (A.x - O.x) * (B.y - O.y) - (A.y - O.y) * (B.x - O.x)
+      }
+
+      points.sort((a, b) => a.x === b.x ? a.y - b.y : a.x - b.x)
+      
+      const lower = []
+      for (let i = 0; i < points.length; i++) {
+        while (lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], points[i]) <= 0) {
+          lower.pop()
+        }
+        lower.push(points[i])
+      }
+
+      const upper = []
+      for (let i = points.length - 1; i >= 0; i--) {
+        while (upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], points[i]) <= 0) {
+          upper.pop()
+        }
+        upper.push(points[i])
+      }
+
+      upper.pop()
+      lower.pop()
+      return lower.concat(upper)
+    },
+    drawTopicGroups(svg, topicGroups) {
+      const padding = 30
+      
+      Object.entries(topicGroups).forEach(([topicId, group]) => {
+        if (group.relatedNodes.length === 0) return
+        
+        const allNodes = [group.topic, ...group.relatedNodes]
+        const points = allNodes.map(node => ({ x: node.x, y: node.y }))
+        
+        if (points.length < 2) return
+        
+        if (points.length === 2) {
+          // Draw line between two points with padding
+          const [p1, p2] = points
+          const dx = p2.x - p1.x
+          const dy = p2.y - p1.y
+          const length = Math.sqrt(dx * dx + dy * dy)
+          const unitX = dx / length
+          const unitY = dy / length
+          const perpX = -unitY
+          const perpY = unitX
+          
+          const hull = [
+            { x: p1.x + perpX * padding, y: p1.y + perpY * padding },
+            { x: p2.x + perpX * padding, y: p2.y + perpY * padding },
+            { x: p2.x - perpX * padding, y: p2.y - perpY * padding },
+            { x: p1.x - perpX * padding, y: p1.y - perpY * padding }
+          ]
+          
+          this.drawHull(svg, hull, group.topic.id)
+        } else {
+          // Add padding to points
+          const center = {
+            x: points.reduce((sum, p) => sum + p.x, 0) / points.length,
+            y: points.reduce((sum, p) => sum + p.y, 0) / points.length
+          }
+          
+          const paddedPoints = points.map(p => {
+            const dx = p.x - center.x
+            const dy = p.y - center.y
+            const distance = Math.sqrt(dx * dx + dy * dy)
+            const scale = distance === 0 ? 1 : (distance + padding) / distance
+            return {
+              x: center.x + dx * scale,
+              y: center.y + dy * scale
+            }
+          })
+          
+          const hull = this.computeConvexHull(paddedPoints)
+          this.drawHull(svg, hull, group.topic.id)
+        }
+      })
+    },
+    drawHull(svg, hull, topicId) {
+      const types = [...new Set(this.nodes.map(d => d.type))]
+      const color = d3.scaleOrdinal(d3.schemeCategory10).domain(types)
+      const topicColor = color('TOPIC')
+      
+      const line = d3.line()
+        .x(d => d.x)
+        .y(d => d.y)
+        .curve(d3.curveCardinalClosed.tension(0.3))
+      
+      svg.append('path')
+        .datum(hull)
+        .attr('class', 'topic-hull')
+        .attr('d', line)
+        .attr('fill', topicColor)  
+        .attr('fill-opacity', 0.1)
+        .attr('stroke', topicColor)
+        .attr('stroke-width', 2)
+        .attr('stroke-opacity', 0.4)
+        .attr('stroke-dasharray', '5,5')
+        .style('pointer-events', 'none')
+    },
     renderChart(reset_positions=true) {
       const r = 16
       const chartEl = this.$refs.chart
@@ -117,28 +255,66 @@ export default {
       })
       // spawn nodes with strategic positioning
       if (reset_positions) {
-        this.nodes.forEach(d => {
-          if (d.id === this.selectedNode) return;
+        if (this.selectedType === 'ENTITY_PERSON') {
+          // Group-based positioning for person ego networks
+          const topicGroups = this.groupNodesByTopic()
+          const topics = Object.keys(topicGroups)
+          const baseRadius = Math.min(w, h) * 0.25
           
-          let baseRadius = Math.min(w, h) * 0.1;
-          let spreadMultiplier = 1;
-          
-          if (d.type != this.selectedType && ['ENTITY_PERSON', 'TOPIC'].includes(d.type)) {
-            spreadMultiplier = 5;
-            baseRadius = Math.min(w, h) * 0.25;
-          }
-          
-          const angle = Math.random() * 2 * Math.PI;
-          const radius = baseRadius + (Math.random() * baseRadius * 0.5 * spreadMultiplier);
-          
-          d.x = w/2 + Math.cos(angle) * radius + 100;
-          d.y = h/2 + Math.sin(angle) * radius;
-        });
-      }
+          // Position topic nodes in a circle around the ego
+          topics.forEach((topicId, index) => {
+            const angle = (index / topics.length) * 2 * Math.PI
+            const topic = topicGroups[topicId].topic
+            topic.x = w/2 + Math.cos(angle) * baseRadius
+            topic.y = h/2 + Math.sin(angle) * baseRadius
+            
+            // Position related nodes around their topic
+            const relatedNodes = topicGroups[topicId].relatedNodes
+            relatedNodes.forEach((node, nodeIndex) => {
+              node.x = w/2 + (topic.x - w/2)/2
+              node.y = h/2 + (topic.y - h/2)/2
+            })
+          }) 
+        }
+        }
       const sim = d3.forceSimulation(this.nodes)
-        .force('link', d3.forceLink(this.links).id(d => d.id).distance(Math.min(w,h)*0.225).strength(1.5))
+        .force('link', d3.forceLink(this.links).id(d => d.id).distance(Math.min(w,h)*0.225).strength(1.1))
         .force('charge', d3.forceManyBody().strength(-200))
         .force('collision', d3.forceCollide().radius(r+3))
+
+      // Add topic grouping forces for person ego networks
+      if (this.selectedType === 'ENTITY_PERSON') {
+        const topicGroups = this.groupNodesByTopic()
+        
+        // Create attraction forces within topic groups
+        Object.values(topicGroups).forEach(group => {
+          if (group.relatedNodes.length === 0) return
+          
+          const allNodesInGroup = [group.topic, ...group.relatedNodes]
+          
+          // Use current topic position, not initial position
+          const topicNode = group.topic
+          
+          // Add attraction between nodes in the same group using forceLink instead of forceCenter
+          const groupLinks = []
+          
+          // Connect all nodes in group to the topic node (star pattern)
+          group.relatedNodes.forEach(node => {
+            groupLinks.push({
+              source: topicNode.id,
+              target: node.id
+            })
+          })
+          
+          if (groupLinks.length > 0) {
+            sim.force(`group-link-${group.topic.id}`, 
+              d3.forceLink(groupLinks)
+                .id(d => d.id)
+                .distance(60)
+                .strength(0.5))
+          }
+        })
+      }
 
       const ego = this.nodes.find(n=>n.id===this.selectedNode)
       if (ego) { ego.fx = w/2; ego.fy = h/2 }
@@ -230,7 +406,22 @@ export default {
         link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
             .attr('x2', d => d.target.x).attr('y2', d => d.target.y)
         nodeG.attr('transform', d => `translate(${d.x},${d.y})`)
+        
+        // Redraw topic group hulls on each tick for person ego networks
+        if (this.selectedType === 'ENTITY_PERSON') {
+          svg.selectAll('.topic-hull').remove()
+          const topicGroups = this.groupNodesByTopic()
+          this.drawTopicGroups(svg, topicGroups)
+        }
       })
+
+      // Draw initial topic groups for person ego networks
+      if (this.selectedType === 'ENTITY_PERSON') {
+        setTimeout(() => {
+          const topicGroups = this.groupNodesByTopic()
+          this.drawTopicGroups(svg, topicGroups)
+        }, 100)
+      }
 
       this.currentlyRenderedInDOM = true
     }
