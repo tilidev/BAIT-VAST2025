@@ -3,7 +3,8 @@
     <div id="content" class="h-full">
       <!-- eslint-disable-next-line vue/no-v-model-argument -->
       <GridLayout v-model:layout="layout" :col-num="colNum" :row-height="30" :is-draggable="isDraggable"
-        :is-resizable="isResizable" :vertical-compact="true" :use-css-transforms="true" class="h-full">
+        :is-resizable="isResizable" :vertical-compact="true" :use-css-transforms="true" class="h-full"
+        @layout-updated="handleLayoutUpdated">
         <GridItem v-for="item in layout" :key="item.i" :i="item.i" :x="item.x" :y="item.y" :w="item.w" :h="item.h"
           class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-300 ease-in-out hover:shadow-xl"
           drag-allow-from=".drag-handle" drag-ignore-from=".no-drag">
@@ -28,7 +29,7 @@
 
             <!-- item content -->
             <div class="no-drag p-4 h-full w-full">
-              <component :is="item.component" v-bind="item.props" />
+              <component :is="item.component" v-bind="item.props" v-on="item.listeners" />
             </div>
           </div>
         </GridItem>
@@ -55,6 +56,8 @@ import TopicSentimentOverview from './mini-visualizations/TopicSentimentOverview
 import TripDrilldownFilter from './mini-visualizations/TripDrilldownFilter.vue';
 import EgoNetwork from './EgoNetwork.vue';
 import TopicSentimentDistribution from './mini-visualizations/TopicSentimentDistribution.vue';
+import PersonOverview from './PersonOverview.vue';
+import PersonDetailView from './PersonDetailView.vue';
 
 
 interface LayoutItem {
@@ -66,6 +69,7 @@ interface LayoutItem {
   static?: boolean;
   component: string;
   props?: Record<string, any>;
+  listeners?: Record<string, (...args: any[]) => void>;
 }
 
 export default defineComponent({
@@ -87,6 +91,8 @@ export default defineComponent({
     TripDrilldownFilter,
     EgoNetwork,
     TopicSentimentDistribution,
+    PersonOverview,
+    PersonDetailView,
   },
   props: {
     initialLayout: {
@@ -102,11 +108,20 @@ export default defineComponent({
       default: true,
     },
   },
+  emits: ['layout-updated'],
   data() {
     return {
       layout: this.initialLayout,
       colNum: 12,
     };
+  },
+  watch: {
+    initialLayout: {
+      handler(newLayout) {
+        this.layout = newLayout;
+      },
+      deep: true,
+    },
   },
   methods: {
     removeItem(val: string) {
@@ -114,6 +129,9 @@ export default defineComponent({
       if (index !== -1) {
         this.layout.splice(index, 1);
       }
+    },
+    handleLayoutUpdated(newLayout: LayoutItem[]) {
+      this.$emit('layout-updated', newLayout);
     },
   },
 });

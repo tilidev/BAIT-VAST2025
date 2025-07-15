@@ -19,19 +19,8 @@
     <div class="flex-grow overflow-y-auto">
       <!-- Navigation -->
       <nav class="mb-6 flex flex-col space-y-4">
-        <button @click="setActiveTab('overview')"
-          :class="{ 'bg-blue-500 text-white': activeTab === 'overview', 'hover:bg-gray-200 dark:hover:bg-gray-700': activeTab !== 'overview' }"
-          class="p-2 rounded-md transition-colors duration-200 flex items-center"
-          :style="{ 'justify-content': sidebarExpanded ? 'flex-start' : 'center' }">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" :class="{ 'mr-2': sidebarExpanded }" fill="none"
-            viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-          </svg>
-          <span v-if="sidebarExpanded">Overview</span>
-        </button>
-        <button @click="setActiveTab('detailed-analysis')"
-          :class="{ 'bg-blue-500 text-white': activeTab === 'detailed-analysis', 'hover:bg-gray-200 dark:hover:bg-gray-700': activeTab !== 'detailed-analysis' }"
+        <button @click="setActiveTab('analysis')"
+          :class="{ 'bg-blue-500 text-white': activeTab === 'analysis', 'hover:bg-gray-200 dark:hover:bg-gray-700': activeTab !== 'analysis' }"
           class="p-2 rounded-md transition-colors duration-200 flex items-center"
           :style="{ 'justify-content': sidebarExpanded ? 'flex-start' : 'center' }">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" :class="{ 'mr-2': sidebarExpanded }" fill="none"
@@ -39,21 +28,14 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
-          <span v-if="sidebarExpanded">Detailed Analysis</span>
+          <span v-if="sidebarExpanded">Analysis</span>
         </button>
         <button @click="setActiveTab('trip-analysis')"
           :class="{ 'bg-blue-500 text-white': activeTab === 'trip-analysis', 'hover:bg-gray-200 dark:hover:bg-gray-700': activeTab !== 'trip-analysis' }"
           class="p-2 rounded-md transition-colors duration-200 flex items-center"
           :style="{ 'justify-content': sidebarExpanded ? 'flex-start' : 'center' }">
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M3 8.71v8.128c0 1.043 0 1.565.283 1.958s.778.558 1.768.888l1.165.388c1.367.456 2.05.684 2.739.591L9 20.657v-14a3 3 0 0 1-.34.031c-.54.019-1.074-.16-2.141-.515c-1.398-.466-2.097-.699-2.629-.462a1.5 1.5 0 0 0-.497.358C3 6.5 3 7.236 3 8.71m18 6.58V7.163c0-1.043 0-1.565-.283-1.958s-.778-.558-1.768-.888l-1.165-.388c-1.367-.456-2.05-.684-2.739-.591L15 3.343v14q.17-.025.34-.031c.54-.019 1.074.16 2.141.515c1.398.466 2.097.699 2.629.462a1.5 1.5 0 0 0 .497-.358C21 17.5 21 16.764 21 15.29" opacity="0.5"/><path fill="currentColor" d="M9.247 6.61q-.123.027-.247.047v14c.67-.104 1.269-.503 2.442-1.285l1.382-.922c.936-.624 1.404-.936 1.93-1.06q.12-.03.246-.047v-14c-.67.103-1.269.503-2.442 1.284l-1.382.922c-.936.624-1.404.936-1.93 1.06m8.235 11.218l.254.084z"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M3 8.71v8.128c0 1.043 0 1.565.283 1.958s.778.558 1.768.888l1.165.388c1.367.456 2.05.684 2.739.591L9 20.657v-14a3 3 0 0 1-.34.031c-.54.019-1.074-.16-2.141-.515c-1.398-.466-2.097-.699-2.629-.462a1.5 1.5 0 0 0-.497.358C3 6.5 3 7.236 3 8.71m18 6.58V7.163c0-1.043 0-1.565-.283-1.958s-.778-.558-1.768-.888l-1.165-.388c-1.367-.456-2.05-.684-2.739-.591L15 3.343v14q.17-.025.34-.031c.54-.019 1.074.16 2.141.515c1.398.466 2.097.699 2.629.462a1.5 1.5 0 0 0 .497-.358C21 17.5 21 16.764 21 15.29" opacity="0.5"/><path fill="currentColor" d="M9.247 6.61q-.123.027-.247.047v14c.67-.104 1.269-.503 2.442-1.285l1.382-.922c.936-.624 1.404-.936 1.93-1.06q.12-.03.246-.047v-14c-.67.103-1.269.503-2.442 1.284l-1.382.922c-.936.624-1.404.936-1.93 1.06m8.235 11.218l.254.084z"/></svg>
           <span v-if="sidebarExpanded">Trip Analysis</span>
-        </button>
-        <button @click="setActiveTab('person-analysis')"
-          :class="{ 'bg-blue-500 text-white': activeTab === 'person-analysis', 'hover:bg-gray-200 dark:hover:bg-gray-700': activeTab !== 'person-analysis' }"
-          class="p-2 rounded-md transition-colors duration-200 flex items-center"
-          :style="{ 'justify-content': sidebarExpanded ? 'flex-start' : 'center' }">
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M12 12q-1.65 0-2.825-1.175T8 8t1.175-2.825T12 4t2.825 1.175T16 8t-1.175 2.825T12 12m-8 8v-2.8q0-.85.438-1.562T5.6 14.55q1.55-.775 3.15-1.162T12 13t3.25.388t3.15 1.162q.725.375 1.163 1.088T20 17.2V20zm2-2h12v-.8q0-.275-.137-.5t-.363-.35q-1.35-.675-2.725-1.012T12 15t-2.775.338T6.5 16.35q-.225.125-.363.35T6 17.2zm6-8q.825 0 1.413-.587T14 8t-.587-1.412T12 6t-1.412.588T10 8t.588 1.413T12 10m0 8"/></svg>
-          <span v-if="sidebarExpanded">Person Analysis</span>
         </button>
         <button @click="setActiveTab('scale')"
           :class="{ 'bg-blue-500 text-white': activeTab === 'scale', 'hover:bg-gray-200 dark:hover:bg-gray-700': activeTab !== 'scale' }"
@@ -72,7 +54,7 @@
       <div v-if="sidebarExpanded" class="border-t border-gray-200 dark:border-gray-700 pt-4">
         <h2 class="text-lg font-semibold mb-2">Options</h2>
 
-        <div v-if="activeTab === 'overview'" class="space-y-4">
+        <div v-if="activeTab === 'analysis'" class="space-y-4">
           <EntityFilter />
           <InGraphFilter />
         </div>
@@ -80,8 +62,6 @@
         <div v-else-if="activeTab === 'trip-analysis'">
           <TripDrilldownFilter />
         </div>
-
-        <EntityFilter v-else-if="activeTab === 'detailed-analysis'" />
 
         <ScaleOptions v-else-if="activeTab === 'scale'" />
 

@@ -70,7 +70,7 @@
               style="pointer-events: stroke"
               @mouseover="handleHover(line, $event)"
               @mouseleave="handleLeave"
-              @click="$emit('select', line.id)"
+              @click="handleClick(line)"
             />
             <polyline
               :points="computePoints(line.values)"
@@ -120,6 +120,8 @@
 </template>
 
 <script>
+import { useLinkingStore } from '../stores/linkingStore';
+
 export default {
   name: 'PCPChart',
   props: {
@@ -127,6 +129,10 @@ export default {
     metrics: { type: Array, required: true },
     metricLabels: { type: Object, required: true },
     domains: { type: Object, required: true },
+  },
+  setup() {
+    const linkingStore = useLinkingStore();
+    return { linkingStore };
   },
   data() {
     return {
@@ -242,6 +248,14 @@ export default {
       this.tooltip.role = '';
       this.tooltip.metrics = null;
       this.$emit('leave');
+    },
+
+    handleClick(line) {
+      if (this.linkingStore.selectedPerson === line.id) {
+        this.linkingStore.setPersonId('');
+      } else {
+        this.linkingStore.setPersonId(line.id);
+      }
     },
     
     // Drag and drop methods
