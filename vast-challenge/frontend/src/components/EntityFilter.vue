@@ -73,7 +73,7 @@ export default {
     const typeOptions = [
       { label: 'Person', value: 'ENTITY_PERSON' },
       { label: 'Topic', value: 'TOPIC' },
-      { label: 'Industry', value: 'ENTITY_ORGANIZATION' },
+      // { label: 'Organization', value: 'ENTITY_ORGANIZATION' },
     ];
 
     const formatLabel = (id) => {
