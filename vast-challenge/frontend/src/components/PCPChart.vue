@@ -9,7 +9,34 @@
         <!-- Axes and ticks -->
         <g v-for="(metric, i) in metrics" :key="metric">
           <line :x1="xScale(i)" y1="0" :x2="xScale(i)" :y2="innerHeight" stroke="#ccc" />
-          <text :x="xScale(i)" :y="innerHeight + 20" text-anchor="middle" class="text-sm font-bold">
+          
+          <!-- Interactive background for axis label -->
+          <rect
+            :x="(dragState.isDragging && dragState.draggedIndex === i ? dragState.dragX : xScale(i)) - getTextWidth(metricLabels[metric]) / 2 - 8"
+            :y="innerHeight + 5"
+            :width="getTextWidth(metricLabels[metric]) + 16"
+            height="20"
+            rx="9"
+            ry="9"
+            :fill="getAxisBackgroundColor(i)"
+            :opacity="getAxisBackgroundOpacity(i)"
+            class="cursor-move"
+            @mousedown="startDrag(i, $event)"
+            @mouseover="handleAxisHover(i)"
+            @mouseleave="handleAxisLeave"
+          />
+          
+          <text 
+            :x="dragState.isDragging && dragState.draggedIndex === i ? dragState.dragX : xScale(i)" 
+            :y="innerHeight + 20" 
+            text-anchor="middle" 
+            class="text-sm font-bold cursor-move select-none pointer-events-none"
+            :class="{ 
+              'fill-blue-600': dragState.isDragging && dragState.draggedIndex === i, 
+              'fill-red-500': dragState.isDragging && dragState.dropIndex === i && dragState.dropIndex !== dragState.draggedIndex,
+              'opacity-50': dragState.isDragging && dragState.draggedIndex !== i
+            }"
+          >
             {{ metricLabels[metric] }}
           </text>
           <line :x1="xScale(i)-4" :x2="xScale(i)+4" :y1="yScale(metric, 0)" :y2="yScale(metric, 0)" stroke="#999" />
@@ -19,6 +46,18 @@
             {{ adjustedDomains[metric].max }}
           </text>
         </g>
+        
+        <!-- Drag preview line -->
+        <line 
+          v-if="dragState.isDragging && dragState.dropIndex !== -1 && dragState.dropIndex !== dragState.draggedIndex"
+          :x1="xScale(dragState.dropIndex)" 
+          :y1="-10" 
+          :x2="xScale(dragState.dropIndex)" 
+          :y2="innerHeight + 30" 
+          stroke="red" 
+          stroke-width="3" 
+          opacity="0.7"
+        />
 
         <!-- Polylines -->
         <g>
@@ -55,7 +94,28 @@
         </g>
       </g>
     </svg>
-    <slot name="tooltip"></slot>
+    <div
+      v-if="tooltip.visible"
+      :style="{
+        position: 'absolute',
+        left: tooltip.x + 'px',
+        top: tooltip.y + 'px'
+      }"
+      class="pointer-events-none p-3 rounded-lg shadow-lg bg-white border border-gray-200 text-sm text-gray-800 transition max-w-xs z-50"
+    >
+      <div class="font-semibold text-blue-700">{{ tooltip.name }}</div>
+      <div v-if="tooltip.role" class="text-gray-600 text-xs mt-1">
+        Role: {{ tooltip.role }}
+      </div>
+      <div v-if="tooltip.metrics" class="mt-2 space-y-1">
+        <div v-for="(value, metric) in filteredMetrics" :key="metric" class="flex justify-between text-xs">
+          <div v-if="metricLabels[metric]">
+            <span class="text-gray-600">{{ metricLabels[metric] || metric }}: </span>
+            <span class="text-gray-800 font-medium">{{ value }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -70,15 +130,31 @@ export default {
   },
   data() {
     return {
-      margin: { top: 20, right: 30, bottom: 40, left: 30 },
+      margin: { top: 20, right: 50, bottom: 40, left: 50 },
       hoveredPoints: null,
       hoveredId: null,
       jitter: 10,
       containerWidth: 0,
-      containerHeight: 0
+      containerHeight: 0,
+      tooltip: { visible: false, x: 0, y: 0, name: '', role: '', metrics: null },
+      dragState: {
+        isDragging: false,
+        draggedIndex: -1,
+        dropIndex: -1,
+        startX: 0,
+        dragX: 0
+      },
+      hoveredAxisIndex: -1
     };
   },
   computed: {
+    filteredMetrics() {
+        return Object.fromEntries(
+          Object
+            .entries(this.tooltip.metrics)
+            .filter(([metric, value]) => this.metricLabels[metric])
+      );
+    },
     innerWidth() {
       return this.containerWidth - this.margin.left - this.margin.right;
     },
@@ -106,6 +182,10 @@ export default {
   },
   mounted() {
     this.observeSize();
+    this.setupGlobalDragListeners();
+  },
+  beforeUnmount() {
+    this.removeGlobalDragListeners();
   },
   methods: {
     observeSize() {
@@ -138,18 +218,183 @@ export default {
     },
     handleHover(line, event) {
       this.hoveredId = line.id;
-      this.hoveredPoints = this.metrics.map((m, i) => ({ metric: m, x: this.xScale(i), y: this.yScale(m, line.values[m] || 0), value: line.values[m] || 0 }));
+      this.hoveredPoints = this.metrics.map((m, i) => ({
+        metric: m,
+        x: this.xScale(i),
+        y: this.yScale(m, line.values[m] || 0),
+        value: line.values[m] || 0
+      }));
+
+      const rect = this.$refs.container.getBoundingClientRect();
+      this.tooltip.x = event.clientX - rect.left + 10;
+      this.tooltip.y = event.clientY - rect.top + 10;
+      this.tooltip.name = line.name || line.id;
+      this.tooltip.role = line.role || '';
+      this.tooltip.metrics = line.values || {};
+      this.tooltip.visible = true;
+
       this.$emit('hover', line.id, event);
     },
     handleLeave() {
       this.hoveredPoints = null;
       this.hoveredId = null;
+      this.tooltip.visible = false;
+      this.tooltip.role = '';
+      this.tooltip.metrics = null;
       this.$emit('leave');
+    },
+    
+    // Drag and drop methods
+    startDrag(index, event) {
+      event.preventDefault();
+      this.dragState.isDragging = true;
+      this.dragState.draggedIndex = index;
+      this.dragState.startX = event.clientX;
+      this.dragState.dragX = this.xScale(index);
+      this.dragState.dropIndex = -1;
+      
+      document.body.style.cursor = 'grabbing';
+    },
+    
+    setupGlobalDragListeners() {
+      this.handleMouseMove = (event) => {
+        if (!this.dragState.isDragging) return;
+        
+        const rect = this.$refs.container.getBoundingClientRect();
+        const svgX = event.clientX - rect.left - this.margin.left;
+        
+        //update drag position
+        this.dragState.dragX = svgX;
+        
+        // Find the closest axis
+        let closestIndex = -1;
+        let minDistance = Infinity;
+        
+        for (let i = 0; i < this.metrics.length; i++) {
+          const axisX = this.xScale(i);
+          const distance = Math.abs(svgX - axisX);
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestIndex = i;
+          }
+        }
+        
+        // Only show drop indicator if we're close enough to an axis (within 50px)
+        if (minDistance < 50) {
+          this.dragState.dropIndex = closestIndex;
+        } else {
+          this.dragState.dropIndex = -1;
+        }
+      };
+      
+      this.handleMouseUp = () => {
+        if (this.dragState.isDragging) {
+          const { draggedIndex, dropIndex } = this.dragState;
+          
+          if (dropIndex !== -1 && dropIndex !== draggedIndex) {
+            // Emit reorder event
+            this.$emit('reorder-axes', draggedIndex, dropIndex);
+          }
+          
+          // Reset drag state
+          this.dragState.isDragging = false;
+          this.dragState.draggedIndex = -1;
+          this.dragState.dropIndex = -1;
+          this.dragState.dragX = 0;
+          document.body.style.cursor = '';
+        }
+      };
+      
+      document.addEventListener('mousemove', this.handleMouseMove);
+      document.addEventListener('mouseup', this.handleMouseUp);
+    },
+    
+    removeGlobalDragListeners() {
+      if (this.handleMouseMove) {
+        document.removeEventListener('mousemove', this.handleMouseMove);
+      }
+      if (this.handleMouseUp) {
+        document.removeEventListener('mouseup', this.handleMouseUp);
+      }
+    },
+    
+    handleAxisHover(index) {
+      if (!this.dragState.isDragging) {
+        // Show that axis is draggable
+        document.body.style.cursor = 'grab';
+      }
+      this.hoveredAxisIndex = index;
+    },
+    
+    handleAxisLeave() {
+      if (!this.dragState.isDragging) {
+        document.body.style.cursor = '';
+      }
+      this.hoveredAxisIndex = -1;
+    },
+    
+    // Helper methods for styling
+    getTextWidth(text) {
+      // Approximate text width calculation - could be improved with actual measurement
+      return text.length * 7; // Rough estimate for 14px font
+    },
+    
+    getAxisBackgroundColor(index) {
+      if (this.dragState.isDragging && this.dragState.draggedIndex === index) {
+        return '#3b82f6'; // Blue for dragged
+      }
+      if (this.dragState.isDragging && this.dragState.dropIndex === index && this.dragState.dropIndex !== this.dragState.draggedIndex) {
+        return '#ef4444'; // Red for drop target
+      }
+      if (this.hoveredAxisIndex === index) {
+        return '#6b7280'; // Gray for hover
+      }
+      return '#9ca3af'; // Default gray
+    },
+    
+    getAxisBackgroundOpacity(index) {
+      if (this.dragState.isDragging && this.dragState.draggedIndex === index) {
+        return 0.8;
+      }
+      if (this.dragState.isDragging && this.dragState.dropIndex === index && this.dragState.dropIndex !== this.dragState.draggedIndex) {
+        return 0.7;
+      }
+      if (this.hoveredAxisIndex === index) {
+        return 0.6;
+      }
+      return 0.3; // Default subtle background
     }
   }
 };
 </script>
 
 <style scoped>
-/* No extra styles; sizing via ResizeObserver and viewBox */
+/* Drag and drop styles */
+.select-none {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.cursor-move {
+  cursor: move;
+}
+
+.cursor-move:hover {
+  cursor: grab;
+}
+
+.cursor-move:active {
+  cursor: grabbing;
+}
+
+.pointer-events-none {
+  pointer-events: none;
+}
+
+/* Transition for smooth axis label color changes */
+text, rect {
+  transition: fill 0.2s ease-in-out, opacity 0.2s ease-in-out;
+}
 </style>
