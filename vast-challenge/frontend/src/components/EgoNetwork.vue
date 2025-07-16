@@ -2,8 +2,10 @@
   <div class="h-full flex flex-col">
     <h3 class="text-lg font-semibold mb-3 text-gray-700">Ego Network</h3>
     <div ref="chart" class="flex-1 relative w-full h-full">
-      <div v-if="!selectedNode && !currentlyRenderedInDOM" class="absolute inset-0 flex items-center justify-center text-gray-500 text-lg">
-        Select a node to view its ego network
+      <div v-if="!selectedNode && !currentlyRenderedInDOM" class="absolute inset-0 m-4 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-slate-50 p-4 text-center text-gray-400">
+        <i class="pi pi-share-alt text-4xl mb-4"></i>
+        <p class="text-xl font-semibold">Select a node to view its ego network</p>
+        <p class="text-sm mt-2">Click on a person or topic in other views to see their connections here.</p>
       </div>
     </div>
   </div>
