@@ -1,7 +1,7 @@
 <template>
-  <div class="flex flex-col h-full bg-white shadow rounded-lg p-4">
-    <div class="mb-2 text-center">
-      <h2 class="text-xl font-semibold text-gray-800">
+  <div class="w-full h-full flex flex-col relative">
+    <div class="flex justify-between items-center mb-3">
+      <h3 class="text-lg font-semibold text-gray-700">
         Dataset Details for
         <span v-if="personName" class="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-lg font-semibold border-2 border-blue-200 shadow-sm ml-2">
           {{ personName }}
@@ -9,7 +9,7 @@
         <span v-else class="inline-block px-3 py-1 bg-gray-100 text-gray-500 rounded-lg border-2 border-gray-200 ml-2">
           Select a person above
         </span>
-      </h2>
+      </h3>
       <div v-if="personRole" class="mt-1 text-sm text-gray-600">
         Role: {{ personRole }}
       </div>

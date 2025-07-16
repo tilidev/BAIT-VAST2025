@@ -1,6 +1,8 @@
 <template>
-  <div class="flex flex-col h-full bg-white shadow rounded-lg p-4">
-    <h2 class="text-xl font-semibold mb-2 text-center text-gray-800">Overview Person Activity</h2>
+  <div class="w-full h-full flex flex-col relative">
+    <div class="flex justify-between items-center mb-3">
+      <h3 class="text-lg font-semibold text-gray-700">Overview Person Activity</h3>
+    </div>
     <div class="flex-grow min-h-0">
       <PCPChart
         v-if="lines.length"

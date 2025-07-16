@@ -1,7 +1,7 @@
 <template>
   <div ref="container" class="w-full h-full relative">
     <svg
-      class="bg-white border block w-full h-full"
+      class="block w-full h-full"
       :viewBox="`0 0 ${containerWidth} ${containerHeight}`"
       preserveAspectRatio="none"
     >

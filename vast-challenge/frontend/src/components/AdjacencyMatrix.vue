@@ -137,7 +137,6 @@ export default {
         .append('svg')
         .attr('width', width)
         .attr('height', height)
-        .attr('class', 'rounded-lg shadow-md border')
         .on('mouseleave', () => {
           this.linkingStore.setHoverHighlights([]);
         });
