@@ -40,9 +40,9 @@
             {{ metricLabels[metric] }}
           </text>
           <line :x1="xScale(i)-4" :x2="xScale(i)+4" :y1="yScale(metric, 0)" :y2="yScale(metric, 0)" stroke="#999" />
-          <text :x="xScale(i)-6" :y="yScale(metric,0)+4" text-anchor="end" class="text-xs font-semibold">0</text>
+          <text :x="xScale(i)-6" :y="yScale(metric,0)-4" text-anchor="end" class="text-xs font-semibold">0</text>
           <line :x1="xScale(i)-4" :x2="xScale(i)+4" :y1="yScale(metric, adjustedDomains[metric].max)" :y2="yScale(metric, adjustedDomains[metric].max)" stroke="#999" />
-          <text :x="xScale(i)-6" :y="yScale(metric, adjustedDomains[metric].max)+4" text-anchor="end" class="text-xs font-semibold">
+          <text :x="xScale(i)-6" :y="yScale(metric, adjustedDomains[metric].max)-4" text-anchor="end" class="text-xs font-semibold">
             {{ adjustedDomains[metric].max }}
           </text>
         </g>

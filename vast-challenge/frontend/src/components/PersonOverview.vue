@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-full bg-white shadow rounded-lg p-4">
+  <div class="flex flex-col h-full bg-white">
     <h2 class="text-xl font-semibold mb-2 text-center text-gray-800">Overview Person Activity</h2>
     <div class="flex-grow min-h-0">
       <PCPChart

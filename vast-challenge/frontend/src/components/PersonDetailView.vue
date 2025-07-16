@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-full bg-white shadow rounded-lg p-4">
+  <div class="flex flex-col h-full bg-white p-1">
     <div class="mb-2 text-center">
       <h2 class="text-xl font-semibold text-gray-800">
         Dataset Details for
