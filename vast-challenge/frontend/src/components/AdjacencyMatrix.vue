@@ -251,6 +251,12 @@ export default {
         .text(d => rowLabelFormatter ? rowLabelFormatter(d) : d.toString())
         .on("click", (event, d) => {
           this.$emit('row-label-click', d);
+        })
+        .on("mouseover", (event, d) => {
+          this.$emit('row-label-mouseover', d);
+        })
+        .on("mouseout", (event, d) => {
+          this.$emit('row-label-mouseout', d);
         });
 
       // Column labels
@@ -272,6 +278,12 @@ export default {
         .text(d => colLabelFormatter ? colLabelFormatter(d) : d.toString())
         .on("click", (event, d) => {
           this.$emit('col-label-click', d);
+        })
+        .on("mouseover", (event, d) => {
+          this.$emit('col-label-mouseover', d);
+        })
+        .on("mouseout", (event, d) => {
+          this.$emit('col-label-mouseout', d);
         });
 
       this.updateHighlight();
@@ -282,6 +294,9 @@ export default {
       const { highlightedRows, highlightedCols } = this.$props;
       const hoveredCellHighlight = this.linkingStore.hoverHighlights.find(h => h.type === this.HighlightType.CELL);
       const hoveredCell = hoveredCellHighlight ? hoveredCellHighlight.value : null;
+      const hoveredPeople = this.linkingStore.hoverHighlights.filter(h => h.type === this.HighlightType.PERSON).map(h => h.value);
+      const hoveredTopics = this.linkingStore.hoverHighlights.filter(h => h.type === this.HighlightType.TOPIC).map(h => h.value);
+      const hoveredIndustries = this.linkingStore.hoverHighlights.filter(h => h.type === this.HighlightType.INDUSTRY).map(h => h.value);
 
       // Reset all styles first
       svgGroup.selectAll(".cell")
@@ -300,11 +315,11 @@ export default {
         .style("opacity", 1);
 
       svgGroup.selectAll(".row-label")
-        .filter(d => highlightedRows.includes(d))
+        .filter(d => highlightedRows.includes(d) || hoveredPeople.includes(d) || hoveredIndustries.includes(d))
         .style("font-weight", "bold");
 
       svgGroup.selectAll(".column-label text")
-        .filter(d => highlightedCols.includes(d))
+        .filter(d => highlightedCols.includes(d) || hoveredTopics.includes(d) || hoveredIndustries.includes(d))
         .style("font-weight", "bold");
 
       if (hoveredCell) {

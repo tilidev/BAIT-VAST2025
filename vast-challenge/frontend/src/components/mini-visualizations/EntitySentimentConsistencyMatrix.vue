@@ -47,7 +47,9 @@
           :colLabels="colLabels" :colorScale="sentimentColorScaleLinear" :tooltipFormatter="matrixTooltipFormatter"
           :cellFilter="filterUndefinedCells" :cellRounded="true" :rotateColLabels="false" :width="width" :height="height"
           :highlightedRows="highlightedPeople" :highlightedCols="selectedIndustries"
-          @row-label-click="togglePersonHighlight" @col-label-click="toggleIndustry" />
+          @row-label-click="togglePersonHighlight" @col-label-click="toggleIndustry"
+          @row-label-mouseover="addPersonHover" @row-label-mouseout="removePersonHover"
+          @col-label-mouseover="addIndustryHover" @col-label-mouseout="removeIndustryHover" />
       </div>
     </div>
   </div>
@@ -57,7 +59,7 @@
 import { defineComponent, ref, computed } from 'vue';
 import { useElementSize } from '@vueuse/core';
 import { useGraphStore } from '../../stores/graphStore';
-import { useLinkingStore } from '../../stores/linkingStore';
+import { useLinkingStore, HighlightType } from '../../stores/linkingStore';
 import { sentimentColorScaleLinear } from '../../utils/colors';
 import AdjacencyMatrix from '../AdjacencyMatrix.vue';
 import type { MatrixCell } from '../../types/matrixTypes';
@@ -84,6 +86,22 @@ export default defineComponent({
       linkingStore.toggleFilter({ type: 'industry', value: industry });
     }
 
+    function addPersonHover(personId: string) {
+      linkingStore.addHoverHighlight({ type: HighlightType.PERSON, value: personId });
+    }
+
+    function removePersonHover(personId: string) {
+      linkingStore.removeHoverHighlight({ type: HighlightType.PERSON, value: personId });
+    }
+
+    function addIndustryHover(industry: string) {
+      linkingStore.addHoverHighlight({ type: HighlightType.INDUSTRY, value: industry });
+    }
+
+    function removeIndustryHover(industry: string) {
+      linkingStore.removeHoverHighlight({ type: HighlightType.INDUSTRY, value: industry });
+    }
+
     return {
       el,
       width,
@@ -93,6 +111,10 @@ export default defineComponent({
       selectedIndustries,
       togglePersonHighlight,
       toggleIndustry,
+      addPersonHover,
+      removePersonHover,
+      addIndustryHover,
+      removeIndustryHover,
     };
   },
   props: {

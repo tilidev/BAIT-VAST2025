@@ -42,7 +42,9 @@
       :rowLabels="personLabels" :colLabels="topicLabels" :colorScale="sentimentColorScaleLinear"
       :cellFilter="filterSentimentCells(filterKey)" :tooltipFormatter="sentimentTooltipFormatter" :width="width"
       :height="height" :highlightedRows="highlightedPeople" :highlightedCols="highlightedTopics"
-      @row-label-click="togglePersonHighlight" @col-label-click="toggleTopicHighlight" />
+      @row-label-click="togglePersonHighlight" @col-label-click="toggleTopicHighlight"
+      @row-label-mouseover="addPersonHover" @row-label-mouseout="removePersonHover"
+      @col-label-mouseover="addTopicHover" @col-label-mouseout="removeTopicHover" />
     </div>
   </div>
 </template>
@@ -51,7 +53,7 @@
 import { defineComponent, type PropType, ref, computed } from 'vue';
 import { useElementSize } from '@vueuse/core';
 import { useGraphStore } from '../stores/graphStore';
-import { useLinkingStore } from '../stores/linkingStore';
+import { useLinkingStore, HighlightType } from '../stores/linkingStore';
 import AdjacencyMatrix from './AdjacencyMatrix.vue';
 import type { MatrixCell } from '../types/matrixTypes';
 import { sentimentColorScaleLinear } from '../utils/colors';
@@ -85,6 +87,22 @@ export default defineComponent({
       linkingStore.toggleFilter({ type: 'topic', value: topicId });
     }
 
+    function addPersonHover(personId: string) {
+      linkingStore.addHoverHighlight({ type: HighlightType.PERSON, value: personId });
+    }
+
+    function removePersonHover(personId: string) {
+      linkingStore.removeHoverHighlight({ type: HighlightType.PERSON, value: personId });
+    }
+
+    function addTopicHover(topicId: string) {
+      linkingStore.addHoverHighlight({ type: HighlightType.TOPIC, value: topicId });
+    }
+
+    function removeTopicHover(topicId: string) {
+      linkingStore.removeHoverHighlight({ type: HighlightType.TOPIC, value: topicId });
+    }
+
     return {
       graphStore,
       linkingStore,
@@ -95,6 +113,10 @@ export default defineComponent({
       highlightedTopics,
       togglePersonHighlight,
       toggleTopicHighlight,
+      addPersonHover,
+      removePersonHover,
+      addTopicHover,
+      removeTopicHover,
     };
   },
   data() {
