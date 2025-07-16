@@ -298,6 +298,9 @@ export default {
       const hoveredTopics = this.linkingStore.hoverHighlights.filter(h => h.type === this.HighlightType.TOPIC).map(h => h.value);
       const hoveredIndustries = this.linkingStore.hoverHighlights.filter(h => h.type === this.HighlightType.INDUSTRY).map(h => h.value);
 
+      const allHoveredRows = hoveredPeople;
+      const allHoveredCols = [...hoveredTopics, ...hoveredIndustries];
+
       // Reset all styles first
       svgGroup.selectAll(".cell")
         .style("stroke", "#ccc").style("stroke-width", 1)
@@ -305,27 +308,36 @@ export default {
       svgGroup.selectAll(".row-label").style("font-weight", "normal");
       svgGroup.selectAll(".column-label text").style("font-weight", "normal");
 
-      // Apply highlighting based on props
-      if (highlightedRows.length > 0 || highlightedCols.length > 0) {
+      // Apply highlighting based on props and hovers
+      const hasHighlight = highlightedRows.length > 0 || highlightedCols.length > 0;
+      const hasHover = allHoveredRows.length > 0 || allHoveredCols.length > 0;
+
+      if (hasHighlight || hasHover) {
         svgGroup.selectAll(".cell").style("opacity", 0.3);
+
+        svgGroup.selectAll(".cell")
+          .filter(d => 
+            highlightedRows.includes(d.row) || 
+            highlightedCols.includes(d.col) ||
+            allHoveredRows.includes(d.row) ||
+            allHoveredCols.includes(d.col)
+          )
+          .style("opacity", 1);
       }
 
-      svgGroup.selectAll(".cell")
-        .filter(d => highlightedRows.includes(d.row) || highlightedCols.includes(d.col))
-        .style("opacity", 1);
-
       svgGroup.selectAll(".row-label")
-        .filter(d => highlightedRows.includes(d) || hoveredPeople.includes(d) || hoveredIndustries.includes(d))
+        .filter(d => highlightedRows.includes(d) || allHoveredRows.includes(d))
         .style("font-weight", "bold");
 
       svgGroup.selectAll(".column-label text")
-        .filter(d => highlightedCols.includes(d) || hoveredTopics.includes(d) || hoveredIndustries.includes(d))
+        .filter(d => highlightedCols.includes(d) || allHoveredCols.includes(d))
         .style("font-weight", "bold");
 
       if (hoveredCell) {
         svgGroup.selectAll(".cell")
           .filter(d => d.row === hoveredCell.row && d.col === hoveredCell.col)
           .style("stroke", "#fd5825").style("stroke-width", 4)
+          .style("opacity", 1) // Ensure hovered cell is fully visible
           .style("stroke-linejoin", "round").style("stroke-linecap", "round").raise();
 
         svgGroup.selectAll(".row-label")
