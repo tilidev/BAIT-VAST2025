@@ -22,6 +22,7 @@
         :domains="domains"
         :lines="lines"
         class="w-full h-full"
+        :disable-selection-highlighting="true"
         @reorder-axes="onReorderAxes"
       />
       <div v-else class="flex items-center justify-center h-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-gray-500 text-sm">

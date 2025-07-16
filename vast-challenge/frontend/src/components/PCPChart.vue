@@ -39,10 +39,11 @@
           >
             {{ metricLabels[metric] }}
           </text>
-          <line :x1="xScale(i)-4" :x2="xScale(i)+4" :y1="yScale(metric, 0)" :y2="yScale(metric, 0)" stroke="#999" />
-          <text :x="xScale(i)-6" :y="yScale(metric,0)+4" text-anchor="end" class="text-xs font-semibold">0</text>
-          <line :x1="xScale(i)-4" :x2="xScale(i)+4" :y1="yScale(metric, adjustedDomains[metric].max)" :y2="yScale(metric, adjustedDomains[metric].max)" stroke="#999" />
-          <text :x="xScale(i)-6" :y="yScale(metric, adjustedDomains[metric].max)+4" text-anchor="end" class="text-xs font-semibold">
+          <!-- Min value label (0) -->
+          <text :x="xScale(i)" :y="innerHeight + 5" text-anchor="middle" class="text-xs fill-black">0</text>
+
+          <!-- Max value label -->
+          <text :x="xScale(i)" :y="-5" text-anchor="middle" class="text-xs fill-black">
             {{ adjustedDomains[metric].max }}
           </text>
         </g>
@@ -74,23 +75,25 @@
             />
             <polyline
               :points="computePoints(line.values)"
-              :stroke="line.color"
+              :stroke="getLineStyle(line).stroke"
               fill="none"
-              :opacity="line.opacity"
-              :stroke-width="line.strokeWidth || 3"
+              :opacity="getLineStyle(line).opacity"
+              :stroke-width="getLineStyle(line).strokeWidth"
               class="cursor-pointer"
               :transform="`translate(${getOffset(line.id).x}, ${getOffset(line.id).y})`"
-              style="pointer-events: none; transition: transform 0.3s ease-out"
+              style="pointer-events: none; transition: transform 0.3s ease-out, opacity 0.3s ease-out, stroke-width 0.3s ease-out"
             />
           </g>
         </g>
 
         <!-- Hover markers -->
         <g v-if="hoveredPoints">
-          <circle v-for="pt in hoveredPoints" :key="pt.metric" :cx="pt.x" :cy="pt.y" r="4" fill="red" />
-          <text v-for="pt in hoveredPoints" :key="pt.metric+'-label'" :x="pt.x+6" :y="pt.y-6" class="text-xs font-semibold">
-            {{ pt.value }}
-          </text>
+          <g v-for="pt in hoveredPoints" :key="pt.metric">
+            <circle :cx="pt.x" :cy="pt.y" r="4" fill="#6b7280" />
+            <text :x="pt.x+6" :y="pt.y-6" class="text-xs fill-black">
+              {{ pt.value }}
+            </text>
+          </g>
         </g>
       </g>
     </svg>
@@ -121,6 +124,7 @@
 
 <script>
 import { useLinkingStore } from '../stores/linkingStore';
+import { neutralBaseColor } from '../utils/colors';
 
 export default {
   name: 'PCPChart',
@@ -129,6 +133,7 @@ export default {
     metrics: { type: Array, required: true },
     metricLabels: { type: Object, required: true },
     domains: { type: Object, required: true },
+    disableSelectionHighlighting: { type: Boolean, default: false }
   },
   setup() {
     const linkingStore = useLinkingStore();
@@ -154,6 +159,9 @@ export default {
     };
   },
   computed: {
+    selectedPerson() {
+      return this.linkingStore.selectedPerson;
+    },
     filteredMetrics() {
         return Object.fromEntries(
           Object
@@ -221,6 +229,34 @@ export default {
       const { idx, count } = this.jitterInfo[id] || { idx: 0, count: 1 };
       const offset = (idx - (count - 1) / 2) * this.jitter;
       return { x: offset, y: -offset };
+    },
+    getLineStyle(line) {
+      const isSelected = this.selectedPerson === line.id;
+      const isHovered = this.hoveredId === line.id;
+      const hasSelection = this.selectedPerson !== '' && !this.disableSelectionHighlighting;
+
+      let stroke = line.color;
+      let opacity = line.opacity || 0.7;
+      let strokeWidth = line.strokeWidth || 2;
+
+      if (hasSelection) {
+        if (isSelected) {
+          stroke = neutralBaseColor;
+          opacity = 1;
+          strokeWidth = 4;
+        } else {
+          opacity = 0.1;
+          strokeWidth = 1;
+        }
+      }
+
+      if (isHovered) {
+        stroke = neutralBaseColor;
+        opacity = 1;
+        strokeWidth = 3;
+      }
+
+      return { stroke, opacity, strokeWidth };
     },
     handleHover(line, event) {
       this.hoveredId = line.id;
@@ -349,8 +385,9 @@ export default {
     
     // Helper methods for styling
     getTextWidth(text) {
-      // Approximate text width calculation - could be improved with actual measurement
-      return text.length * 7; // Rough estimate for 14px font
+      // Approximate text width calculation for text-xs (12px font)
+      // A rough estimate: 12px font usually has a character width of about 6-7px
+      return text.toString().length * 7; 
     },
     
     getAxisBackgroundColor(index) {
