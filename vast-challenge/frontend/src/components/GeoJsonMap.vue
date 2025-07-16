@@ -61,6 +61,7 @@ export default {
         default: '#e5e7eb',
       },
       zoneColors,
+      placesLayer: null,
     };
   },
 
@@ -217,6 +218,7 @@ export default {
         .on('mousedown', this.forwardEventToBrush);
 
       // Draw dynamic places
+      this.placesLayer = this.g.append('g').attr('class','places-layer');
       this.drawPlaces();
     },
 
@@ -295,12 +297,12 @@ export default {
     },
 
     drawPlaces() {
-      if (!this.g||!this.projection||!this.places) return;
+      if (!this.g || !this.projection || !this.places || !this.placesLayer) return;
       // keep marker sizing consistent with zoom
       const { k = 1 } = d3.zoomTransform(this.g.node());
       const { highlightedPlaceIds, highlightedTrips } = this;
       const tooltip = this.tooltip;
-      let allPlaces = toRaw(this.places).filter(p=>p.lon!=null&&p.lat!=null);
+      let allPlaces = toRaw(this.places).filter(p => p.lon != null && p.lat != null);
       const activeFilters = this.activeFilters;
       const excludedFilters = this.excludedFilters;
       const hasFilters = activeFilters.length > 0 || excludedFilters.length > 0;
@@ -330,48 +332,51 @@ export default {
         return passesActive && passesExcl;
       });
 
-      if (this.placesLayer) this.placesLayer.remove();
-      this.placesLayer = this.g.append('g').attr('class','places-layer');
+      const circles = this.placesLayer.selectAll('circle').data(allPlaces, d => d.id);
 
-      const circles = this.placesLayer.selectAll('circle').data(allPlaces, d=>d.id);
       circles.exit().remove();
-      circles.enter().append('circle').merge(circles)
-        .attr('cx', d=>this.projection([d.lat,d.lon])[0])
-        .attr('cy', d=>this.projection([d.lat,d.lon])[1])
-        // base radius 6px, stroke 2px if highlighted
-        .attr('r', 6 / k)
-        .attr('r',  d=>{
-          const highlighted = this.highlightedPlaceIds.includes(d.id)
-            || (this.highlightedTrips.length>0&&d.trip_ids?.some(id=>this.highlightedTrips.includes(id)));
-          return (highlighted?10:6) / k;
+
+      const enterSelection = circles.enter().append('circle')
+        .on('mouseover', (e, d) => {
+          if (!this.isBrushing) {
+            this.linkingStore.setHoverHighlights([{ type: 'place', value: d.id }]);
+            tooltip.classed('hidden', false)
+              .html(`<div class="font-semibold text-blue-700">${d.name || d.label || 'Unknown Place'}</div>
+                   <div>Zone: ${d.zone || 'N/A'}</div>
+                   <div>Detail: ${d.zone_detail || 'N/A'}</div>
+                   ${d.in_graph?.length ? `<div>Graph Links: ${d.in_graph.join(', ')}</div>` : ''}`);
+          }
         })
-        .attr('fill', d=>this.zoneColors[d.zone]||this.zoneColors.default)
+        .on('mousemove', e => { if (!this.isBrushing) tooltip.style('left', `${e.pageX + 10}px`).style('top', `${e.pageY - 28}px`); })
+        .on('mouseout', () => {
+          if (!this.isBrushing) {
+            this.linkingStore.setHoverHighlights([]);
+            tooltip.classed('hidden', true);
+          }
+        })
+        .on('mousedown', this.forwardEventToBrush);
+
+      enterSelection.merge(circles)
+        .attr('cx', d => this.projection([d.lat, d.lon])[0])
+        .attr('cy', d => this.projection([d.lat, d.lon])[1])
+        .attr('r', d => {
+          const highlighted = highlightedPlaceIds.includes(d.id)
+            || (highlightedTrips.length > 0 && d.trip_ids?.some(id => highlightedTrips.includes(id)));
+          return (highlighted ? 10 : 6) / k;
+        })
+        .attr('fill', d => this.zoneColors[d.zone] || this.zoneColors.default)
         .attr('stroke', '#ef4444')
-        .attr('stroke-width', d=>{
-          const highlighted = this.highlightedPlaceIds.includes(d.id)
-            || (this.highlightedTrips.length>0&&d.trip_ids?.some(id=>this.highlightedTrips.includes(id)));
-          return (highlighted?4:0) / k;
+        .attr('stroke-width', d => {
+          const highlighted = highlightedPlaceIds.includes(d.id)
+            || (highlightedTrips.length > 0 && d.trip_ids?.some(id => highlightedTrips.includes(id)));
+          return (highlighted ? 4 : 0) / k;
         })
         .style('opacity', d => {
-          const highlighted = this.highlightedPlaceIds.includes(d.id)
-            || (this.highlightedTrips.length>0&&d.trip_ids?.some(id=>this.highlightedTrips.includes(id)));
-          const hasHighlight = this.highlightedPlaceIds.length>0||this.highlightedTrips.length>0;
-          return hasHighlight ? (highlighted?1:0.1) : 1;
-        })
-        .on('mouseover', (e,d)=>{ if (!this.isBrushing) {
-          this.linkingStore.setHoverHighlights([{ type: 'place', value: d.id }]);
-          tooltip.classed('hidden',false)
-            .html(`<div class="font-semibold text-blue-700">${d.name||d.label||'Unknown Place'}</div>
-                   <div>Zone: ${d.zone||'N/A'}</div>
-                   <div>Detail: ${d.zone_detail||'N/A'}</div>
-                   ${d.in_graph?.length?`<div>Graph Links: ${d.in_graph.join(', ')}</div>`:''}`);
-        }})
-        .on('mousemove', e=>{ if (!this.isBrushing) tooltip.style('left',`${e.pageX+10}px`).style('top',`${e.pageY-28}px`); })
-        .on('mouseout', ()=>{ if (!this.isBrushing) {
-          this.linkingStore.setHoverHighlights([]);
-          tooltip.classed('hidden',true);
-        }})
-        .on('mousedown', this.forwardEventToBrush);
+          const highlighted = highlightedPlaceIds.includes(d.id)
+            || (highlightedTrips.length > 0 && d.trip_ids?.some(id => highlightedTrips.includes(id)));
+          const hasHighlight = highlightedPlaceIds.length > 0 || highlightedTrips.length > 0;
+          return hasHighlight ? (highlighted ? 1 : 0.1) : 1;
+        });
     },
   }
 };
