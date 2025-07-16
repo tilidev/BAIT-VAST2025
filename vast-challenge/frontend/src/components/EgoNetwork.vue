@@ -12,7 +12,15 @@
 <script>
 import * as d3 from 'd3'
 import { useEntityStore } from '../stores/entityStore'
-import { useLinkingStore } from '../stores/linkingStore'
+import { useLinkingStore, HighlightType } from '../stores/linkingStore'
+
+const nodeTypeToHighlightType = {
+  'ENTITY_PERSON': HighlightType.PERSON,
+  'TOPIC': HighlightType.TOPIC,
+  'ENTITY_ORGANIZATION': HighlightType.INDUSTRY,
+  'PLACE': HighlightType.PLACE,
+  'PLAN': HighlightType.PLAN,
+};
 
 // Mapping node.type to PrimeIcon classes
 const iconClass = {
@@ -38,6 +46,12 @@ export default {
     }
   },
   computed: {
+    hoveredIds() {
+      return this.linkingStore.hoverHighlights.map(h => {
+        if (typeof h.value === 'string') return h.value;
+        return null;
+      }).filter(Boolean);
+    },
     selectedNode() {
       return this.linkingStore.selectedPerson || this.linkingStore.selectedTopic
     },
@@ -53,9 +67,38 @@ export default {
   },
   watch: {
     selectedNode(val) { if (val && this.selectedType) this.fetchData() },
-    filterValue() { if (this.nodes.length) this.renderChart(false) }
+    filterValue() { if (this.nodes.length) this.renderChart(false) },
+    hoveredIds: {
+      handler() { this.updateHighlights() },
+      deep: true
+    }
   },
   methods: {
+    updateHighlights() {
+      if (!this.$refs.chart) return;
+      const svg = d3.select(this.$refs.chart).select('svg');
+      if (svg.empty()) return;
+
+      const self = this;
+
+      // Highlight nodes
+      svg.selectAll('.nodes-group g').select('circle')
+        .transition().duration(100)
+        .attr('stroke', d => self.hoveredIds.includes(d.id) ? '#000' : '#fff')
+        .attr('stroke-width', d => self.hoveredIds.includes(d.id) ? 3 : 1);
+
+      // Highlight topic hulls
+      svg.selectAll('.topic-hull')
+        .transition().duration(100)
+        .attr('fill-opacity', function() {
+            const topicId = d3.select(this).attr('data-topic-id');
+            return self.hoveredIds.includes(topicId) ? 0.2 : 0.1;
+        })
+        .attr('stroke-opacity', function() {
+            const topicId = d3.select(this).attr('data-topic-id');
+            return self.hoveredIds.includes(topicId) ? 0.8 : 0.4;
+        });
+    },
     async fetchData() {
       const res = await fetch(`/api/ego-network?node_id=${this.selectedNode}&node_type=${this.selectedType}`)
       const data = await res.json()
@@ -317,8 +360,9 @@ export default {
       svg.append('path')
         .datum(hull)
         .attr('class', 'topic-hull')
+        .attr('data-topic-id', topicId)
         .attr('d', line)
-        .attr('fill', topicColor)  
+        .attr('fill', topicColor)
         .attr('fill-opacity', 0.1)
         .attr('stroke', topicColor)
         .attr('stroke-width', 2)
@@ -332,6 +376,7 @@ export default {
             .attr('stroke-opacity', 0.8)
           if (topicNode) {
             tooltip.html(this.formatTooltip(topicNode)).classed('hidden', false)
+            this.linkingStore.addHoverHighlight({ type: HighlightType.TOPIC, value: topicId })
           }
         })
         .on('mousemove', event => {
@@ -360,6 +405,9 @@ export default {
             .attr('fill-opacity', 0.1)
             .attr('stroke-opacity', 0.4)
           tooltip.classed('hidden', true)
+          if (topicNode) {
+            this.linkingStore.removeHoverHighlight({ type: HighlightType.TOPIC, value: topicId })
+          }
         })
     },
     renderChart(reset_positions=true) {
@@ -544,6 +592,10 @@ export default {
       nodeG.on('mouseover', (e,d) => {
         d3.select(e.currentTarget).select('circle').attr('stroke','#000').attr('stroke-width',2)
         tooltip.html(this.formatTooltip(d)).classed('hidden',false)
+        const highlightType = nodeTypeToHighlightType[d.type]
+        if (highlightType) {
+          this.linkingStore.addHoverHighlight({ type: highlightType, value: d.id })
+        }
       })
       .on('mousemove', event => {
         const [mx, my] = d3.pointer(event, chartEl)
@@ -566,9 +618,13 @@ export default {
 
         tooltip.style('left', x + 'px').style('top', y + 'px')
       })
-      .on('mouseout', e => {
+      .on('mouseout', (e, d) => {
         d3.select(e.currentTarget).select('circle').attr('stroke','#fff').attr('stroke-width',1)
         tooltip.classed('hidden',true)
+        const highlightType = nodeTypeToHighlightType[d.type]
+        if (highlightType) {
+          this.linkingStore.removeHoverHighlight({ type: highlightType, value: d.id })
+        }
       })
 
       sim.on('tick', () => {
