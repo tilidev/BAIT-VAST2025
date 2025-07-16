@@ -31,7 +31,7 @@ export default {
     },
     margin: {
       type: Object,
-      default: () => ({ top: 150, right: 0, bottom: 10, left: 150 }),
+      default: () => ({ top: 150, right: 10, bottom: 10, left: 150 }),
     },
     colorScale: {
       type: Function,
