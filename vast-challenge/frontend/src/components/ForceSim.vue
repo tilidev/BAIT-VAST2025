@@ -236,7 +236,7 @@ export default {
     isActive(node) {
       return this.activeDataset === 'all' ||
              node.data.dataset === this.activeDataset ||
-             node.data.dataset === 'all';
+             node.data.dataset === 'all' && this.activeDataset != "jo";
     },
 
     updateStylesOnly() {
