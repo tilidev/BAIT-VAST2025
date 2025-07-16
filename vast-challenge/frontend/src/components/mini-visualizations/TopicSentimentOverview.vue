@@ -61,6 +61,7 @@
 import * as d3 from 'd3';
 import { useGraphStore } from '../../stores/graphStore';
 import { useLinkingStore, FilterType, HighlightType } from '../../stores/linkingStore';
+import { sentimentColorScaleLinear } from '../../utils/colors';
 
 export default {
   name: 'TopicSentimentOverview',
@@ -226,7 +227,7 @@ export default {
         .domain([-1, 1])
         .range([0, width]);
 
-      const colorScale = d3.scaleSequential(d3.interpolateRdYlBu).domain([1, -1]);
+      const colorScale = sentimentColorScaleLinear;
 
       const t = svg.transition().duration(transitionDuration);
 

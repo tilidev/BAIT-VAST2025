@@ -1,5 +1,6 @@
 <template>
   <div class="p-4 space-y-6 bg-gray-50 rounded-lg shadow-inner font-sans">
+    <h3 class="text-sm font-semibold text-gray-600 mb-2">Industry Cosine Similarity</h3>
     <IndustrySimilarityHeatmap :width="250" :height="250" />
     <!-- Dataset Selection -->
     <div>

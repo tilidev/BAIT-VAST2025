@@ -31,7 +31,7 @@ export default {
     },
     margin: {
       type: Object,
-      default: () => ({ top: 150, right: 0, bottom: 10, left: 150 }),
+      default: () => ({ top: 150, right: 10, bottom: 10, left: 150 }),
     },
     colorScale: {
       type: Function,
@@ -137,7 +137,7 @@ export default {
         .append('svg')
         .attr('width', width)
         .attr('height', height)
-        .attr('class', 'rounded-lg shadow-md border')
+        // .attr('class', 'rounded-lg shadow-md border')
         .on('mouseleave', () => {
           this.linkingStore.setHoverHighlights([]);
         });
