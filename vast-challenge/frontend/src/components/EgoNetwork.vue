@@ -68,7 +68,19 @@ export default {
     }
   },
   watch: {
-    selectedNode(val) { if (val && this.selectedType) this.fetchData() },
+    selectedNode(val) {
+      if (val && this.selectedType) {
+        this.fetchData()
+      } else {
+        this.nodes = []
+        this.links = []
+        this.currentlyRenderedInDOM = false
+        const chartEl = this.$refs.chart
+        if (chartEl) {
+          d3.select(chartEl).selectAll('svg, .tooltip').remove()
+        }
+      }
+    },
     filterValue() { if (this.nodes.length) this.renderChart(false) },
     hoveredIds: {
       handler() { this.updateHighlights() },
