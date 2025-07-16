@@ -19,7 +19,7 @@
         v-if="lines.length"
         :metrics="metrics"
         :metricLabels="metricLabels"
-        :domains="domains"
+        :domains="localDomains"
         :lines="lines"
         class="w-full h-full"
         :disable-selection-highlighting="true"
@@ -43,6 +43,28 @@ import PCPChart from './PCPChart.vue';
 
 export default {
   name: 'PersonDetailView',
+  computed: {
+    localDomains() {
+      if (!this.lines || this.lines.length === 0) {
+        return this.domains;
+      }
+
+      const localDomains = {};
+      this.metrics.forEach(metric => {
+        const values = this.lines.map(line => line.values[metric]).filter(v => v !== undefined && v !== null);
+        if (values.length > 0) {
+          localDomains[metric] = {
+            min: Math.min(...values),
+            max: Math.max(...values),
+          };
+        } else {
+          // Fallback to global domains if no data for a metric
+          localDomains[metric] = this.domains[metric] || { min: 0, max: 1 };
+        }
+      });
+      return localDomains;
+    },
+  },
   components: { PCPChart },
   props: {
     personName: String,
