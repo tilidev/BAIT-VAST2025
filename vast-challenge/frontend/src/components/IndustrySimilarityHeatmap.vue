@@ -3,14 +3,6 @@
     <div class="flex justify-between items-center mb-3">
       <h3 class="text-lg font-semibold text-gray-700">Industry Similarity</h3>
       <div class="absolute top-2 right-2 z-10">
-        <button @mouseover="showHelp = true" @mouseleave="showHelp = false"
-          class="p-1.5 bg-white/80 rounded-full shadow-md hover:bg-white focus:outline-none transition-colors duration-200">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24"
-            stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round"
-              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </button>
         <transition name="fade">
           <div v-if="showHelp"
             class="absolute right-0 mt-2 w-72 p-4 bg-white rounded-xl shadow-2xl border border-gray-200 text-sm text-gray-800">
@@ -37,11 +29,25 @@
         </transition>
       </div>
     </div>
-    <div class="mb-2 flex items-center">
-      <ToggleSwitch v-model="useWeightedMean" @change="fetchData" inputId="weighted-mean-toggle" />
-      <label for="weighted-mean-toggle" class="ml-2 text-sm text-gray-700">
-        Use Weighted Mean
-      </label>
+    <div class="mb-2 flex items-center justify-between">
+      <span class="text-sm font-medium text-gray-700">Use Weighted Mean</span>
+      <button
+        type="button"
+        @click="toggleWeightedMean"
+        :class="[
+          'relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-base',
+          useWeightedMean ? 'bg-indigo-base' : 'bg-gray-200'
+        ]"
+        role="switch"
+        :aria-checked="useWeightedMean"
+      >
+        <span
+          :class="[
+            'inline-block w-5 h-5 bg-white rounded-full shadow transform ring-0 transition ease-in-out duration-200',
+            useWeightedMean ? 'translate-x-5' : 'translate-x-0'
+          ]"
+        ></span>
+      </button>
     </div>
     <div class="flex-grow min-h-0">
       <div v-if="isReady" class="flex-auto">
@@ -63,7 +69,6 @@ import { useScaleStore } from '../stores/scaleStore';
 import AdjacencyMatrix from './AdjacencyMatrix.vue';
 import type { MatrixCell } from '../types/matrixTypes';
 import * as d3 from 'd3';
-import ToggleSwitch from 'primevue/toggleswitch';
 
 export default defineComponent({
   props: {
@@ -71,7 +76,7 @@ export default defineComponent({
     height: { type: Number, default: 400 }
   },
   name: 'IndustrySimilarityHeatmap',
-  components: { AdjacencyMatrix, ToggleSwitch },
+  components: { AdjacencyMatrix },
   data() {
     return {
       industrySimilarityStore: useIndustrySimilarityStore(),
@@ -109,6 +114,10 @@ export default defineComponent({
     }
   },
   methods: {
+    toggleWeightedMean() {
+      this.useWeightedMean = !this.useWeightedMean;
+      this.fetchData();
+    },
     async fetchData() {
       this.isReady = false;
       await this.industrySimilarityStore.init(this.useWeightedMean);
