@@ -1,6 +1,6 @@
 <template>
   <div class=" w-full h-full flex flex-col">
-    <h3 class="text-lg font-semibold mb-3 text-gray-700">Node Count by Dataset Source</h3>
+    <h3 class="text-lg font-semibold mb-3 text-gray-700">Unique Node Count by Dataset Source</h3>
     <div v-if="isLoading" class="flex-grow flex items-center justify-center text-gray-500">Loading data...</div>
     <div v-else-if="error" class="flex-grow flex items-center justify-center text-red-500">Error loading data: {{ error
     }}</div>
@@ -46,7 +46,16 @@ export default {
   },
   methods: {
     colorScale(s) {
-      return neutralBaseColor;
+      switch (s.toLowerCase()) {
+        case 'filah':
+          return '#3B82F6';
+        case 'trout':
+          return '#22C55E';
+        case 'journalist':
+          return '#8B5CF6';
+        default:
+          return neutralBaseColor;
+      }
     },
     tooltipFormatter(d) {
       return `<div class="font-semibold text-blue-700">Dataset: ${d.dataset.toUpperCase()}</div><div>Node Count: ${d.nodeCount}</div>`;
