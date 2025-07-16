@@ -35,13 +35,13 @@
 <script lang="ts">
 import { defineComponent } from 'vue';
 import { useIndustrySimilarityStore } from '../stores/industrySimilarityStore';
+import { useScaleStore } from '../stores/scaleStore';
 import AdjacencyMatrix from './AdjacencyMatrix.vue';
 import type { MatrixCell } from '../types/matrixTypes';
 import * as d3 from 'd3';
 import ToggleSwitch from 'primevue/toggleswitch';
 
 export default defineComponent({
-  emits: ['cell-click'],
   props: {
     width: { type: Number, default: 400 },
     height: { type: Number, default: 400 }
@@ -51,6 +51,7 @@ export default defineComponent({
   data() {
     return {
       industrySimilarityStore: useIndustrySimilarityStore(),
+      scaleStore: useScaleStore(),
       isReady: false,
       useWeightedMean: true
     };
@@ -112,8 +113,9 @@ export default defineComponent({
         </div>
       `;
     },
-    onCellClick({ left, right }: { left: string; right: string }) {
-      this.$emit('cell-click', { left, right });
+    onCellClick(cell: { row: string; col: string }) {
+      this.scaleStore.setLeftIndustry(cell.row);
+      this.scaleStore.setRightIndustry(cell.col);
     }
   }
 });
