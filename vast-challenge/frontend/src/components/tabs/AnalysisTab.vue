@@ -97,7 +97,7 @@ export default defineComponent({
   computed: {
     processedLayout(): any[] {
       return this.layout.map(item => {
-        if (item.component === 'TopicSentimentDistribution') {
+        if (item.component === 'TopicSentimentDistribution' || item.component === 'TopicSentimentOverview') {
           return {
             ...item,
             listeners: {
