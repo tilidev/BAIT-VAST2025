@@ -72,8 +72,7 @@ export default defineComponent({
         // { x: 4, y: 0, w: 4, h: 8, i: '1', component: 'DatasetNodeComparison' },
         { x: 0, y: 30, w: 5, h: 12, i: '2', component: 'TopicSentimentOverview' },
         // { x: 0, y: 26, w: 4, h: 15, i: '9', component: 'IndustrySentimentBreakdown', props: { industry: 'tourism' } },
-        { x: 5, y: 30, w: 4, h: 12, i: '10', component: 'PersonSentimentAcrossDatasets' },
-        { x: 9, y: 30, w: 3, h: 12, i: '3', component: 'TopicSentimentDistribution' },
+        { x: 5, y: 30, w: 5, h: 12, i: '3', component: 'TopicSentimentDistribution' },
         
 
       ]

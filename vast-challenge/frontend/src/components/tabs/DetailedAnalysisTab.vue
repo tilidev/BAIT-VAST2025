@@ -20,7 +20,6 @@ export default defineComponent({
         { x: 4, y: 0, w: 4, h: 10, i: '1', component: 'GraphView', props: { filterKey: 'tr' } },
         { x: 8, y: 0, w: 4, h: 10, i: '2', component: 'GraphView', props: { filterKey: 'fi' } },
         { x: 0, y: 8, w: 4, h: 10, i: '3', component: 'IndustrySentimentBreakdown' },
-        { x: 4, y: 8, w: 4, h: 10, i: '4', component: 'PersonSentimentAcrossDatasets' },
         { x: 8, y: 8, w: 4, h: 10, i: '5', component: 'EntitySentimentConsistencyMatrix' },
       ],
     };
