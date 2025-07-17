@@ -16,6 +16,7 @@ export interface TopicSentiment {
   sentiment: number | null;
   sentiment_recorded_in: GraphMembership[];
   topic_industry: string[] | null;
+  reason?: string;
 }
 
 export interface EntityTopicSentiment {
