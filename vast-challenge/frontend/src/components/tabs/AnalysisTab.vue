@@ -77,7 +77,7 @@ export default defineComponent({
       datasets: ['jo', 'fi', 'tr'],
       detailColors: { jo: 'black', fi: 'red', tr: 'blue' } as { [key: string]: string },
       layout: [
-        { x: 0, y: 0, w: 9, h: 14, i: 'sentiment-diff-matrix', component: 'SentimentDiffMatrix' },
+        { x: 0, y: 0, w: 6, h: 16, i: 'sentiment-diff-matrix', component: 'SentimentDiffMatrix' },
         { x: 9, y: 0, w: 3, h: 11, i: '11', component: 'EntitySentimentConsistencyMatrix' },
         // OverviewTab layout
         { x: 0, y: 10, w: 5, h: 19, i: '5', component: 'EgoNetwork' },
