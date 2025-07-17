@@ -1,5 +1,6 @@
 <template>
-  <div v-if="visible" ref="sidebarRef" class="fixed top-20 right-4 h-[80vh] w-96 bg-white shadow-2xl rounded-lg border border-gray-200 flex flex-col z-50">
+  <transition name="slide-fade">
+    <div v-if="visible" ref="sidebarRef" class="fixed top-20 right-4 h-[80vh] w-96 bg-white shadow-2xl rounded-lg border border-gray-200 flex flex-col z-50">
     <div class="sticky top-0 bg-gray-50 z-10 px-4 py-3 border-b rounded-t-lg flex justify-between items-center">
       <h3 class="text-lg font-semibold text-gray-800">Sentiment Details</h3>
       <button @click="close" class="p-1 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-800 transition-colors">
@@ -33,7 +34,8 @@
     <div v-else class="p-4 text-sm italic text-gray-500 flex items-center justify-center h-full">
       <p>No data selected.</p>
     </div>
-  </div>
+    </div>
+  </transition>
 </template>
 
 <script lang="ts">
@@ -113,3 +115,19 @@ export default defineComponent({
   },
 });
 </script>
+
+<style scoped>
+.slide-fade-enter-active {
+  transition: all 0.15s ease-out;
+}
+
+.slide-fade-leave-active {
+  transition: all 0.15s cubic-bezier(1, 0.5, 0.8, 1);
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  transform: translateX(20px);
+  opacity: 0;
+}
+</style>
