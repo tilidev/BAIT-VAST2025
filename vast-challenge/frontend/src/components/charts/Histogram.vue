@@ -352,7 +352,16 @@ export default defineComponent({
       });
     });
 
-    watch(() => props, () => {
+    // Watch for size changes and reinitialize the chart
+    watch(() => [props.width, props.height], () => {
+      nextTick(() => {
+        initChart();
+        updateChart();
+      });
+    });
+
+    // Watch for other prop changes and update chart
+    watch(() => [props.data, props.backgroundData, props.bins, props.color, props.fixedXDomain, props.showDensity], () => {
       nextTick(updateChart);
     }, { deep: true });
 
