@@ -65,6 +65,7 @@ import { sentimentColorScaleLinear } from '../../utils/colors';
 
 export default {
   name: 'TopicSentimentOverview',
+  emits: ['bar-click'],
   data() {
     return {
       isLoading: true,
@@ -178,6 +179,31 @@ export default {
       return topicId
         .replace(/_/g, ' ')
         .replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+    },
+    handleBarClick(topicId) {
+      const rawSentimentsForTopic = this.graphStore.sentimentPerTopic.flatMap(entity =>
+        entity.topic_sentiments
+          .filter(ts => ts.topic_id === topicId)
+          .map(ts => ({
+            sentiment: ts.sentiment,
+            reason: ts.reason,
+            topic_id: ts.topic_id,
+            topic_industry: ts.topic_industry,
+            entity_id: entity.entity_id,
+          }))
+      );
+
+      if (rawSentimentsForTopic.length === 0) return;
+
+      const sentiments = rawSentimentsForTopic.map(s => s.sentiment);
+      const x0 = d3.min(sentiments);
+      const x1 = d3.max(sentiments);
+
+      const bin = rawSentimentsForTopic;
+      bin.x0 = x0;
+      bin.x1 = (x0 === x1) ? x1 + 0.01 : x1;
+
+      this.$emit('bar-click', bin);
     },
     toggleTopicFilter(topicId) {
       this.linkingStore.toggleFilter({ type: FilterType.TOPIC, value: topicId });
@@ -357,6 +383,9 @@ export default {
         .attr('stroke-width', 2);
 
       svg.selectAll('.bar, .bg-bar')
+        .on('click', (event, d) => {
+          this.handleBarClick(d.topicId);
+        })
         .on('mouseover', (event, d) => {
           this.linkingStore.addHoverHighlight({ type: HighlightType.TOPIC, value: d.topicId });
           this.tooltip.classed('hidden', false)

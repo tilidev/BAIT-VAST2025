@@ -70,6 +70,7 @@ interface DiffMatrixCell {
     fi?: number | null;
     tr?: number | null;
   };
+  reason?: string;
   coverage: ('jo' | 'fi' | 'tr')[];
   sentiment: number | null;
 }
@@ -127,6 +128,7 @@ export default defineComponent({
                 cell.values[source] = topic.sentiment;
               }
             });
+            cell.reason = topic.reason;
           }
         });
       });
@@ -176,7 +178,7 @@ export default defineComponent({
         return `<div class="w-3 h-5" style="background-color: ${sentimentColorScaleLinear(value)}"></div>`;
       };
 
-      return `
+      let html = `
         <div class="font-semibold text-blue-700">Person: ${d.rowId}</div>
         <div>Topic: ${d.colId}</div>
         <div class="mt-2 flex items-center space-x-2">
@@ -189,6 +191,17 @@ export default defineComponent({
           ${sentimentBox(d.values.tr)} <div>TR: ${d.values.tr?.toFixed(2) ?? 'N/A'}</div>
         </div>
       `;
+
+      if (d.reason) {
+        html += `
+          <div class="mt-2 pt-2 border-t border-gray-200">
+            <span class="font-semibold">Reason:</span> 
+            <span class="italic text-gray-600">"${d.reason}"</span>
+          </div>
+        `;
+      }
+      
+      return html;
     }
 
     function debouncedResize() {
