@@ -126,10 +126,12 @@ export default {
 
       // Filter by active sidebar filters
       if (this.linkingStore.activeFilters.length > 0) {
+        const personFilterValues = this.linkingStore.activeFilters.filter(f => f.type === this.FilterType.PERSON).map(f => f.value);
         const placeFilterValues = this.linkingStore.activeFilters.filter(f => f.type === this.FilterType.PLACE).flatMap(f => f.value);
-        const otherFilters = this.linkingStore.activeFilters.filter(f => f.type !== this.FilterType.PLACE);
+        const otherFilters = this.linkingStore.activeFilters.filter(f => f.type !== this.FilterType.PLACE && f.type !== this.FilterType.PERSON);
 
         events = events.filter(event => {
+          const passesPersonFilter = personFilterValues.length === 0 || personFilterValues.includes(event.personId);
           const passesPlaceFilter = placeFilterValues.length === 0 || event.visitedPlaceIds.some(placeId => placeFilterValues.includes(placeId));
 
           const passesOtherFilters = otherFilters.length === 0 || otherFilters.every(filter => {
@@ -148,7 +150,7 @@ export default {
             });
           });
 
-          return passesPlaceFilter && passesOtherFilters;
+          return passesPersonFilter && passesPlaceFilter && passesOtherFilters;
         });
       }
 
