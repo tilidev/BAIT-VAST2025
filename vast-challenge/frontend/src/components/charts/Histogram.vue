@@ -80,7 +80,7 @@ export default defineComponent({
       default: null,
     },
   },
-  emits: ['bar-click'],
+  emits: ['bar-click', 'bar-mouseover', 'bar-mouseout'],
   setup(props: HistogramProps, { emit }) {
     const chartContainer = ref<HTMLElement | null>(null);
     let svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any> | null = null;
@@ -199,6 +199,12 @@ export default defineComponent({
         .attr("height", 0)
         .attr("fill", d => typeof color === 'function' ? color((d.x0! + d.x1!) / 2) : color || neutralBaseColor)
         .attr("opacity", 0.3)
+        .on("mouseover", (event, d) => {
+          emit('bar-mouseover', { event, data: d, background: true });
+        })
+        .on("mouseout", (event, d) => {
+          emit('bar-mouseout', { event, data: d, background: true });
+        })
         .merge(bgBars)
         .transition().duration(transitionDuration)
         .attr("x", d => x!(d.x0 || 0))
@@ -223,6 +229,12 @@ export default defineComponent({
         .style('cursor', 'pointer')
         .on("click", (event, d) => {
           emit('bar-click', d);
+        })
+        .on("mouseover", (event, d) => {
+          emit('bar-mouseover', { event, data: d });
+        })
+        .on("mouseout", (event, d) => {
+          emit('bar-mouseout', { event, data: d });
         })
         .merge(bars)
         .transition().duration(transitionDuration)

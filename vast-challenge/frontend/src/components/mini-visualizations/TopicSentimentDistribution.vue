@@ -20,10 +20,9 @@
           :show-grid-lines="true"
           :show-ticks="false"
           :fixed-x-domain="[-1, 1.1]"
-          :show-density="true"
-          density-color="rgba(79, 70, 229, 0.5)"
-          background-density-color="rgba(156, 163, 175, 0.3)"
           @bar-click="handleBarClick"
+          @bar-mouseover="handleBarMouseover"
+          @bar-mouseout="handleBarMouseout"
         />
       </div>
       <div v-else class="flex items-center justify-center h-full">
@@ -34,8 +33,9 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, ref, onMounted } from 'vue';
+import { defineComponent, computed, ref, onMounted, onBeforeUnmount } from 'vue';
 import { useElementSize } from '@vueuse/core';
+import * as d3 from 'd3';
 import { useGraphStore } from '../../stores/graphStore';
 import { useLinkingStore } from '../../stores/linkingStore';
 import Histogram from '../charts/Histogram.vue';
@@ -60,9 +60,34 @@ export default defineComponent({
     const { width, height } = useElementSize(el);
     const isLoading = ref(true);
     const error = ref<string | null>(null);
+    const tooltip = ref<d3.Selection<HTMLDivElement, unknown, HTMLElement, any> | null>(null);
 
     function handleBarClick(data: Bin<DataObject, number>) {
       emit('bar-click', data);
+    }
+
+    function handleBarMouseover({ event, data, background }: { event: MouseEvent, data: Bin<DataObject, number>, background?: boolean }) {
+      if (!tooltip.value) return;
+
+      const count = data.length;
+      const range = `${data.x0?.toFixed(2)} to ${data.x1?.toFixed(2)}`;
+      const dataType = background ? 'All' : 'Selected';
+
+      tooltip.value.classed('hidden', false)
+        .html(`
+          <div class="font-semibold text-sm">${dataType} Data</div>
+          <div class="text-xs">Sentiment Range: <strong>${range}</strong></div>
+          <div class="text-xs">Count: <strong>${count}</strong></div>
+          <div class="text-xs italic mt-1">Click for details</div>
+        `)
+        .style('left', `${event.pageX + 15}px`)
+        .style('top', `${event.pageY - 10}px`);
+    }
+
+    function handleBarMouseout() {
+      if (tooltip.value) {
+        tooltip.value.classed('hidden', true);
+      }
     }
 
     onMounted(async () => {
@@ -77,6 +102,15 @@ export default defineComponent({
         error.value = e.message || 'An unknown error occurred';
       } finally {
         isLoading.value = false;
+      }
+      tooltip.value = d3.select("body").append("div")
+        .attr("class", "tooltip pointer-events-none absolute hidden p-2 rounded-lg shadow-lg bg-white border border-gray-200 text-sm text-gray-800 transition")
+        .style("z-index", "50");
+    });
+
+    onBeforeUnmount(() => {
+      if (tooltip.value) {
+        tooltip.value.remove();
       }
     });
 
@@ -175,6 +209,8 @@ export default defineComponent({
       error,
       sentimentColorScaleLinear,
       handleBarClick,
+      handleBarMouseover,
+      handleBarMouseout,
     };
   },
 });
