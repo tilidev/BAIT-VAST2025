@@ -49,14 +49,13 @@
         </div>
       </div>
     </div>
-    <div class="flex-1 w-full" ref="matrixContainer"></div>
+    <div class="flex-1 w-full min-h-0 overflow-hidden" ref="matrixContainer"></div>
   </div>
 </template>
 
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import * as d3 from 'd3';
-import { useElementSize } from '@vueuse/core';
 import { useGraphStore } from '../stores/graphStore';
 import { useLinkingStore, HighlightType } from '../stores/linkingStore';
 import { sentimentColorScaleLinear } from '../utils/colors';
@@ -81,12 +80,15 @@ export default defineComponent({
     const graphStore = useGraphStore();
     const linkingStore = useLinkingStore();
     const matrixContainer = ref<HTMLElement | null>(null);
-    const { width, height } = useElementSize(matrixContainer);
     const showHelp = ref(false);
     const viewMode = ref<ViewMode>('sentiment');
 
     let svg: d3.Selection<SVGSVGElement, unknown, null, undefined>;
     let tooltip: d3.Selection<HTMLDivElement, unknown, HTMLElement, any>;
+    let resizeObserver: ResizeObserver | null = null;
+    let resizeTimeout: number | null = null;
+    let containerWidth = ref(0);
+    let containerHeight = ref(0);
 
     const highlightedPeople = computed(() => linkingStore.highlightedPeople);
     const highlightedTopics = computed(() => linkingStore.highlightedTopics);
@@ -189,20 +191,41 @@ export default defineComponent({
       `;
     }
 
+    function debouncedResize() {
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+      }
+      resizeTimeout = window.setTimeout(() => {
+        if (matrixContainer.value) {
+          const rect = matrixContainer.value.getBoundingClientRect();
+          const newWidth = rect.width;
+          const newHeight = rect.height;
+          
+          if (newWidth !== containerWidth.value || newHeight !== containerHeight.value) {
+            containerWidth.value = newWidth;
+            containerHeight.value = newHeight;
+            draw();
+          }
+        }
+      }, 100);
+    }
+
     function draw() {
-      if (!matrixContainer.value || width.value === 0 || height.value === 0) return;
+      if (!matrixContainer.value || containerWidth.value === 0 || containerHeight.value === 0) return;
 
       d3.select(matrixContainer.value).select('svg').remove();
       d3.select('.tooltip-diff-matrix').remove();
 
       const margin = { top: 150, right: 10, bottom: 10, left: 150 };
-      const innerWidth = width.value - margin.left - margin.right;
-      const innerHeight = height.value - margin.top - margin.bottom;
+      const innerWidth = Math.max(0, containerWidth.value - margin.left - margin.right);
+      const innerHeight = Math.max(0, containerHeight.value - margin.top - margin.bottom);
+
+      if (innerWidth <= 0 || innerHeight <= 0) return;
 
       svg = d3.select(matrixContainer.value)
         .append('svg')
-        .attr('width', width.value)
-        .attr('height', height.value)
+        .attr('width', containerWidth.value)
+        .attr('height', containerHeight.value)
         .on('mouseleave', () => {
           linkingStore.setHoverHighlights([]);
         });
@@ -252,9 +275,9 @@ export default defineComponent({
         .attr("dy", ".32em")
         .attr("text-anchor", "end")
         .text(d => d)
-        .on("click", (evt, d: string) => togglePersonHighlight(d))
-        .on("mouseover", (evt, d: string) => addPersonHover(d))
-        .on("mouseout", (evt, d: string) => removePersonHover(d));
+        .on("click", (_, d: string) => togglePersonHighlight(d))
+        .on("mouseover", (_, d: string) => addPersonHover(d))
+        .on("mouseout", (_, d: string) => removePersonHover(d));
 
       g.selectAll(".column-label")
         .data(topicLabels.value)
@@ -263,9 +286,9 @@ export default defineComponent({
         .attr("text-anchor", "start")
         .attr("transform", d => `translate(${(x(d) ?? 0) + x.bandwidth() / 2}, -6) rotate(-90)`)
         .text(d => d)
-        .on("click", (evt, d: string) => toggleTopicHighlight(d))
-        .on("mouseover", (evt, d: string) => addTopicHover(d))
-        .on("mouseout", (evt, d: string) => removeTopicHover(d));
+        .on("click", (_, d: string) => toggleTopicHighlight(d))
+        .on("mouseover", (_, d: string) => addTopicHover(d))
+        .on("mouseout", (_, d: string) => removeTopicHover(d));
 
       const cells = g.selectAll<SVGGElement, DiffMatrixCell>('.cell')
         .data(sentimentMatrixData.value)
@@ -391,13 +414,13 @@ export default defineComponent({
       }
 
       cells
-        .on("mouseover", (event: MouseEvent, d: DiffMatrixCell) => {
+        .on("mouseover", (_, d: DiffMatrixCell) => {
           tooltip.classed("hidden", false).html(getTooltipContent(d));
           linkingStore.addHoverHighlight({ type: HighlightType.PERSON, value: d.rowId });
           linkingStore.addHoverHighlight({ type: HighlightType.TOPIC, value: d.colId });
         })
         .on("mousemove", (event: MouseEvent) => tooltip.style("left", (event.pageX + 15) + "px").style("top", (event.pageY - 28) + "px"))
-        .on("mouseout", (event: MouseEvent, d: DiffMatrixCell) => {
+        .on("mouseout", (_, d: DiffMatrixCell) => {
           tooltip.classed("hidden", true);
           linkingStore.removeHoverHighlight({ type: HighlightType.PERSON, value: d.rowId });
           linkingStore.removeHoverHighlight({ type: HighlightType.TOPIC, value: d.colId });
@@ -430,20 +453,36 @@ export default defineComponent({
         });
     }
 
-    onMounted(draw);
+    onMounted(() => {
+      if (matrixContainer.value) {
+        const rect = matrixContainer.value.getBoundingClientRect();
+        containerWidth.value = rect.width;
+        containerHeight.value = rect.height;
+        
+        resizeObserver = new ResizeObserver(debouncedResize);
+        resizeObserver.observe(matrixContainer.value);
+        
+        draw();
+      }
+    });
+    
     onBeforeUnmount(() => {
       d3.select('.tooltip-diff-matrix').remove();
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+      }
     });
 
-    watch([width, height, sentimentMatrixData, viewMode], draw, { deep: true });
+    watch([sentimentMatrixData, viewMode], draw, { deep: true });
     watch(() => linkingStore.hoverHighlights, updateHighlight, { deep: true });
     watch(highlightedPeople, updateHighlight);
     watch(highlightedTopics, updateHighlight);
 
     return {
       matrixContainer,
-      width,
-      height,
       showHelp,
       viewMode,
     };
