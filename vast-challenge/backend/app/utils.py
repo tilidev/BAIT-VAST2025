@@ -1,3 +1,6 @@
+import subprocess
+import sys
+import os
 from neo4j.time import Date, Time, DateTime
 from neo4j.graph import Node, Relationship
 import numpy as np
@@ -46,6 +49,63 @@ def serialize_neo4j_entity(node_or_link: Node | Relationship):
         }
     else:
         raise NotImplementedError
+
+
+async def is_database_empty(driver):
+    """
+    Check if the Neo4j database is empty by counting total nodes.
+    
+    Args:
+        driver: Neo4j async driver instance
+        
+    Returns:
+        bool: True if database is empty (no nodes), False otherwise
+    """
+    try:
+        records, summary, keys = await driver.execute_query("MATCH (n) RETURN count(n) as node_count")
+        node_count = records[0]["node_count"]
+        return node_count == 0
+    except Exception as e:
+        print(f"Error checking database status: {e}")
+        return False
+
+
+async def load_initial_data():
+    """
+    Load initial data by running the load_data.py script.
+    
+    Returns:
+        bool: True if data loading was successful, False otherwise
+    """
+    try:
+        # Get the directory where the load_data.py script is located
+        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        load_data_script = os.path.join(backend_dir, "load_data.py")
+        
+        print("Loading initial data into database...")
+        
+        # Run the load_data.py script
+        result = subprocess.run(
+            [sys.executable, load_data_script],
+            cwd=backend_dir,  # Set working directory to backend/
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        print("Data loading completed successfully.")
+        print(f"Script output: {result.stdout}")
+        return True
+        
+    except subprocess.CalledProcessError as e:
+        print(f"Error loading data: {e}")
+        print(f"Script stderr: {e.stderr}")
+        print(f"Script stdout: {e.stdout}")
+        return False
+    except Exception as e:
+        print(f"Unexpected error during data loading: {e}")
+        return False
+
 
 def cosine_similarity_with_nans(x, y):
     # only keep non-naN

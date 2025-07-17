@@ -2,8 +2,10 @@
   <div class="h-full flex flex-col">
     <h3 class="text-lg font-semibold mb-3 text-gray-700">Ego Network</h3>
     <div ref="chart" class="flex-1 relative w-full h-full">
-      <div v-if="!selectedNode && !currentlyRenderedInDOM" class="absolute inset-0 flex items-center justify-center text-gray-500 text-lg">
-        Select a node to view its ego network
+      <div v-if="!selectedNode && !currentlyRenderedInDOM" class="absolute inset-0 m-4 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-slate-50 p-4 text-center text-gray-400">
+        <i class="pi pi-share-alt text-4xl mb-4"></i>
+        <p class="text-xl font-semibold">Select a node to view its ego network</p>
+        <p class="text-sm mt-2">Click on a person or topic in other views to see their connections here.</p>
       </div>
     </div>
   </div>
@@ -12,7 +14,15 @@
 <script>
 import * as d3 from 'd3'
 import { useEntityStore } from '../stores/entityStore'
-import { useLinkingStore } from '../stores/linkingStore'
+import { useLinkingStore, HighlightType } from '../stores/linkingStore'
+
+const nodeTypeToHighlightType = {
+  'ENTITY_PERSON': HighlightType.PERSON,
+  'TOPIC': HighlightType.TOPIC,
+  'ENTITY_ORGANIZATION': HighlightType.INDUSTRY,
+  'PLACE': HighlightType.PLACE,
+  'PLAN': HighlightType.PLAN,
+};
 
 // Mapping node.type to PrimeIcon classes
 const iconClass = {
@@ -38,6 +48,12 @@ export default {
     }
   },
   computed: {
+    hoveredIds() {
+      return this.linkingStore.hoverHighlights.map(h => {
+        if (typeof h.value === 'string') return h.value;
+        return null;
+      }).filter(Boolean);
+    },
     selectedNode() {
       return this.linkingStore.selectedPerson || this.linkingStore.selectedTopic
     },
@@ -52,10 +68,51 @@ export default {
     }
   },
   watch: {
-    selectedNode(val) { if (val && this.selectedType) this.fetchData() },
-    filterValue() { if (this.nodes.length) this.renderChart(false) }
+    selectedNode(val) {
+      if (val && this.selectedType) {
+        this.fetchData()
+      } else {
+        this.nodes = []
+        this.links = []
+        this.currentlyRenderedInDOM = false
+        const chartEl = this.$refs.chart
+        if (chartEl) {
+          d3.select(chartEl).selectAll('svg, .tooltip').remove()
+        }
+      }
+    },
+    filterValue() { if (this.nodes.length) this.renderChart(false) },
+    hoveredIds: {
+      handler() { this.updateHighlights() },
+      deep: true
+    }
   },
   methods: {
+    updateHighlights() {
+      if (!this.$refs.chart) return;
+      const svg = d3.select(this.$refs.chart).select('svg');
+      if (svg.empty()) return;
+
+      const self = this;
+
+      // Highlight nodes
+      svg.selectAll('.nodes-group g').select('circle')
+        .transition().duration(100)
+        .attr('stroke', d => self.hoveredIds.includes(d.id) ? '#000' : '#fff')
+        .attr('stroke-width', d => self.hoveredIds.includes(d.id) ? 3 : 1);
+
+      // Highlight topic hulls
+      svg.selectAll('.topic-hull')
+        .transition().duration(100)
+        .attr('fill-opacity', function() {
+            const topicId = d3.select(this).attr('data-topic-id');
+            return self.hoveredIds.includes(topicId) ? 0.2 : 0.1;
+        })
+        .attr('stroke-opacity', function() {
+            const topicId = d3.select(this).attr('data-topic-id');
+            return self.hoveredIds.includes(topicId) ? 0.8 : 0.4;
+        });
+    },
     async fetchData() {
       const res = await fetch(`/api/ego-network?node_id=${this.selectedNode}&node_type=${this.selectedType}`)
       const data = await res.json()
@@ -317,8 +374,9 @@ export default {
       svg.append('path')
         .datum(hull)
         .attr('class', 'topic-hull')
+        .attr('data-topic-id', topicId)
         .attr('d', line)
-        .attr('fill', topicColor)  
+        .attr('fill', topicColor)
         .attr('fill-opacity', 0.1)
         .attr('stroke', topicColor)
         .attr('stroke-width', 2)
@@ -332,6 +390,7 @@ export default {
             .attr('stroke-opacity', 0.8)
           if (topicNode) {
             tooltip.html(this.formatTooltip(topicNode)).classed('hidden', false)
+            this.linkingStore.addHoverHighlight({ type: HighlightType.TOPIC, value: topicId })
           }
         })
         .on('mousemove', event => {
@@ -360,6 +419,9 @@ export default {
             .attr('fill-opacity', 0.1)
             .attr('stroke-opacity', 0.4)
           tooltip.classed('hidden', true)
+          if (topicNode) {
+            this.linkingStore.removeHoverHighlight({ type: HighlightType.TOPIC, value: topicId })
+          }
         })
     },
     renderChart(reset_positions=true) {
@@ -544,6 +606,10 @@ export default {
       nodeG.on('mouseover', (e,d) => {
         d3.select(e.currentTarget).select('circle').attr('stroke','#000').attr('stroke-width',2)
         tooltip.html(this.formatTooltip(d)).classed('hidden',false)
+        const highlightType = nodeTypeToHighlightType[d.type]
+        if (highlightType) {
+          this.linkingStore.addHoverHighlight({ type: highlightType, value: d.id })
+        }
       })
       .on('mousemove', event => {
         const [mx, my] = d3.pointer(event, chartEl)
@@ -566,9 +632,13 @@ export default {
 
         tooltip.style('left', x + 'px').style('top', y + 'px')
       })
-      .on('mouseout', e => {
+      .on('mouseout', (e, d) => {
         d3.select(e.currentTarget).select('circle').attr('stroke','#fff').attr('stroke-width',1)
         tooltip.classed('hidden',true)
+        const highlightType = nodeTypeToHighlightType[d.type]
+        if (highlightType) {
+          this.linkingStore.removeHoverHighlight({ type: highlightType, value: d.id })
+        }
       })
 
       sim.on('tick', () => {

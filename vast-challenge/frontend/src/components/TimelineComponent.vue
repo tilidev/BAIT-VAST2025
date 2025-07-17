@@ -429,7 +429,7 @@ export default {
         } else {
           avatarGroup.append('circle')
             .attr('r', radius)
-            .style('fill', colorScale(person.id));
+            .style('fill', '#cccccc');
         }
 
         avatarGroup.append('text')

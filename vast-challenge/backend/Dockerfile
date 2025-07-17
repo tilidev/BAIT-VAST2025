@@ -18,6 +18,8 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 # Copy application code
 # Ensure the 'app' directory exists in the build context (./backend)
 COPY ./app /usr/src/app/app
+COPY load_data.py /usr/src/app
+COPY ./data /usr/src/app/data
 
 # Expose port
 EXPOSE 8080
