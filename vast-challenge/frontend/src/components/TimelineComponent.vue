@@ -127,7 +127,7 @@ export default {
       // Filter by active sidebar filters
       if (this.linkingStore.activeFilters.length > 0) {
         const placeFilterValues = this.linkingStore.activeFilters.filter(f => f.type === this.FilterType.PLACE).flatMap(f => f.value);
-        const otherFilters = this.linkingStore.activeFilters.filter(f => f.type !== this.FilterType.PLACE);
+        const otherFilters = this.linkingStore.activeFilters.filter(f => f.type !== this.FilterType.PLACE && f.type !== this.FilterType.PERSON);
 
         events = events.filter(event => {
           const passesPlaceFilter = placeFilterValues.length === 0 || event.visitedPlaceIds.some(placeId => placeFilterValues.includes(placeId));
@@ -154,8 +154,9 @@ export default {
 
       // Filter by excluded sidebar filters
       if (this.linkingStore.excludedFilters.length > 0) {
+        const excludedFilters = this.linkingStore.excludedFilters.filter(f => f.type !== this.FilterType.PERSON);
         events = events.filter(event => {
-          return !this.linkingStore.excludedFilters.some(filter => {
+          return !excludedFilters.some(filter => {
             return event.trip.visited_places.some(visitedPlace => {
               const place = visitedPlace.place;
               if (!place || !place.id) return false;

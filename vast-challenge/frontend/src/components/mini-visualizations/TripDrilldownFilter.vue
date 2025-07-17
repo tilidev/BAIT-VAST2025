@@ -145,7 +145,7 @@ export default {
       // Filter by sidebar selections (inclusive)
       if (filters && filters.length > 0) {
         const placeFilterValues = filters.filter(f => f.type === 'place').flatMap(f => f.value);
-        const otherFilters = filters.filter(f => f.type !== 'place');
+        const otherFilters = filters.filter(f => f.type !== 'place' && f.type !== 'person');
 
         filtered = filtered.filter((activity) => {
           const passesPlaceFilter = placeFilterValues.length === 0 || activity.visited_places.some(visitedPlace => {
@@ -176,8 +176,9 @@ export default {
 
       // Filter by sidebar selections (exclusive)
       if (this.linkingStore.excludedFilters.length > 0) {
+        const excludedFilters = this.linkingStore.excludedFilters.filter(f => f.type !== 'person');
         filtered = filtered.filter((activity) => {
-          return !this.linkingStore.excludedFilters.some((filter) => {
+          return !excludedFilters.some((filter) => {
             return activity.visited_places.some((visitedPlace) => {
               const place = visitedPlace.place;
               if (!place || !place.id) return false;
