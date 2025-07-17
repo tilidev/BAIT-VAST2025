@@ -1,10 +1,20 @@
 <template>
   <div ref="container" class="w-full h-full relative">
     <svg
-      class="bg-white border block w-full h-full"
+      class="block w-full h-full"
       :viewBox="`0 0 ${containerWidth} ${containerHeight}`"
       preserveAspectRatio="none"
     >
+      <!-- Excluded lines list -->
+      <g class="excluded-list" :transform="`translate(20, ${margin.top})`">
+        <text v-if="excludedLines.length > 0" y="10" class="text-sm font-semibold fill-gray-600">Excluded</text>
+        <g v-for="(line, i) in excludedLines" :key="line.id" @click="toggleExclusion(line.id)" class="cursor-pointer" @mouseover="showActionTooltip($event, `Include ${line.name || line.id}`)" @mouseleave="hideActionTooltip()">
+          <text :y="30 + i * 16" class="text-xs">
+            <tspan class="fill-green-600 font-bold text-sm">+</tspan>
+            <tspan dx="5" class="fill-gray-700">{{ line.name || line.id }}</tspan>
+          </text>
+        </g>
+      </g>
       <g :transform="`translate(${margin.left}, ${margin.top})`">
         <!-- Axes and ticks -->
         <g v-for="(metric, i) in metrics" :key="metric">
@@ -39,10 +49,11 @@
           >
             {{ metricLabels[metric] }}
           </text>
-          <line :x1="xScale(i)-4" :x2="xScale(i)+4" :y1="yScale(metric, 0)" :y2="yScale(metric, 0)" stroke="#999" />
-          <text :x="xScale(i)-6" :y="yScale(metric,0)+4" text-anchor="end" class="text-xs font-semibold">0</text>
-          <line :x1="xScale(i)-4" :x2="xScale(i)+4" :y1="yScale(metric, adjustedDomains[metric].max)" :y2="yScale(metric, adjustedDomains[metric].max)" stroke="#999" />
-          <text :x="xScale(i)-6" :y="yScale(metric, adjustedDomains[metric].max)+4" text-anchor="end" class="text-xs font-semibold">
+          <!-- Min value label -->
+          <text :x="xScale(i)" :y="innerHeight + 5" text-anchor="middle" class="text-xs fill-black">{{ adjustedDomains[metric].min }}</text>
+
+          <!-- Max value label -->
+          <text :x="xScale(i)" :y="-5" text-anchor="middle" class="text-xs fill-black">
             {{ adjustedDomains[metric].max }}
           </text>
         </g>
@@ -61,7 +72,31 @@
 
         <!-- Polylines -->
         <g>
-          <g v-for="line in lines" :key="line.id">
+          <g v-for="line in visibleLines" :key="line.id">
+            <g
+              class="cursor-pointer"
+              @click="toggleExclusion(line.id)"
+              @mouseover="hoveredExclusionId = line.id; showActionTooltip($event, `Exclude ${line.name || line.id}`)"
+              @mouseleave="hoveredExclusionId = null; hideActionTooltip()"
+            >
+              <rect 
+                :x="xScale(0) - 22" 
+                :y="yScale(metrics[0], line.values[metrics[0]] || 0) - 8" 
+                width="16" 
+                height="16" 
+                rx="4" 
+                class="fill-white stroke-gray-300 hover:fill-red-100"
+              />
+              <text 
+                :x="xScale(0) - 14" 
+                :y="yScale(metrics[0], line.values[metrics[0]] || 0)" 
+                dy="0.35em" 
+                text-anchor="middle" 
+                class="fill-red-500 font-bold select-none pointer-events-none"
+              >
+                -
+              </text>
+            </g>
             <polyline
               :points="computePoints(line.values)"
               stroke="transparent"
@@ -69,31 +104,44 @@
               :stroke-width="jitter * 2 + (line.strokeWidth || 3)"
               style="pointer-events: stroke"
               @mouseover="handleHover(line, $event)"
-              @mouseleave="handleLeave"
+              @mouseleave="handleLeave()"
               @click="handleClick(line)"
             />
             <polyline
               :points="computePoints(line.values)"
-              :stroke="line.color"
+              :stroke="getLineStyle(line).stroke"
               fill="none"
-              :opacity="line.opacity"
-              :stroke-width="line.strokeWidth || 3"
+              :opacity="getLineStyle(line).opacity"
+              :stroke-width="getLineStyle(line).strokeWidth"
               class="cursor-pointer"
               :transform="`translate(${getOffset(line.id).x}, ${getOffset(line.id).y})`"
-              style="pointer-events: none; transition: transform 0.3s ease-out"
+              style="pointer-events: none; transition: transform 0.3s ease-out, opacity 0.3s ease-out, stroke-width 0.3s ease-out"
             />
           </g>
         </g>
 
         <!-- Hover markers -->
         <g v-if="hoveredPoints">
-          <circle v-for="pt in hoveredPoints" :key="pt.metric" :cx="pt.x" :cy="pt.y" r="4" fill="red" />
-          <text v-for="pt in hoveredPoints" :key="pt.metric+'-label'" :x="pt.x+6" :y="pt.y-6" class="text-xs font-semibold">
-            {{ pt.value }}
-          </text>
+          <g v-for="pt in hoveredPoints" :key="pt.metric">
+            <circle :cx="pt.x" :cy="pt.y" r="4" fill="#6b7280" />
+            <text :x="pt.x+6" :y="pt.y-6" class="text-xs fill-black">
+              {{ pt.value }}
+            </text>
+          </g>
         </g>
       </g>
     </svg>
+    <div
+      v-if="actionTooltip.visible"
+      :style="{
+        position: 'absolute',
+        left: actionTooltip.x + 'px',
+        top: actionTooltip.y + 'px'
+      }"
+      class="pointer-events-none p-2 rounded-md shadow-lg bg-gray-800 text-white text-xs transition z-50"
+    >
+      {{ actionTooltip.text }}
+    </div>
     <div
       v-if="tooltip.visible"
       :style="{
@@ -121,6 +169,7 @@
 
 <script>
 import { useLinkingStore } from '../stores/linkingStore';
+import { neutralBaseColor } from '../utils/colors';
 
 export default {
   name: 'PCPChart',
@@ -129,6 +178,7 @@ export default {
     metrics: { type: Array, required: true },
     metricLabels: { type: Object, required: true },
     domains: { type: Object, required: true },
+    disableSelectionHighlighting: { type: Boolean, default: false }
   },
   setup() {
     const linkingStore = useLinkingStore();
@@ -136,7 +186,7 @@ export default {
   },
   data() {
     return {
-      margin: { top: 20, right: 50, bottom: 40, left: 50 },
+      margin: { top: 20, right: 50, bottom: 40, left: 150 },
       hoveredPoints: null,
       hoveredId: null,
       jitter: 10,
@@ -150,10 +200,62 @@ export default {
         startX: 0,
         dragX: 0
       },
-      hoveredAxisIndex: -1
+      hoveredAxisIndex: -1,
+      excludedIds: new Set(),
+      animatedDomains: {},
+      hoveredExclusionId: null,
+      actionTooltip: { visible: false, x: 0, y: 0, text: '' },
     };
   },
+  watch: {
+    adjustedDomains: {
+      handler(newVal, oldVal) {
+        if (!oldVal || Object.keys(oldVal).length === 0 || Object.keys(this.animatedDomains).length === 0) {
+          this.animatedDomains = JSON.parse(JSON.stringify(newVal));
+          return;
+        }
+
+        const startDomains = JSON.parse(JSON.stringify(this.animatedDomains));
+        const endDomains = JSON.parse(JSON.stringify(newVal));
+        
+        let startTime = null;
+        const duration = 300; // ms
+
+        const animate = (timestamp) => {
+          if (!startTime) startTime = timestamp;
+          const progress = Math.min((timestamp - startTime) / duration, 1);
+
+          const currentDomains = {};
+          for (const metric in endDomains) {
+            const start = startDomains[metric] || endDomains[metric];
+            const end = endDomains[metric];
+            currentDomains[metric] = {
+              min: start.min + (end.min - start.min) * progress,
+              max: start.max + (end.max - start.max) * progress,
+            };
+          }
+          this.animatedDomains = currentDomains;
+
+          if (progress < 1) {
+            requestAnimationFrame(animate);
+          }
+        };
+        requestAnimationFrame(animate);
+      },
+      deep: true,
+      immediate: true,
+    }
+  },
   computed: {
+    selectedPerson() {
+      return this.linkingStore.selectedPerson;
+    },
+    visibleLines() {
+      return this.lines.filter(line => !this.excludedIds.has(line.id));
+    },
+    excludedLines() {
+      return this.lines.filter(line => this.excludedIds.has(line.id));
+    },
     filteredMetrics() {
         return Object.fromEntries(
           Object
@@ -169,9 +271,21 @@ export default {
     },
     adjustedDomains() {
       const adj = {};
-      this.metrics.forEach(m => {
-        const orig = this.domains[m] || { min: 0, max: 1 };
-        adj[m] = { min: 0, max: orig.max };
+      this.metrics.forEach(metric => {
+        if (this.visibleLines.length === 0) {
+          adj[metric] = { min: 0, max: 1 };
+          return;
+        }
+
+        const values = this.visibleLines.map(line => line.values[metric] || 0);
+        let minVal = Math.min(...values);
+        let maxVal = Math.max(...values);
+
+        if (minVal === maxVal) {
+          maxVal = minVal + 1;
+        }
+
+        adj[metric] = { min: minVal, max: maxVal };
       });
       return adj;
     },
@@ -207,7 +321,11 @@ export default {
       return (this.innerWidth / (this.metrics.length - 1)) * i;
     },
     yScale(metric, value) {
-      const { min, max } = this.adjustedDomains[metric];
+      const domain = this.animatedDomains[metric];
+      if (!domain || Object.keys(domain).length === 0) {
+        return 0; // Should be populated immediately by watcher
+      }
+      const { min, max } = domain;
       if (max === min) return this.innerHeight / 2;
       return this.innerHeight - ((value - min) / (max - min)) * this.innerHeight;
     },
@@ -221,6 +339,52 @@ export default {
       const { idx, count } = this.jitterInfo[id] || { idx: 0, count: 1 };
       const offset = (idx - (count - 1) / 2) * this.jitter;
       return { x: offset, y: -offset };
+    },
+    getLineStyle(line) {
+      const isSelected = this.selectedPerson === line.id;
+      const isHovered = this.hoveredId === line.id || this.hoveredExclusionId === line.id;
+      const hasSelection = this.selectedPerson !== '' && !this.disableSelectionHighlighting;
+
+      let stroke = line.color;
+      let opacity = line.opacity || 0.7;
+      let strokeWidth = line.strokeWidth || 2;
+
+      if (hasSelection) {
+        if (isSelected) {
+          stroke = neutralBaseColor;
+          opacity = 1;
+          strokeWidth = 4;
+        } else {
+          opacity = 0.1;
+          strokeWidth = 1;
+        }
+      }
+
+      if (isHovered) {
+        stroke = neutralBaseColor;
+        opacity = 1;
+        strokeWidth = 3;
+      }
+
+      return { stroke, opacity, strokeWidth };
+    },
+    showActionTooltip(event, text) {
+      const rect = this.$refs.container.getBoundingClientRect();
+      this.actionTooltip.x = event.clientX - rect.left + 15;
+      this.actionTooltip.y = event.clientY - rect.top + 15;
+      this.actionTooltip.text = text;
+      this.actionTooltip.visible = true;
+    },
+    hideActionTooltip() {
+      this.actionTooltip.visible = false;
+    },
+    toggleExclusion(lineId) {
+      if (this.excludedIds.has(lineId)) {
+        this.excludedIds.delete(lineId);
+      } else {
+        this.excludedIds.add(lineId);
+      }
+      this.excludedIds = new Set(this.excludedIds); // for reactivity
     },
     handleHover(line, event) {
       this.hoveredId = line.id;
@@ -349,8 +513,9 @@ export default {
     
     // Helper methods for styling
     getTextWidth(text) {
-      // Approximate text width calculation - could be improved with actual measurement
-      return text.length * 7; // Rough estimate for 14px font
+      // Approximate text width calculation for text-xs (12px font)
+      // A rough estimate: 12px font usually has a character width of about 6-7px
+      return text.toString().length * 7; 
     },
     
     getAxisBackgroundColor(index) {

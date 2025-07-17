@@ -25,6 +25,7 @@ export const HighlightType = {
   TOPIC: 'topic',
   INDUSTRY: 'industry',
   CELL: 'cell',
+  PLAN: 'plan',
 } as const;
 
 export type HighlightType = typeof HighlightType[keyof typeof HighlightType];

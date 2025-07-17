@@ -62,23 +62,20 @@ export default defineComponent({
       datasets: ['jo', 'fi', 'tr'],
       detailColors: { jo: 'black', fi: 'red', tr: 'blue' } as { [key: string]: string },
       layout: [
+        { x: 0, y: 0, w: 9, h: 14, i: 'sentiment-diff-matrix', component: 'SentimentDiffMatrix' },
+        { x: 9, y: 0, w: 3, h: 11, i: '11', component: 'EntitySentimentConsistencyMatrix' },
         // OverviewTab layout
-        { x: 4, y: 0, w: 4, h: 8, i: '1', component: 'DatasetNodeComparison' },
-        { x: 0, y: 4, w: 5, h: 12, i: '2', component: 'TopicSentimentOverview' },
-        { x: 8, y: 0, w: 4, h: 8, i: '3', component: 'TopicSentimentDistribution' },
-        { x: 5, y: 4, w: 7, h: 12, i: '5', component: 'EgoNetwork' },
+        { x: 0, y: 10, w: 5, h: 19, i: '5', component: 'EgoNetwork' },
+        { x: 5, y: 10, w: 7, h: 9, i: 'overview', component: 'PersonOverview' },
+        { x: 5, y: 10, w: 7, h: 10, i: 'details', component: 'PersonDetailView' },
         
-        // DetailedAnalysisTab layout - with y-offset to avoid overlap
-        { x: 0, y: 16, w: 4, h: 10, i: '6', component: 'GraphView', props: { filterKey: 'jo' } },
-        { x: 4, y: 16, w: 4, h: 10, i: '7', component: 'GraphView', props: { filterKey: 'tr' } },
-        { x: 8, y: 16, w: 4, h: 10, i: '8', component: 'GraphView', props: { filterKey: 'fi' } },
-        { x: 0, y: 26, w: 4, h: 10, i: '9', component: 'IndustrySentimentBreakdown', props: { industry: 'Technology' } },
-        { x: 4, y: 26, w: 4, h: 10, i: '10', component: 'PersonSentimentAcrossDatasets' },
-        { x: 8, y: 26, w: 4, h: 10, i: '11', component: 'EntitySentimentConsistencyMatrix' },
+        // { x: 4, y: 0, w: 4, h: 8, i: '1', component: 'DatasetNodeComparison' },
+        { x: 0, y: 30, w: 5, h: 12, i: '2', component: 'TopicSentimentOverview' },
+        // { x: 0, y: 26, w: 4, h: 15, i: '9', component: 'IndustrySentimentBreakdown', props: { industry: 'tourism' } },
+        { x: 5, y: 30, w: 4, h: 12, i: '10', component: 'PersonSentimentAcrossDatasets' },
+        { x: 9, y: 30, w: 3, h: 12, i: '3', component: 'TopicSentimentDistribution' },
+        
 
-        // PersonAnalysisTab layout - with y-offset to avoid overlap
-        { x: 0, y: 36, w: 12, h: 8, i: 'overview', component: 'PersonOverview' },
-        { x: 0, y: 44, w: 12, h: 9, i: 'details', component: 'PersonDetailView' },
       ]
     };
   },

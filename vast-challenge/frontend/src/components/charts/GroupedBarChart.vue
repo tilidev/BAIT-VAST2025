@@ -91,7 +91,10 @@ export default defineComponent({
       d3.select(chartContainer.value).selectAll("*").remove();
       if (tooltip) tooltip.remove();
 
-      const { data, groupKey, subGroupKeys, width, height, margin, subGroupColorScale, tooltipFormatter, xAxisLabelFormatter, yAxisLabelFormatter, showGridLines, yDomain } = props;
+      const { data, groupKey, subGroupKeys, subGroupColorScale, showGridLines, yDomain } = props;
+      const margin = props.margin ?? { top: 20, right: 30, bottom: 40, left: 60 };
+      const width = props.width ?? 400;
+      const height = props.height ?? 300;
 
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
@@ -115,11 +118,11 @@ export default defineComponent({
         .padding(0.2);
 
       const x1 = d3.scaleBand()
-        .domain(subGroupKeys)
+        .domain(subGroupKeys as string[])
         .range([0, x0.bandwidth()])
         .padding(0.05);
 
-      const calculatedYMax = d3.max(data, d => d3.max(subGroupKeys.map(key => d[key]))) || 10;
+      const calculatedYMax = d3.max(data, d => d3.max((subGroupKeys as string[]).map(key => d[key]))) || 10;
       const y = d3.scaleLinear()
         .domain(yDomain || [0, calculatedYMax])
         .range([innerHeight, 0]);
@@ -127,29 +130,37 @@ export default defineComponent({
       const color = subGroupColorScale;
 
       // X axis
+      const xAxis = d3.axisBottom(x0);
+      if (props.xAxisLabelFormatter) {
+        xAxis.tickFormat(props.xAxisLabelFormatter as any);
+      }
       svgGroup.append("g")
         .attr("transform", `translate(0,${innerHeight})`)
-        .call(d3.axisBottom(x0).tickFormat(xAxisLabelFormatter))
+        .call(xAxis)
         .selectAll("text")
-        .attr("class", "text-gray-600 text-xs"); // Tailwind classes for axis labels
+        .attr("class", "text-gray-600 text-xs");
 
       // Y axis
+      const yAxis = d3.axisLeft(y);
+      if (props.yAxisLabelFormatter) {
+        yAxis.tickFormat(props.yAxisLabelFormatter as any);
+      }
       svgGroup.append("g")
-        .call(d3.axisLeft(y).tickFormat(yAxisLabelFormatter))
+        .call(yAxis)
         .selectAll("text")
-        .attr("class", "text-gray-600 text-xs"); // Tailwind classes for axis labels
+        .attr("class", "text-gray-600 text-xs");
 
       // Y-axis grid lines
       if (showGridLines) {
         svgGroup.append("g")
           .attr("class", "grid")
           .call(d3.axisLeft(y)
-            .ticks(5) // Adjust number of ticks as needed
+            .ticks(5)
             .tickSize(-innerWidth)
-            .tickFormat(null) // Use null to suppress tick labels for grid lines
+            .tickFormat(null)
           )
           .selectAll("line")
-          .attr("stroke", "#e5e7eb") // Tailwind gray-200
+          .attr("stroke", "#e5e7eb")
           .attr("stroke-dasharray", "2,2");
       }
 
@@ -158,24 +169,24 @@ export default defineComponent({
         .data(data)
         .join("g")
         .attr("class", "group")
-        .attr("transform", d => `translate(${x0(d[groupKey])},0)`);
+        .attr("transform", d => `translate(${x0(d[groupKey]) ?? 0},0)`);
 
       group.selectAll("rect")
-        .data(d => subGroupKeys.map(key => ({ key, value: (d as any)[key], group: d[groupKey] })))
+        .data(d => (subGroupKeys as string[]).map(key => ({ key, value: (d as any)[key], group: d[groupKey] })))
         .join("rect")
         .attr("x", d => x1(d.key)!)
         .attr("y", d => y(d.value))
         .attr("width", x1.bandwidth())
-        .attr("height", d => Math.abs(y(d.value) - y(yDomain ? yDomain[0] : 0))) // Handle negative values
+        .attr("height", d => Math.abs(y(d.value) - y(yDomain ? yDomain[0] : 0)))
         .attr("fill", d => color(d.key));
 
       // Tooltip
       group.selectAll("rect")
         .on("mouseover", (event, d) => {
-          if (tooltip) {
+          if (tooltip && props.tooltipFormatter) {
             tooltip
               .classed("hidden", false)
-              .html(tooltipFormatter(d));
+              .html(props.tooltipFormatter(d));
           }
         })
         .on("mousemove", (event) => {

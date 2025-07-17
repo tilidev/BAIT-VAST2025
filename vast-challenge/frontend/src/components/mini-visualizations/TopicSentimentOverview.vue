@@ -61,6 +61,7 @@
 import * as d3 from 'd3';
 import { useGraphStore } from '../../stores/graphStore';
 import { useLinkingStore, FilterType, HighlightType } from '../../stores/linkingStore';
+import { sentimentColorScaleLinear } from '../../utils/colors';
 
 export default {
   name: 'TopicSentimentOverview',
@@ -81,6 +82,11 @@ export default {
       return this.linkingStore.activeFilters
         .filter(f => f.type === FilterType.TOPIC)
         .map(f => f.value);
+    },
+    hoveredTopics() {
+      return this.linkingStore.hoverHighlights
+        .filter(h => h.type === HighlightType.TOPIC)
+        .map(h => String(h.value));
     },
     selectedInGraphs() {
       return this.linkingStore.selectedInGraphs;
@@ -226,7 +232,7 @@ export default {
         .domain([-1, 1])
         .range([0, width]);
 
-      const colorScale = d3.scaleSequential(d3.interpolateRdYlBu).domain([1, -1]);
+      const colorScale = sentimentColorScaleLinear;
 
       const t = svg.transition().duration(transitionDuration);
 
@@ -265,7 +271,8 @@ export default {
         .text(d => this.formatTopicId(d.topicId))
         .attr('class', 'cursor-pointer hover:font-bold')
         .style('font-size', '12px')
-        .style('font-weight', d => this.highlightedTopics.includes(d.topicId) ? 'bold' : 'normal')
+        .style('font-weight', d => this.highlightedTopics.includes(d.topicId) || this.hoveredTopics.includes(d.topicId) ? 'bold' : 'normal')
+        .style('fill', d => this.hoveredTopics.includes(d.topicId) ? '#2563EB' : 'black')
         .on('click', (event, d) => this.toggleTopicFilter(d.topicId))
         .on('mouseover', (event, d) => {
           this.linkingStore.addHoverHighlight({ type: HighlightType.TOPIC, value: d.topicId });
@@ -345,7 +352,9 @@ export default {
         .attr('x', d => d.activeAverageSentiment < 0 ? x(d.activeAverageSentiment) : x(0))
         .attr('width', d => Math.abs(x(d.activeAverageSentiment) - x(0)))
         .attr('height', barHeight)
-        .attr('fill', d => colorScale(d.activeAverageSentiment));
+        .attr('fill', d => colorScale(d.activeAverageSentiment))
+        .attr('stroke', d => this.hoveredTopics.includes(d.topicId) ? 'black' : 'none')
+        .attr('stroke-width', 2);
 
       svg.selectAll('.bar, .bg-bar')
         .on('mouseover', (event, d) => {
@@ -379,6 +388,14 @@ export default {
       }
     },
     highlightedTopics: {
+      handler() {
+        if (this.showChart) {
+          this.$nextTick(() => this.drawChart());
+        }
+      },
+      deep: true,
+    },
+    hoveredTopics: {
       handler() {
         if (this.showChart) {
           this.$nextTick(() => this.drawChart());
