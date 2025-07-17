@@ -27,21 +27,21 @@
               class="absolute right-0 mt-2 w-72 p-4 bg-white rounded-xl shadow-2xl border border-gray-200 text-sm text-gray-800 z-20">
               <p class="font-bold text-lg mb-3 text-gray-900">Chart Interactions</p>
               <ul class="space-y-3">
-                <li class="flex items-center">
-                  <svg class="h-5 w-5 text-blue-500 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                <li class="flex items-start">
+                  <svg class="h-5 w-5 text-blue-500 mr-3 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24"
                     stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M15 15l-2 5L8 9l11 4-5 2zm0 0l5 5M7.5 8.5A2.5 2.5 0 0110 6v0a2.5 2.5 0 012.5 2.5v0" />
                   </svg>
-                  <div><span class="font-semibold">Hover</span> over cells to see details.</div>
+                  <div><span class="font-semibold">Hover</span> over cells to see sentiment details.</div>
                 </li>
-                <li class="flex items-center">
-                  <svg class="h-5 w-5 text-green-500 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                <li class="flex items-start">
+                  <svg class="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24"
                     stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M4 6h16M4 12h16M4 18h16" />
                   </svg>
-                  <div><span class="font-semibold">Click</span> on a person or topic to filter.</div>
+                  <div><span class="font-semibold">Click</span> on a person or topic label to highlight them.</div>
                 </li>
               </ul>
             </div>
@@ -50,6 +50,29 @@
       </div>
     </div>
     <div class="flex-1 w-full min-h-0 overflow-hidden" ref="matrixContainer"></div>
+    <div class="pt-3 mt-3 border-t border-gray-200">
+      <div class="flex justify-between items-center mb-2 px-1">
+        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Filter by Industry</h3>
+        <div class="flex items-center gap-4">
+          <button @click="selectAllIndustries"
+            class="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors duration-150">Select
+            All</button>
+          <button @click="deselectAllIndustries"
+            class="text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors duration-150">Deselect
+            All</button>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <label v-for="industry in allIndustries" :key="industry" :class="[
+          'inline-block px-2 py-1 text-xs font-medium rounded-full border cursor-pointer transition-colors duration-150',
+          { 'bg-indigo-100 text-indigo-800 border-indigo-200 hover:bg-indigo-200': selectedIndustries.includes(industry) },
+          { 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200': !selectedIndustries.includes(industry) }
+        ]">
+          <input type="checkbox" :value="industry" v-model="selectedIndustries" class="sr-only" />
+          {{ industry }}
+        </label>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -82,6 +105,7 @@ export default defineComponent({
     const matrixContainer = ref<HTMLElement | null>(null);
     const showHelp = ref(false);
     const viewMode = ref<ViewMode>('sentiment');
+    const selectedIndustries = ref<string[]>([]);
 
     let svg: d3.Selection<SVGSVGElement, unknown, null, undefined>;
     let tooltip: d3.Selection<HTMLDivElement, unknown, HTMLElement, any>;
@@ -93,11 +117,64 @@ export default defineComponent({
     const highlightedPeople = computed(() => linkingStore.highlightedPeople);
     const highlightedTopics = computed(() => linkingStore.highlightedTopics);
 
+    const UNCLASSIFIED_INDUSTRY = 'Unclassified';
+
+    function selectAllIndustries() {
+      selectedIndustries.value = [...allIndustries.value];
+    }
+
+    function deselectAllIndustries() {
+      selectedIndustries.value = [];
+    }
+
+    const allIndustries = computed(() => {
+      const industries = new Set<string>();
+      graphStore.sentimentPerTopic.forEach((entity) => {
+        entity.topic_sentiments.forEach((topic) => {
+          if (topic.topic_industry && topic.topic_industry.length > 0) {
+            topic.topic_industry.forEach(industry => {
+              if (industry) industries.add(industry);
+            });
+          } else {
+            industries.add(UNCLASSIFIED_INDUSTRY);
+          }
+        });
+      });
+      return Array.from(industries).sort();
+    });
+
+    watch(allIndustries, (newIndustries) => {
+      selectedIndustries.value = [...newIndustries];
+    }, { immediate: true });
+
+    const topicToIndustries = computed(() => {
+      const mapping = new Map<string, string[]>();
+      graphStore.sentimentPerTopic.forEach((entity) => {
+        entity.topic_sentiments.forEach((topic) => {
+          if (!mapping.has(topic.topic_id)) {
+            if (topic.topic_industry && topic.topic_industry.length > 0) {
+              mapping.set(topic.topic_id, topic.topic_industry);
+            } else {
+              mapping.set(topic.topic_id, [UNCLASSIFIED_INDUSTRY]);
+            }
+          }
+        });
+      });
+      return mapping;
+    });
+
     const personLabels = computed(() => graphStore.sentimentPerTopic.map((entity) => entity.entity_id));
     const topicLabels = computed(() => {
       const topics = new Set<string>();
+      if (selectedIndustries.value.length === 0) return [];
+
       graphStore.sentimentPerTopic.forEach((entity) => {
-        entity.topic_sentiments.forEach((topic) => topics.add(topic.topic_id));
+        entity.topic_sentiments.forEach((topic) => {
+          const industriesOfTopic = topicToIndustries.value.get(topic.topic_id);
+          if (industriesOfTopic && industriesOfTopic.some(ind => selectedIndustries.value.includes(ind))) {
+            topics.add(topic.topic_id);
+          }
+        });
       });
       return Array.from(topics).sort();
     });
@@ -485,6 +562,10 @@ export default defineComponent({
       matrixContainer,
       showHelp,
       viewMode,
+      allIndustries,
+      selectedIndustries,
+      selectAllIndustries,
+      deselectAllIndustries,
     };
   },
 });
