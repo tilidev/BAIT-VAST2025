@@ -3,19 +3,23 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, watch, nextTick, type PropType } from 'vue';
+import { defineComponent, ref, onMounted, onBeforeUnmount, watch, nextTick, type PropType } from 'vue';
 import * as d3 from 'd3';
 import { neutralBaseColor } from '../../utils/colors';
 
+interface DataObject {
+  sentiment: number;
+  [key: string]: any;
+}
+
 interface HistogramProps {
-  data: number[];
-  backgroundData?: number[];
+  data: DataObject[];
+  backgroundData?: DataObject[];
   bins?: number | number[];
   width?: number;
   height?: number;
   margin?: { top: number; right: number; bottom: number; left: number };
   color?: string | ((value: number) => string);
-  tooltipFormatter?: (d: d3.Bin<number, number>) => string;
   xAxisLabelFormatter?: (d: any) => string;
   yAxisLabelFormatter?: (d: any) => string;
   showGridLines?: boolean;
@@ -30,12 +34,12 @@ export default defineComponent({
   name: 'Histogram',
   props: {
     data: {
-      type: Array as PropType<number[]>,
+      type: Array as PropType<DataObject[]>,
       required: true,
       default: () => [],
     },
     backgroundData: {
-      type: Array as PropType<number[]>,
+      type: Array as PropType<DataObject[]>,
       default: () => [],
     },
     bins: {
@@ -57,10 +61,6 @@ export default defineComponent({
     color: {
       type: [String, Function] as PropType<string | ((value: number) => string)>,
       default: neutralBaseColor,
-    },
-    tooltipFormatter: {
-      type: Function,
-      default: (d: d3.Bin<number, number>) => `Range: [${d.x0}, ${d.x1})<br>Count: ${d.length}`,
     },
     xAxisLabelFormatter: {
       type: Function,
@@ -95,7 +95,8 @@ export default defineComponent({
       default: '#ccc',
     },
   },
-  setup(props: HistogramProps) {
+  emits: ['bar-click'],
+  setup(props: HistogramProps, { emit }) {
     const chartContainer = ref<HTMLElement | null>(null);
     let svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any> | null = null;
     let svgGroup: d3.Selection<SVGGElement, unknown, HTMLElement, any> | null = null;
@@ -106,9 +107,10 @@ export default defineComponent({
     const transitionDuration = 500;
 
     function initChart() {
+      if (!chartContainer.value) return;
       const { width, height, margin } = props;
-      const w = width || 400;
-      const h = height || 300;
+      const w = width || chartContainer.value.clientWidth || 400;
+      const h = height || chartContainer.value.clientHeight || 300;
       const m = margin || { top: 20, right: 30, bottom: 40, left: 60 };
       innerWidth = w - m.left - m.right;
       innerHeight = h - m.top - m.bottom;
@@ -122,7 +124,7 @@ export default defineComponent({
 
       svgGroup = svg!.append('g').attr('transform', `translate(${m.left},${m.top})`);
 
-      const allData = [...props.data, ...(props.backgroundData || [])];
+      const allData = [...props.data.map(d => d.sentiment), ...(props.backgroundData?.map(d => d.sentiment) || [])];
       const xDomain = props.fixedXDomain || d3.extent(allData) as [number, number];
 
       x = d3.scaleLinear().domain(xDomain).range([0, innerWidth]);
@@ -139,8 +141,6 @@ export default defineComponent({
       const bgGradient = defs.append("linearGradient").attr("id", "bg-density-gradient").attr("x1", "0%").attr("y1", "0%").attr("x2", "0%").attr("y2", "100%");
       bgGradient.append("stop").attr("offset", "0%").attr("stop-color", props.backgroundDensityColor || '#ccc').attr("stop-opacity", 0.5);
       bgGradient.append("stop").attr("offset", "100%").attr("stop-color", props.backgroundDensityColor || '#ccc').attr("stop-opacity", 0);
-
-      const tooltip = d3.select("body").append("div").attr("class", "tooltip absolute hidden p-2 bg-white border rounded shadow-lg text-sm").style("pointer-events", "none").style("z-index", "50");
     }
 
     function updateChart() {
@@ -151,14 +151,14 @@ export default defineComponent({
         return;
       }
 
-      const { data, backgroundData, bins, color, tooltipFormatter, xAxisLabelFormatter, yAxisLabelFormatter, showGridLines, showTicks, fixedXDomain, showDensity, densityColor, backgroundDensityColor } = props;
+      const { data, backgroundData, bins, color, xAxisLabelFormatter, yAxisLabelFormatter, showGridLines, showTicks, fixedXDomain, showDensity, densityColor, backgroundDensityColor } = props;
 
-      const allData = [...data, ...(backgroundData || [])];
+      const allData = [...data.map(d => d.sentiment), ...(backgroundData?.map(d => d.sentiment) || [])];
       const xDomain = fixedXDomain || d3.extent(allData) as [number, number];
       x.domain(xDomain);
 
-      const histogram = d3.histogram<number, number>()
-        .value(d => d)
+      const histogram = d3.histogram<DataObject, number>()
+        .value(d => d.sentiment)
         .domain(x.domain() as [number, number])
         .thresholds(typeof bins === 'number' ? x.ticks(bins) : bins as number[]);
 
@@ -170,12 +170,14 @@ export default defineComponent({
       const binWidth = (xDomain[1] - xDomain[0]) / (typeof bins === 'number' ? bins : (bins as number[]).length - 1);
 
       if (showDensity) {
-        const optimalBandwidth = silverman(data);
-        const optimalBandwidthBg = silverman(backgroundData || []);
+        const sentimentData = data.map(d => d.sentiment);
+        const backgroundSentimentData = backgroundData?.map(d => d.sentiment) || [];
+        const optimalBandwidth = silverman(sentimentData);
+        const optimalBandwidthBg = silverman(backgroundSentimentData);
         const kde = kernelDensityEstimator(kernelEpanechnikov(optimalBandwidth), x.ticks(100));
         const kdeBg = kernelDensityEstimator(kernelEpanechnikov(optimalBandwidthBg), x.ticks(100));
-        const density = kde(data) as [number, number][];
-        const backgroundDensity = kdeBg(backgroundData || []) as [number, number][];
+        const density = kde(sentimentData) as [number, number][];
+        const backgroundDensity = kdeBg(backgroundSentimentData) as [number, number][];
 
         const maxHistDensity = d3.max(binnedData, d => (d.length / (n * binWidth))) || 0;
         const maxBgHistDensity = d3.max(binnedBackgroundData, d => (d.length / (n_bg * binWidth))) || 0;
@@ -269,11 +271,10 @@ export default defineComponent({
       }
     }
 
-    function drawBars(binnedData: d3.Bin<number, number>[], binnedBackgroundData: d3.Bin<number, number>[], binWidth: number, n: number, n_bg: number) {
-      const { color, tooltipFormatter, showDensity } = props;
-      const tooltip = d3.select(".tooltip");
+    function drawBars(binnedData: d3.Bin<DataObject, number>[], binnedBackgroundData: d3.Bin<DataObject, number>[], binWidth: number, n: number, n_bg: number) {
+      const { color, showDensity } = props;
 
-      const bgBars = svgGroup!.selectAll<SVGRectElement, d3.Bin<number, number>>(".bg-bar").data(binnedBackgroundData, d => d.x0 as any);
+      const bgBars = svgGroup!.selectAll<SVGRectElement, d3.Bin<DataObject, number>>(".bg-bar").data(binnedBackgroundData, d => d.x0 as any);
       bgBars.exit()
         .transition().duration(transitionDuration)
         .attr("y", innerHeight)
@@ -295,7 +296,7 @@ export default defineComponent({
         .attr("width", d => Math.max(0, x!(d.x1 || 0) - x!(d.x0 || 0) - 1))
         .attr("height", d => showDensity ? innerHeight - y!(d.length / (n_bg * binWidth)) : innerHeight - y!(d.length));
 
-      const bars = svgGroup!.selectAll<SVGRectElement, d3.Bin<number, number>>(".bar").data(binnedData, d => d.x0 as any);
+      const bars = svgGroup!.selectAll<SVGRectElement, d3.Bin<DataObject, number>>(".bar").data(binnedData, d => d.x0 as any);
       bars.exit()
         .transition().duration(transitionDuration)
         .attr("y", innerHeight)
@@ -309,14 +310,9 @@ export default defineComponent({
         .attr("width", d => Math.max(0, x!(d.x1 || 0) - x!(d.x0 || 0) - 1))
         .attr("height", 0)
         .attr("fill", d => typeof color === 'function' ? color((d.x0! + d.x1!) / 2) : color || neutralBaseColor)
-        .on("mouseover", (event, d) => {
-          tooltip.classed("hidden", false).html(tooltipFormatter!(d));
-        })
-        .on("mousemove", (event) => {
-          tooltip.style("left", (event.pageX + 10) + "px").style("top", (event.pageY - 20) + "px");
-        })
-        .on("mouseout", () => {
-          tooltip.classed("hidden", true);
+        .style('cursor', 'pointer')
+        .on("click", (event, d) => {
+          emit('bar-click', d);
         })
         .merge(bars)
         .transition().duration(transitionDuration)
@@ -345,14 +341,31 @@ export default defineComponent({
       return 1.06 * stdDev * Math.pow(n, -0.2);
     }
 
+    let resizeObserver: ResizeObserver;
+
     onMounted(() => {
+      if (chartContainer.value) {
+        resizeObserver = new ResizeObserver(() => {
+          nextTick(() => {
+            initChart();
+            updateChart();
+          });
+        });
+        resizeObserver.observe(chartContainer.value);
+      }
       nextTick(() => {
         initChart();
         updateChart();
       });
     });
 
-    watch(() => props, () => {
+    onBeforeUnmount(() => {
+      if (resizeObserver && chartContainer.value) {
+        resizeObserver.unobserve(chartContainer.value);
+      }
+    });
+
+    watch(() => [props.data, props.backgroundData], () => {
       nextTick(updateChart);
     }, { deep: true });
 

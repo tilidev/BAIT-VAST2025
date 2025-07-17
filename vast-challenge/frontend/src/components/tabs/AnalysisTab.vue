@@ -1,6 +1,11 @@
 <template>
-  <div class="h-full">
+  <div class="h-full relative">
     <CustomGridLayout :initial-layout="processedLayout" @layout-updated="updateLayout" />
+    <SentimentDetailSidebar
+      :visible="isSidebarVisible"
+      :data="selectedBarData"
+      @close="isSidebarVisible = false"
+    />
   </div>
 </template>
 
@@ -8,7 +13,14 @@
 import { defineComponent } from 'vue';
 import { storeToRefs } from 'pinia';
 import CustomGridLayout from '../CustomGridLayout.vue';
+import SentimentDetailSidebar from '../SentimentDetailSidebar.vue';
 import { useLinkingStore } from '../../stores/linkingStore';
+import type { Bin } from 'd3-array';
+
+interface DataObject {
+  sentiment: number;
+  [key: string]: any;
+}
 
 interface Person {
   id: string;
@@ -37,6 +49,7 @@ export default defineComponent({
   name: 'AnalysisTab',
   components: {
     CustomGridLayout,
+    SentimentDetailSidebar,
   },
   setup() {
     const linkingStore = useLinkingStore();
@@ -47,6 +60,8 @@ export default defineComponent({
   },
   data() {
     return {
+      isSidebarVisible: false,
+      selectedBarData: null as Bin<DataObject, number> | null,
       persons: [] as Person[],
       activities: {} as { [key: string]: Activity },
       metrics: ['num_trips', 'num_plans', 'num_discussions', 'num_meetings', 'num_topics'],
@@ -80,8 +95,16 @@ export default defineComponent({
     };
   },
   computed: {
-    processedLayout() {
+    processedLayout(): any[] {
       return this.layout.map(item => {
+        if (item.component === 'TopicSentimentDistribution') {
+          return {
+            ...item,
+            listeners: {
+              'bar-click': this.handleBarClick,
+            },
+          };
+        }
         if (item.component === 'PersonOverview') {
           return {
             ...item,
@@ -144,6 +167,10 @@ export default defineComponent({
     },
   },
   methods: {
+    handleBarClick(data: Bin<DataObject, number>) {
+      this.selectedBarData = data;
+      this.isSidebarVisible = true;
+    },
     updateLayout(newLayout: any) {
       this.layout = newLayout;
     },

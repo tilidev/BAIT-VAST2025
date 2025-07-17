@@ -1,30 +1,34 @@
 <template>
-  <div class="h-full w-full" ref="el">
-    <div v-if="isLoading" class="flex items-center justify-center h-full">
-      <p class="text-gray-500">Loading data...</p>
-    </div>
-    <div v-else-if="error" class="flex items-center justify-center h-full">
-      <p class="text-red-500">Error: {{ error }}</p>
-    </div>
-    <div v-else-if="sentimentData.length > 0 || unfilteredSentimentData.length > 0" class="h-full w-full">
-      <Histogram
-        :data="sentimentData"
-        :background-data="unfilteredSentimentData"
-        :width="width"
-        :height="height"
-        :margin="{ top: 20, right: 30, bottom: 40, left: 60 }"
-        :color="sentimentColorScaleLinear"
-        :bins="20"
-        :show-grid-lines="true"
-        :show-ticks="false"
-        :fixed-x-domain="[-1, 1]"
-        :show-density="true"
-        density-color="rgba(79, 70, 229, 0.5)"
-        background-density-color="rgba(156, 163, 175, 0.3)"
-      />
-    </div>
-    <div v-else class="flex items-center justify-center h-full">
-      <p class="text-gray-500">No data available for the selected criteria.</p>
+  <div class="h-full w-full flex flex-col p-2">
+    <h3 class="text-lg font-semibold text-gray-800 mb-2">Topic Sentiment Distribution</h3>
+    <div class="flex-grow" ref="el">
+      <div v-if="isLoading" class="flex items-center justify-center h-full">
+        <p class="text-gray-500">Loading data...</p>
+      </div>
+      <div v-else-if="error" class="flex items-center justify-center h-full">
+        <p class="text-red-500">Error: {{ error }}</p>
+      </div>
+      <div v-else-if="sentimentData.length > 0 || unfilteredSentimentData.length > 0" class="h-full w-full">
+        <Histogram
+          :data="sentimentData"
+          :background-data="unfilteredSentimentData"
+          :width="width"
+          :height="height"
+          :margin="{ top: 20, right: 30, bottom: 40, left: 60 }"
+          :color="sentimentColorScaleLinear"
+          :bins="20"
+          :show-grid-lines="true"
+          :show-ticks="false"
+          :fixed-x-domain="[-1, 1.1]"
+          :show-density="true"
+          density-color="rgba(79, 70, 229, 0.5)"
+          background-density-color="rgba(156, 163, 175, 0.3)"
+          @bar-click="handleBarClick"
+        />
+      </div>
+      <div v-else class="flex items-center justify-center h-full">
+        <p class="text-gray-500">No data available for the selected criteria.</p>
+      </div>
     </div>
   </div>
 </template>
@@ -36,19 +40,30 @@ import { useGraphStore } from '../../stores/graphStore';
 import { useLinkingStore } from '../../stores/linkingStore';
 import Histogram from '../charts/Histogram.vue';
 import { sentimentColorScaleLinear } from '../../utils/colors';
+import type { Bin } from 'd3-array';
+
+interface DataObject {
+  sentiment: number;
+  [key: string]: any;
+}
 
 export default defineComponent({
   name: 'TopicSentimentDistribution',
   components: {
     Histogram,
   },
-  setup() {
+  emits: ['bar-click'],
+  setup(props, { emit }) {
     const graphStore = useGraphStore();
     const linkingStore = useLinkingStore();
     const el = ref(null);
     const { width, height } = useElementSize(el);
     const isLoading = ref(true);
     const error = ref<string | null>(null);
+
+    function handleBarClick(data: Bin<DataObject, number>) {
+      emit('bar-click', data);
+    }
 
     onMounted(async () => {
       isLoading.value = true;
@@ -71,7 +86,13 @@ export default defineComponent({
       if (!allSentiments || allSentiments.length === 0) return [];
 
       return allSentiments.flatMap((entity: any) =>
-        entity.topic_sentiments.map((topic: any) => topic.sentiment)
+        entity.topic_sentiments.map((topic: any) => ({
+          sentiment: topic.sentiment,
+          reason: topic.reason,
+          topic_id: topic.topic_id,
+          entity_id: entity.entity_id,
+          topic_industry: topic.topic_industry,
+        }))
       );
     });
 
@@ -134,7 +155,13 @@ export default defineComponent({
 
             return hoverMatch && topicMatch && inGraphMatch && !topicExcluded && !inGraphExcluded;
           })
-          .map((topic: any) => topic.sentiment)
+          .map((topic: any) => ({
+            sentiment: topic.sentiment,
+            reason: topic.reason,
+            topic_id: topic.topic_id,
+            entity_id: entity.entity_id,
+            topic_industry: topic.topic_industry,
+          }))
       );
     });
 
@@ -147,6 +174,7 @@ export default defineComponent({
       isLoading,
       error,
       sentimentColorScaleLinear,
+      handleBarClick,
     };
   },
 });
