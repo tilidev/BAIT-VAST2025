@@ -76,7 +76,14 @@ export default {
       return this.entityStore.trips.length === 0 || this.mapStore.features.length === 0;
     },
     allActivities() {
-      return Object.values(this.entityStore.personTripActivities).reduce((acc, val) => acc.concat(val), []);
+      const activities = [];
+      for (const personId in this.entityStore.personTripActivities) {
+        const personActivities = this.entityStore.personTripActivities[personId];
+        personActivities.forEach(activity => {
+          activities.push({ ...activity, personId: personId });
+        });
+      }
+      return activities;
     },
     tripsPerIslandWithAllCounts() {
       return this.generateBarData('island');
@@ -127,27 +134,30 @@ export default {
   },
   methods: {
     updateHoveredFilters() {
-      const highlights = [];
+      const filters = [];
       if (this.hoveredIsland) {
-        highlights.push({ type: 'island', value: this.hoveredIsland });
+        filters.push({ type: 'island', value: this.hoveredIsland });
       }
       if (this.hoveredZone) {
-        highlights.push({ type: 'zone', value: this.hoveredZone });
+        filters.push({ type: 'zone', value: this.hoveredZone });
       }
       if (this.hoveredInGraph) {
-        highlights.push({ type: 'in_graph', value: this.hoveredInGraph });
+        filters.push({ type: 'in_graph', value: this.hoveredInGraph });
       }
-      this.linkingStore.setHoverHighlights(highlights);
+      this.linkingStore.setHoveredFilters(filters);
     },
     getFilteredActivities(activities, filters) {
       let filtered = activities;
 
       // Filter by sidebar selections (inclusive)
       if (filters && filters.length > 0) {
+        const personFilterValues = filters.filter(f => f.type === 'person').map(f => f.value);
         const placeFilterValues = filters.filter(f => f.type === 'place').flatMap(f => f.value);
         const otherFilters = filters.filter(f => f.type !== 'place' && f.type !== 'person');
 
         filtered = filtered.filter((activity) => {
+          const passesPersonFilter = personFilterValues.length === 0 || personFilterValues.includes(activity.personId);
+
           const passesPlaceFilter = placeFilterValues.length === 0 || activity.visited_places.some(visitedPlace => {
             return visitedPlace.place && placeFilterValues.includes(visitedPlace.place.id);
           });
@@ -170,7 +180,7 @@ export default {
             });
           });
 
-          return passesPlaceFilter && passesOtherFilters;
+          return passesPersonFilter && passesPlaceFilter && passesOtherFilters;
         });
       }
 
@@ -206,10 +216,10 @@ export default {
       );
 
       let previewCountsMap = new Map();
-      const hoverHighlights = this.linkingStore.hoverHighlights;
+      const hoveredFilters = this.linkingStore.hoveredFilters;
 
-      if (hoverHighlights.length > 0) {
-        const combinedFilters = [...this.linkingStore.activeFilters, ...hoverHighlights];
+      if (hoveredFilters.length > 0) {
+        const combinedFilters = [...this.linkingStore.activeFilters, ...hoveredFilters];
         previewCountsMap = this.processTripData(
           this.getFilteredActivities(this.allActivities, combinedFilters),
           filterType
@@ -269,7 +279,7 @@ export default {
           [filterType]: label,
           totalCount: totalCount,
           activeCount: activeCount,
-          previewCount: hoverHighlights.length > 0 ? previewCount : 0,
+          previewCount: hoveredFilters.length > 0 ? previewCount : 0,
           isActive: activeFilterValues.has(label),
           isExcluded: excludedFilterValues.has(label),
         };

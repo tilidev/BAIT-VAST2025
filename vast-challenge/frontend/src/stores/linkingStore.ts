@@ -39,6 +39,7 @@ interface LinkingState {
   activeFilters: Filter[];
   excludedFilters: Filter[];
   hoverHighlights: Highlight[];
+  hoveredFilters: Filter[];
   selectedEntityId: string;
 }
 
@@ -47,6 +48,7 @@ export const useLinkingStore = defineStore('linking', {
     activeFilters: [],
     excludedFilters: [],
     hoverHighlights: [],
+    hoveredFilters: [],
     selectedEntityId: '',
   }),
   getters: {
@@ -133,6 +135,9 @@ export const useLinkingStore = defineStore('linking', {
     setHoverHighlights(highlights: Highlight[]) {
       this.hoverHighlights = highlights;
     },
+    setHoveredFilters(filters: Filter[]) {
+      this.hoveredFilters = filters;
+    },
     addHoverHighlight(highlight: Highlight) {
       if (!this.hoverHighlights.some(h => h.type === highlight.type && h.value === highlight.value)) {
         this.hoverHighlights.push(highlight);
@@ -151,6 +156,7 @@ export const useLinkingStore = defineStore('linking', {
       this.activeFilters = [];
       this.excludedFilters = [];
       this.hoverHighlights = [];
+      this.hoveredFilters = [];
       this.selectedEntityId = '';
     },
   },

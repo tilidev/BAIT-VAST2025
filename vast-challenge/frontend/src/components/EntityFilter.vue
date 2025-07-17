@@ -35,6 +35,7 @@
             { 'bg-indigo-base text-white hover:bg-indigo-base/90': selectedNode === node.value },
             { 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300': selectedNode !== node.value }
           ]"
+          @click.prevent="updateSelectedNode(node.value)"
         >
           <input
             type="radio"
@@ -42,7 +43,6 @@
             :value="node.value"
             class="sr-only"
             :checked="selectedNode === node.value"
-            @change="updateSelectedNode(node.value)"
           />
           {{ node.label }}
         </label>
@@ -120,13 +120,25 @@ export default {
     const updateSelectedNode = (nodeId) => {
       switch (selectedType.value) {
         case 'TOPIC':
-          linkingStore.setTopicId(nodeId);
+          if (linkingStore.selectedTopic === nodeId) {
+            linkingStore.setTopicId('');
+          } else {
+            linkingStore.setTopicId(nodeId);
+          }
           break;
         case 'ENTITY_ORGANIZATION':
-          linkingStore.setOrganizationId(nodeId);
+          if (linkingStore.selectedOrganization === nodeId) {
+            linkingStore.setOrganizationId('');
+          } else {
+            linkingStore.setOrganizationId(nodeId);
+          }
           break;
         default:
-          linkingStore.setPersonId(nodeId);
+          if (linkingStore.selectedPerson === nodeId) {
+            linkingStore.setPersonId('');
+          } else {
+            linkingStore.setPersonId(nodeId);
+          }
       }
     };
     

@@ -15,6 +15,7 @@
 import * as d3 from 'd3'
 import { useEntityStore } from '../stores/entityStore'
 import { useLinkingStore, HighlightType } from '../stores/linkingStore'
+import { useGraphStore } from '../stores/graphStore'
 
 const nodeTypeToHighlightType = {
   'ENTITY_PERSON': HighlightType.PERSON,
@@ -36,6 +37,7 @@ const iconClass = {
 
 export default {
   name: 'EgoNetwork',
+  emits: ['person-click'],
   data() {
     return {
       nodes: [],
@@ -88,6 +90,36 @@ export default {
     }
   },
   methods: {
+    handlePersonClick(personNode) {
+      const graphStore = useGraphStore();
+      if (graphStore.sentimentPerTopic.length === 0) {
+        console.warn("Sentiment data not loaded for EgoNetwork click.");
+        return;
+      }
+
+      const allSentiments = graphStore.sentimentPerTopic.flatMap((entity) =>
+        entity.topic_sentiments.map((topic) => ({
+          sentiment: topic.sentiment,
+          reason: topic.reason,
+          topic_id: topic.topic_id,
+          entity_id: entity.entity_id,
+          topic_industry: topic.topic_industry,
+        }))
+      );
+
+      const personSentiments = allSentiments.filter(
+        (sentiment) => sentiment.entity_id === personNode.id
+      );
+
+      if (personSentiments.length > 0) {
+        const sentimentBin = personSentiments;
+        sentimentBin.x0 = -1;
+        sentimentBin.x1 = 1;
+        this.$emit('person-click', sentimentBin);
+      } else {
+        console.log(`No sentiment data found for person ${personNode.id}`);
+      }
+    },
     updateHighlights() {
       if (!this.$refs.chart) return;
       const svg = d3.select(this.$refs.chart).select('svg');
@@ -131,6 +163,25 @@ export default {
         html += `<div class="mb-1"><span class="font-semibold text-blue-600">Collapsed Edge:</span> Represents ${data.originalCount} connections to this topic group</div><hr class="border-gray-300 my-2"/>`
       }
       
+      if (data.type === 'ENTITY_PERSON') {
+        const graphStore = useGraphStore();
+        const allSentiments = graphStore.sentimentPerTopic.flatMap((entity) =>
+          entity.topic_sentiments.map((topic) => ({
+            sentiment: topic.sentiment,
+            entity_id: entity.entity_id,
+          }))
+        );
+        const personSentiments = allSentiments.filter(
+          (sentiment) => sentiment.entity_id === data.id
+        );
+        if (personSentiments.length > 0) {
+          const avgSentiment = personSentiments.reduce((sum, s) => sum + s.sentiment, 0) / personSentiments.length;
+          html += `<div class="mb-1"><span class="font-semibold">Avg. Sentiment:</span> ${avgSentiment.toFixed(2)}</div>`
+          html += `<div class="mb-1"><span class="font-semibold">Sentiment Count:</span> ${personSentiments.length}</div>`
+          html += `<div class="text-xs italic mt-1">Click for details</div><hr class="border-gray-300 my-2"/>`
+        }
+      }
+
       for (const [k, v] of Object.entries(data)) {
         if (skip.has(k) || k === 'id' || k === 'type') continue
         // prepare value with word-break helpers
@@ -638,6 +689,11 @@ export default {
         const highlightType = nodeTypeToHighlightType[d.type]
         if (highlightType) {
           this.linkingStore.removeHoverHighlight({ type: highlightType, value: d.id })
+        }
+      })
+      .on('click', (e, d) => {
+        if (d.type === 'ENTITY_PERSON') {
+          this.handlePersonClick(d);
         }
       })
 

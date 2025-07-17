@@ -74,7 +74,8 @@
           <InGraphFilter />
         </div>
 
-        <div v-else-if="activeTab === 'trip-analysis'">
+        <div v-else-if="activeTab === 'trip-analysis'" class="space-y-4">
+          <EntityFilter />
           <TripDrilldownFilter />
         </div>
 
