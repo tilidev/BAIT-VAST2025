@@ -88,9 +88,9 @@
     </div>
 
     <!-- Theme Switcher at the bottom -->
-    <div class="p-2 flex justify-center">
+    <!-- <div class="p-2 flex justify-center">
       <ThemeSwitcher />
-    </div>
+    </div> -->
     </aside>
     <ChallengeModal :is-open="isModalOpen" @close="closeModal" />
   </div>
