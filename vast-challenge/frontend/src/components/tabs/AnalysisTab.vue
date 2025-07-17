@@ -105,6 +105,14 @@ export default defineComponent({
             },
           };
         }
+        if (item.component === 'EgoNetwork') {
+          return {
+            ...item,
+            listeners: {
+              'person-click': this.handleBarClick,
+            },
+          };
+        }
         if (item.component === 'PersonOverview') {
           return {
             ...item,
