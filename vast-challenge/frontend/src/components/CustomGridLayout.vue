@@ -58,6 +58,7 @@ import EgoNetwork from './EgoNetwork.vue';
 import TopicSentimentDistribution from './mini-visualizations/TopicSentimentDistribution.vue';
 import PersonOverview from './PersonOverview.vue';
 import PersonDetailView from './PersonDetailView.vue';
+import SentimentDiffMatrix from './SentimentDiffMatrix.vue';
 
 
 interface LayoutItem {
@@ -93,6 +94,7 @@ export default defineComponent({
     TopicSentimentDistribution,
     PersonOverview,
     PersonDetailView,
+    SentimentDiffMatrix,
   },
   props: {
     initialLayout: {

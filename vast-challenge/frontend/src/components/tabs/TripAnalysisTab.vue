@@ -16,8 +16,8 @@ export default defineComponent({
   data() {
     return {
       layout: [
-        { x: 0, y: 0, w: 12, h: 8, i: '0', component: 'TimelineComponent' },
-        { x: 0, y: 8, w: 12, h: 12, i: '1', component: 'GeoJsonMap' },
+        { x: 0, y: 0, w: 12, h: 10, i: '0', component: 'TimelineComponent' },
+        { x: 0, y: 8, w: 12, h: 14, i: '1', component: 'GeoJsonMap' },
       ],
     };
   },

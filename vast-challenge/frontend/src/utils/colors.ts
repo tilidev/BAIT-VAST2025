@@ -27,3 +27,9 @@ export const zoneColors: { [key: string]: string } = {
   "industrial": "#ef4444",
   "default": "grey"
 };
+
+export const datasetColors: { [key: string]: string } = {
+  jo: '#3b82f6', // blue-500
+  fi: '#10b981', // emerald-500
+  tr: '#f97316', // orange-500
+};

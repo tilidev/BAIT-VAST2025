@@ -31,7 +31,7 @@ export default {
     },
     margin: {
       type: Object,
-      default: () => ({ top: 150, right: 0, bottom: 10, left: 150 }),
+      default: () => ({ top: 150, right: 10, bottom: 10, left: 150 }),
     },
     colorScale: {
       type: Function,
@@ -137,7 +137,6 @@ export default {
         .append('svg')
         .attr('width', width)
         .attr('height', height)
-        .attr('class', 'rounded-lg shadow-md border')
         .on('mouseleave', () => {
           this.linkingStore.setHoverHighlights([]);
         });
@@ -252,6 +251,12 @@ export default {
         .text(d => rowLabelFormatter ? rowLabelFormatter(d) : d.toString())
         .on("click", (event, d) => {
           this.$emit('row-label-click', d);
+        })
+        .on("mouseover", (event, d) => {
+          this.$emit('row-label-mouseover', d);
+        })
+        .on("mouseout", (event, d) => {
+          this.$emit('row-label-mouseout', d);
         });
 
       // Column labels
@@ -273,6 +278,12 @@ export default {
         .text(d => colLabelFormatter ? colLabelFormatter(d) : d.toString())
         .on("click", (event, d) => {
           this.$emit('col-label-click', d);
+        })
+        .on("mouseover", (event, d) => {
+          this.$emit('col-label-mouseover', d);
+        })
+        .on("mouseout", (event, d) => {
+          this.$emit('col-label-mouseout', d);
         });
 
       this.updateHighlight();
@@ -283,6 +294,12 @@ export default {
       const { highlightedRows, highlightedCols } = this.$props;
       const hoveredCellHighlight = this.linkingStore.hoverHighlights.find(h => h.type === this.HighlightType.CELL);
       const hoveredCell = hoveredCellHighlight ? hoveredCellHighlight.value : null;
+      const hoveredPeople = this.linkingStore.hoverHighlights.filter(h => h.type === this.HighlightType.PERSON).map(h => h.value);
+      const hoveredTopics = this.linkingStore.hoverHighlights.filter(h => h.type === this.HighlightType.TOPIC).map(h => h.value);
+      const hoveredIndustries = this.linkingStore.hoverHighlights.filter(h => h.type === this.HighlightType.INDUSTRY).map(h => h.value);
+
+      const allHoveredRows = hoveredPeople;
+      const allHoveredCols = [...hoveredTopics, ...hoveredIndustries];
 
       // Reset all styles first
       svgGroup.selectAll(".cell")
@@ -291,27 +308,36 @@ export default {
       svgGroup.selectAll(".row-label").style("font-weight", "normal");
       svgGroup.selectAll(".column-label text").style("font-weight", "normal");
 
-      // Apply highlighting based on props
-      if (highlightedRows.length > 0 || highlightedCols.length > 0) {
+      // Apply highlighting based on props and hovers
+      const hasHighlight = highlightedRows.length > 0 || highlightedCols.length > 0;
+      const hasHover = allHoveredRows.length > 0 || allHoveredCols.length > 0;
+
+      if (hasHighlight || hasHover) {
         svgGroup.selectAll(".cell").style("opacity", 0.3);
+
+        svgGroup.selectAll(".cell")
+          .filter(d => 
+            highlightedRows.includes(d.row) || 
+            highlightedCols.includes(d.col) ||
+            allHoveredRows.includes(d.row) ||
+            allHoveredCols.includes(d.col)
+          )
+          .style("opacity", 1);
       }
 
-      svgGroup.selectAll(".cell")
-        .filter(d => highlightedRows.includes(d.row) || highlightedCols.includes(d.col))
-        .style("opacity", 1);
-
       svgGroup.selectAll(".row-label")
-        .filter(d => highlightedRows.includes(d))
+        .filter(d => highlightedRows.includes(d) || allHoveredRows.includes(d))
         .style("font-weight", "bold");
 
       svgGroup.selectAll(".column-label text")
-        .filter(d => highlightedCols.includes(d))
+        .filter(d => highlightedCols.includes(d) || allHoveredCols.includes(d))
         .style("font-weight", "bold");
 
       if (hoveredCell) {
         svgGroup.selectAll(".cell")
           .filter(d => d.row === hoveredCell.row && d.col === hoveredCell.col)
           .style("stroke", "#fd5825").style("stroke-width", 4)
+          .style("opacity", 1) // Ensure hovered cell is fully visible
           .style("stroke-linejoin", "round").style("stroke-linecap", "round").raise();
 
         svgGroup.selectAll(".row-label")
