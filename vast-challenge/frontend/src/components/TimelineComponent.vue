@@ -104,12 +104,21 @@ export default {
               acc[zone] = (acc[zone] || 0) + 1;
               return acc;
             }, {});
+            const raw = toRaw(trip); 
+            const baseTrip = raw.trip ?? raw; 
+
+            const startTime = new Date(`${baseTrip.date}T${baseTrip.start}`);
+            let endTime = new Date(`${baseTrip.date}T${baseTrip.end}`);
+
+            if (endTime < startTime) {
+              endTime.setDate(endTime.getDate() + 1);
+            }
 
             allTrips.push({
               trip: toRaw(trip),
               personId: personId,
-              startTime: new Date(trip.visited_places[0]?.visit_rel.time),
-              endTime: new Date(trip.visited_places[trip.visited_places.length - 1]?.visit_rel.time),
+              startTime: startTime,
+              endTime: endTime,
               startZone: trip.visited_places[0]?.place.zone,
               visitedPlaceNames: trip.visited_places.map(p => p.place.name || p.place.label),
               visitedPlaceIds: trip.visited_places.map(p => p.place.id),
@@ -498,7 +507,7 @@ export default {
         const totalVisits = Object.values(d.zoneCounts).reduce((a, b) => a + b, 0);
         if (totalVisits === 0) return;
 
-        const tripWidth = Math.max(1, xScale(d.endTime) - xScale(d.startTime));
+        const tripWidth = Math.max(3, xScale(d.endTime) - xScale(d.startTime));
         const tripHeight = yScale.bandwidth();
         let currentY = 0;
 
