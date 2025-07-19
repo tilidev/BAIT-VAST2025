@@ -4,7 +4,6 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/VAST%20Challenge-2025-blueviolet" alt="VAST Challenge 2025">
-  <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
 </p>
 
 <p align="center">
@@ -12,12 +11,9 @@
   <img src="https://img.shields.io/badge/FastAPI-0.100.0-green.svg" alt="FastAPI">
   <img src="https://img.shields.io/badge/Neo4j-5.10.0-blue.svg" alt="Neo4j">
   <img src="https://img.shields.io/badge/vue-3.5.13-brightgreen.svg" alt="Vue.js">
-  <img src="https://img.shields.io/badge/typescript-~5.8.3-blue.svg" alt="TypeScript">
   <img src="https://img.shields.io/badge/d3.js-7.9.0-orange.svg" alt="D3.js">
   <img src="https://img.shields.io/badge/tailwind%20css-3.4.17-38B2AC.svg" alt="Tailwind CSS">
   <img src="https://img.shields.io/badge/pinia-^3.0.2-yellow.svg" alt="Pinia">
-  <img src="https://img.shields.io/badge/vue--router-^4.5.1-brightgreen.svg" alt="Vue Router">
-  <img src="https://img.shields.io/badge/axios-^1.9.0-purple.svg" alt="Axios">
   <img src="https://img.shields.io/badge/vite-^6.3.5-blueviolet.svg" alt="Vite">
 </p>
 
