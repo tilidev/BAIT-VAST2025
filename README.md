@@ -30,7 +30,7 @@ A live demo of the application is running at: **[https://bait.ava25.dbvis.de/](h
 
 ## 📖 About the Project
 
-The town of Oceanus is experiencing economic shifts, with a growing tourism industry challenging the traditional fishing-based economy. The **Commission on Overseeing the Economic Future of Oceanus (COOTEFOO)** is tasked with monitoring these changes. However, it faces accusations from two opposing groups:
+The Islands of Oceanus are experiencing economic shifts, with a growing tourism industry challenging the traditional fishing-based economy. The **Commission on Overseeing the Economic Future of Oceanus (COOTEFOO)** is tasked with monitoring these changes. However, it faces accusations from two opposing groups:
 
 - **Fishing is Living and Heritage (FILAH)**: Accuses COOTEFOO of favoring tourism and neglecting the fishing industry.
 - **Tourism Raises OceanUs Together (TROUT)**: Accuses COOTEFOO of being biased towards the entrenched fishing industry.
