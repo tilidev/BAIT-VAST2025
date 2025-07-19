@@ -4,6 +4,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/VAST%20Challenge-2025-blueviolet" alt="VAST Challenge 2025">
+  <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
 </p>
 
 <p align="center">
@@ -21,7 +22,7 @@
   <img src="ava teaser.gif" alt="AVA Teaser" width="80%">
 </p>
 
-This repository contains the submission for the VAST Challenge 2025, Mini-Challenge 2. The project is a web-based visual analytics tool designed to help a journalist investigate accusations of bias within a government oversight board.
+This repository contains the submission for the VAST Challenge 2025, [Mini-Challenge 2](https://vast-challenge.github.io/2025/MC2.html). The project is a web-based visual analytics tool designed to help a journalist investigate accusations of bias within a government oversight board.
 
 ## 🌐 Live Demo
 
@@ -79,7 +80,7 @@ The data is represented as a knowledge graph. The full data model is described i
 ### Prerequisites
 
 - Docker and Docker Compose
-- Node.js and npm
+- (Node.js and npm)
 
 ### Installation
 
@@ -87,22 +88,31 @@ The data is represented as a knowledge graph. The full data model is described i
    ```sh
    git clone https://gitlab.dbvis.de/ava2025/group-2.git
    ```
-2. **Backend Setup**
+2. **Start Containers**
    - Navigate to the `vast-challenge` directory.
-   - Start the backend and database:
+   - Start the containers:
      ```sh
      docker-compose up --build
      ```
-3. **Frontend Setup**
+     or alternatively
+     ```sh
+     docker compose up --build
+     ```
+
+**Troubleshooting**
+
+In case the frontend is unable to load correctly:
+
    - Navigate to the `vast-challenge/frontend` directory.
    - Install dependencies:
      ```sh
      npm install
      ```
-   - Start the development server:
-     ```sh
-     npm run dev
-     ```
+   - rebuild the frontend service & start again:
+      ```sh
+      docker compose build --no-cache frontend
+      docker compose up
+      ```
 
 The application will be available at `http://localhost:5173`.
 
